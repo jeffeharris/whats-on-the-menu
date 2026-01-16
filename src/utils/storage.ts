@@ -3,6 +3,7 @@ export const STORAGE_KEYS = {
   FOOD_LIBRARY: 'whats-on-menu-food-library',
   KID_PROFILES: 'whats-on-menu-kid-profiles',
   MENU: 'whats-on-menu-menu',
+  MEAL_HISTORY: 'whats-on-menu-meal-history',
 } as const;
 
 export function getStorageItem<T>(key: string, defaultValue: T): T {

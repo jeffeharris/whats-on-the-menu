@@ -8,17 +8,21 @@ import type { Menu, MenuState, KidSelection } from '../types';
 const DEFAULT_STATE: MenuState = {
   currentMenu: null,
   selections: [],
+  selectionsLocked: false,
 };
 
 interface MenuContextType {
   currentMenu: Menu | null;
   selections: KidSelection[];
+  selectionsLocked: boolean;
   createMenu: (mains: string[], sides: string[]) => Menu;
   clearMenu: () => void;
   addSelection: (kidId: string, mainId: string | null, sideIds: string[]) => void;
   getSelectionForKid: (kidId: string) => KidSelection | undefined;
   clearSelections: () => void;
   hasKidSelected: (kidId: string) => boolean;
+  lockSelections: () => void;
+  unlockAndClearSelections: () => void;
 }
 
 const MenuContext = createContext<MenuContextType | null>(null);
@@ -80,17 +84,35 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     return state.selections.some((s) => s.kidId === kidId);
   }, [state.selections]);
 
+  const lockSelections = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      selectionsLocked: true,
+    }));
+  }, [setState]);
+
+  const unlockAndClearSelections = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      selections: [],
+      selectionsLocked: false,
+    }));
+  }, [setState]);
+
   return (
     <MenuContext.Provider
       value={{
         currentMenu: state.currentMenu,
         selections: state.selections,
+        selectionsLocked: state.selectionsLocked,
         createMenu,
         clearMenu,
         addSelection,
         getSelectionForKid,
         clearSelections,
         hasKidSelected,
+        lockSelections,
+        unlockAndClearSelections,
       }}
     >
       {children}

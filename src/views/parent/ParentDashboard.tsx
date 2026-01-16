@@ -4,9 +4,10 @@ import { useAppState } from '../../contexts/AppStateContext';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
+import { useMealHistory } from '../../contexts/MealHistoryContext';
 
 interface ParentDashboardProps {
-  onNavigate: (view: 'food-library' | 'kid-profiles' | 'menu-builder' | 'settings') => void;
+  onNavigate: (view: 'food-library' | 'kid-profiles' | 'menu-builder' | 'settings' | 'meal-history-list') => void;
 }
 
 export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
@@ -14,6 +15,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
   const { items } = useFoodLibrary();
   const { profiles } = useKidProfiles();
   const { currentMenu } = useMenu();
+  const { meals } = useMealHistory();
 
   const mainCount = items.filter((i) => i.category === 'main').length;
   const sideCount = items.filter((i) => i.category === 'side').length;
@@ -89,6 +91,29 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
               <h2 className="font-semibold text-gray-800">Menu Builder</h2>
               <p className="text-sm text-gray-500">
                 {currentMenu ? 'Menu is active' : 'No menu set'}
+              </p>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Card>
+
+        {/* Meal History */}
+        <Card
+          onClick={() => onNavigate('meal-history-list')}
+          className="hover:shadow-lg transition-shadow"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h2 className="font-semibold text-gray-800">Meal History</h2>
+              <p className="text-sm text-gray-500">
+                {meals.length} {meals.length === 1 ? 'meal' : 'meals'} recorded
               </p>
             </div>
             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
