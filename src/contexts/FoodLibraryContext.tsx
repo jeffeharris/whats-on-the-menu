@@ -39,8 +39,10 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
 
     // Also fetch storage stats on mount
-    refreshStorageStats();
-  }, [refreshStorageStats]);
+    uploadsApi.getStorage()
+      .then(setStorageStats)
+      .catch((error) => console.error('Failed to fetch storage stats:', error));
+  }, []);
 
   const addItem = useCallback(async (name: string, category: FoodCategory, imageUrl: string | null): Promise<FoodItem> => {
     const newItem = await foodsApi.create(name, category, imageUrl);
