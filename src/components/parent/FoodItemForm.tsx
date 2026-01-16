@@ -190,11 +190,8 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
     }
   };
 
-  const handleRotate = (direction: 'left' | 'right') => {
-    setRotation((prev) => {
-      const delta = direction === 'right' ? 90 : -90;
-      return (prev + delta + 360) % 360;
-    });
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
   };
 
   const clearPendingFile = () => {
@@ -273,7 +270,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
           <Button
             type="button"
             variant={imageSource === 'ai' ? 'primary' : 'ghost'}
-            size="sm"
+            size="md"
             onClick={() => setImageSource('ai')}
           >
             AI Generated
@@ -281,7 +278,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
           <Button
             type="button"
             variant={imageSource === 'url' ? 'primary' : 'ghost'}
-            size="sm"
+            size="md"
             onClick={() => setImageSource('url')}
           >
             Custom URL
@@ -289,7 +286,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
           <Button
             type="button"
             variant={imageSource === 'upload' ? 'primary' : 'ghost'}
-            size="sm"
+            size="md"
             onClick={() => setImageSource('upload')}
           >
             Upload Photo
@@ -357,8 +354,8 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
                   <label
                     htmlFor="camera-capture"
                     className={`
-                      inline-flex items-center px-4 py-2 rounded-lg border-2 border-dashed cursor-pointer
-                      transition-colors
+                      inline-flex items-center px-4 py-3 rounded-lg border-2 border-dashed cursor-pointer
+                      transition-colors min-h-[44px]
                       ${isStorageFull || isUploading || pendingFile
                         ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'border-gray-300 hover:border-parent-primary text-gray-600 hover:text-parent-primary'
@@ -387,8 +384,8 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
               <label
                 htmlFor="photo-upload"
                 className={`
-                  inline-flex items-center px-4 py-2 rounded-lg border-2 border-dashed cursor-pointer
-                  transition-colors
+                  inline-flex items-center px-4 py-3 rounded-lg border-2 border-dashed cursor-pointer
+                  transition-colors min-h-[44px]
                   ${isStorageFull || isUploading || pendingFile
                     ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'border-gray-300 hover:border-parent-primary text-gray-600 hover:text-parent-primary'
@@ -410,7 +407,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
 
         {/* Image preview */}
         <div className="mt-3 flex items-center gap-4">
-          <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
             {isLoading || isUploading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-parent-primary border-t-transparent rounded-full animate-spin" />
@@ -438,36 +435,23 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
             )}
             {/* Rotation and upload controls for pending file */}
             {imageSource === 'upload' && pendingFile && (
-              <>
-                <div className="flex gap-1">
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2 items-center">
                   <button
                     type="button"
-                    onClick={() => handleRotate('left')}
+                    onClick={handleRotate}
                     disabled={isUploading}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
-                    title="Rotate left"
+                    className="p-3 min-w-[44px] min-h-[44px] rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 flex items-center justify-center"
+                    title="Rotate"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRotate('right')}
-                    disabled={isUploading}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
-                    title="Rotate right"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="flex gap-1">
                   <Button
                     type="button"
                     variant="primary"
-                    size="sm"
+                    size="md"
                     onClick={handleUpload}
                     disabled={isUploading}
                   >
@@ -476,14 +460,14 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="md"
                     onClick={clearPendingFile}
                     disabled={isUploading}
                   >
                     Cancel
                   </Button>
                 </div>
-              </>
+              </div>
             )}
             {/* Show uploaded status */}
             {imageSource === 'upload' && uploadedImageUrl && !pendingFile && (
