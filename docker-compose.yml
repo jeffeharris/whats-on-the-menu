@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    container_name: whats-on-the-menu
+    env_file: .env
+    ports:
+      - "${PORT:-5173}:${PORT:-5173}"
+    volumes:
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - ./index.html:/app/index.html:ro
+      - ./vite.config.ts:/app/vite.config.ts:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./tsconfig.app.json:/app/tsconfig.app.json:ro
+      - ./tsconfig.node.json:/app/tsconfig.node.json:ro
+    restart: unless-stopped
