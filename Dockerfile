@@ -1,5 +1,5 @@
 # Development Dockerfile for What's On The Menu
-# Supports hot-reloading via Vite dev server
+# Supports hot-reloading via Vite dev server + Express backend
 
 FROM node:22-alpine
 
@@ -12,11 +12,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Default port (overridden by docker-compose)
-ENV PORT=5173
+# Expose ports for Vite (5173) and Express (3001)
+EXPOSE 5173 3001
 
-# Expose Vite dev server port
-EXPOSE $PORT
-
-# Start the dev server with configurable port
-CMD sh -c "npm run dev -- --port $PORT"
+# Run both client and server
+CMD ["npm", "run", "dev"]

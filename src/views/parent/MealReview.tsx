@@ -60,14 +60,14 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
     }));
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!currentMenu) return;
 
     // Save to history
-    addMeal(currentMenu.id, selections, Object.values(reviews));
+    await addMeal(currentMenu.id, selections, Object.values(reviews));
 
     // Clear selections and unlock
-    unlockAndClearSelections();
+    await unlockAndClearSelections();
 
     // Navigate back
     onComplete();

@@ -5,6 +5,9 @@ node_modules
 dist
 dist-ssr
 
+# Data files (persisted via volume)
+data
+
 # Logs
 logs
 *.log

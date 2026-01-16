@@ -21,6 +21,15 @@ export interface Menu {
   sides: string[];  // FoodItem IDs (2-4 items)
 }
 
+export interface SavedMenu {
+  id: string;
+  name: string;
+  mains: string[];
+  sides: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface KidSelection {
   kidId: string;
   mainId: string | null;

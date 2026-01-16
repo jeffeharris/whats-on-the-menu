@@ -1,16 +1,20 @@
 services:
   app:
     build: .
-    container_name: whats-on-the-menu
     env_file: .env
     ports:
-      - "${PORT:-5173}:${PORT:-5173}"
+      - "${PORT:-5173}:5173"
+      - "${SERVER_PORT:-3001}:3001"
     volumes:
-      - ./src:/app/src:ro
-      - ./public:/app/public:ro
-      - ./index.html:/app/index.html:ro
-      - ./vite.config.ts:/app/vite.config.ts:ro
-      - ./tsconfig.json:/app/tsconfig.json:ro
-      - ./tsconfig.app.json:/app/tsconfig.app.json:ro
-      - ./tsconfig.node.json:/app/tsconfig.node.json:ro
+      # Mount source for hot reloading
+      - .:/app
+      # Preserve node_modules from container
+      - /app/node_modules
+      # Persist data directory
+      - app-data:/app/data
+    environment:
+      - NODE_ENV=development
     restart: unless-stopped
+
+volumes:
+  app-data:
