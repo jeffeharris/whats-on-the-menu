@@ -1,7 +1,6 @@
 services:
   app:
     build: .
-    container_name: whats-on-the-menu
     env_file: .env
     ports:
       - "${PORT:-5173}:5173"
