@@ -27,60 +27,61 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
   const sideItems = selection.sideIds.map((id) => getItem(id)).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-kid-bg flex flex-col p-6">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <KidAvatar name={kid.name} color={kid.avatarColor} size="lg" />
-        <h1 className="text-3xl font-bold text-gray-800 mt-4">
-          {kid.name}'s Plate
-        </h1>
-        <p className="text-xl text-gray-600 mt-2">
-          Yummy choices!
-        </p>
-      </div>
+    <div className="min-h-screen bg-kid-bg flex flex-col p-4 md:p-8">
+      <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col">
+        {/* Header */}
+        <div className="text-center mb-6 md:mb-8">
+          <KidAvatar name={kid.name} color={kid.avatarColor} size="lg" />
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mt-4">
+            {kid.name}'s Plate
+          </h1>
+          <p className="text-lg md:text-xl text-gray-600 mt-2">
+            Yummy choices!
+          </p>
+        </div>
 
-      {/* Selected items */}
-      <div className="flex-1">
-        {/* Main */}
-        {mainItem && (
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-700 mb-3 text-center">
-              Main
-            </h2>
-            <div className="flex justify-center">
-              <FoodCard
-                name={mainItem.name}
-                imageUrl={mainItem.imageUrl}
-                selected
-                size="lg"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Sides */}
-        {sideItems.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-700 mb-3 text-center">
-              Sides
-            </h2>
-            <div className="flex justify-center gap-4 flex-wrap">
-              {sideItems.map((item) => item && (
+        {/* Selected items */}
+        <div className="flex-1">
+          {/* Main */}
+          {mainItem && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-700 mb-3 text-center">
+                Main
+              </h2>
+              <div className="flex justify-center">
                 <FoodCard
-                  key={item.id}
-                  name={item.name}
-                  imageUrl={item.imageUrl}
+                  name={mainItem.name}
+                  imageUrl={mainItem.imageUrl}
                   selected
-                  size="md"
+                  size="lg"
                 />
-              ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* Actions */}
-      <div className="flex flex-col gap-3">
+          {/* Sides */}
+          {sideItems.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-700 mb-3 text-center">
+                Sides
+              </h2>
+              <div className="flex justify-center gap-4 md:gap-6 flex-wrap">
+                {sideItems.map((item) => item && (
+                  <FoodCard
+                    key={item.id}
+                    name={item.name}
+                    imageUrl={item.imageUrl}
+                    selected
+                    size="md"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-3 max-w-md mx-auto w-full">
         <Button
           mode="kid"
           variant="primary"
@@ -106,6 +107,7 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
             Selections are locked!
           </p>
         )}
+        </div>
       </div>
     </div>
   );

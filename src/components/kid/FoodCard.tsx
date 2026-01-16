@@ -7,6 +7,7 @@ interface FoodCardProps {
   selected?: boolean;
   onClick?: () => void;
   size?: 'md' | 'lg';
+  responsive?: boolean;
 }
 
 export function FoodCard({
@@ -15,18 +16,20 @@ export function FoodCard({
   selected = false,
   onClick,
   size = 'lg',
+  responsive = false,
 }: FoodCardProps) {
   const [imageError, setImageError] = useState(false);
   const isClickable = !!onClick;
 
+  // Responsive sizing adapts to container width via CSS grid
   const sizeStyles = {
-    md: 'w-36 h-44',
-    lg: 'w-44 h-52',
+    md: responsive ? 'w-full min-w-[120px] h-auto aspect-[9/11]' : 'w-36 h-44',
+    lg: responsive ? 'w-full min-w-[140px] h-auto aspect-[11/13]' : 'w-44 h-52',
   };
 
   const imageSizeStyles = {
-    md: 'h-28',
-    lg: 'h-36',
+    md: responsive ? 'aspect-[4/3]' : 'h-28',
+    lg: responsive ? 'aspect-[4/3]' : 'h-36',
   };
 
   return (

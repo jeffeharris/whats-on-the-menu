@@ -21,15 +21,15 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
   const sideCount = items.filter((i) => i.category === 'side').length;
 
   return (
-    <div className="min-h-screen bg-parent-bg p-4">
-      <header className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-parent-bg p-4 md:p-6">
+      <header className="flex justify-between items-center mb-6 max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-800">Parent Dashboard</h1>
         <Button variant="ghost" size="sm" onClick={logoutParent}>
           Switch to Kid Mode
         </Button>
       </header>
 
-      <div className="grid gap-4 max-w-lg mx-auto">
+      <div className="grid gap-4 max-w-lg md:max-w-2xl mx-auto md:grid-cols-2">
         {/* Food Library */}
         <Card
           onClick={() => onNavigate('food-library')}

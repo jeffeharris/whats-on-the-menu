@@ -52,7 +52,7 @@ export function MenuBuilderGrid({
           No items yet. Add some in the Food Library!
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
           {items.map((item) => {
             const isSelected = selectedIds.includes(item.id);
             const hasError = imageErrors.has(item.id);
@@ -66,7 +66,7 @@ export function MenuBuilderGrid({
                 padding="none"
                 className="overflow-hidden relative"
               >
-                <div className="h-24 bg-gray-100 overflow-hidden">
+                <div className="h-24 md:h-28 bg-gray-100 overflow-hidden">
                   <img
                     src={hasError || !item.imageUrl ? getPlaceholderImageUrl() : item.imageUrl}
                     alt={item.name}

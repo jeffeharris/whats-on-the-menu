@@ -118,7 +118,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections }: KidModeHomePro
   }
 
   return (
-    <div className="min-h-screen bg-kid-bg flex flex-col p-6">
+    <div className="min-h-screen bg-kid-bg flex flex-col p-4 md:p-8">
       {/* Header with parent access */}
       <div className="flex justify-end mb-4">
         <button
@@ -135,15 +135,15 @@ export function KidModeHome({ onSelectKid, onConfirmSelections }: KidModeHomePro
 
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2 text-center">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2 text-center">
           Who's hungry?
         </h1>
-        <p className="text-xl text-gray-600 mb-12 text-center">
+        <p className="text-lg md:text-xl text-gray-600 mb-8 md:mb-12 text-center">
           {selectionsLocked ? 'Selections are locked!' : 'Tap your name to pick your food!'}
         </p>
 
         {/* Kid avatars */}
-        <div className="flex flex-wrap justify-center gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-10 max-w-3xl mx-auto">
           {profiles.map((profile) => {
             const hasSelected = hasKidSelected(profile.id);
             const selection = getSelectionForKid(profile.id);

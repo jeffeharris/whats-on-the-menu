@@ -39,8 +39,8 @@ export function MealHistoryDetail({ mealId, onBack }: MealHistoryDetailProps) {
 
   if (!meal) {
     return (
-      <div className="min-h-screen bg-parent-bg p-4">
-        <header className="flex items-center gap-4 mb-6">
+      <div className="min-h-screen bg-parent-bg p-4 md:p-6">
+        <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
           <button
             onClick={onBack}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -79,9 +79,9 @@ export function MealHistoryDetail({ mealId, onBack }: MealHistoryDetailProps) {
   };
 
   return (
-    <div className="min-h-screen bg-parent-bg p-4">
+    <div className="min-h-screen bg-parent-bg p-4 md:p-6">
       {/* Header */}
-      <header className="flex items-center gap-4 mb-6">
+      <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -97,8 +97,9 @@ export function MealHistoryDetail({ mealId, onBack }: MealHistoryDetailProps) {
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto space-y-6">
+      <div className="max-w-lg md:max-w-3xl mx-auto">
         {/* Kid sections */}
+        <div className="grid gap-6 md:grid-cols-2 mb-6">
         {meal.selections.map((selection) => {
           const kid = getProfile(selection.kidId);
           const mainItem = selection.mainId ? getItem(selection.mainId) : null;
@@ -157,16 +158,19 @@ export function MealHistoryDetail({ mealId, onBack }: MealHistoryDetailProps) {
             </Card>
           );
         })}
+        </div>
 
         {/* Delete button */}
-        <Button
-          variant="danger"
-          size="md"
-          fullWidth
-          onClick={handleDelete}
-        >
-          Delete Record
-        </Button>
+        <div className="max-w-md mx-auto">
+          <Button
+            variant="danger"
+            size="md"
+            fullWidth
+            onClick={handleDelete}
+          >
+            Delete Record
+          </Button>
+        </div>
       </div>
     </div>
   );

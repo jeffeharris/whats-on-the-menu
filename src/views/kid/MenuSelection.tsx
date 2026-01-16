@@ -55,9 +55,9 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   };
 
   return (
-    <div className="min-h-screen bg-kid-bg p-4">
+    <div className="min-h-screen bg-kid-bg p-4 md:p-6">
       {/* Header */}
-      <header className="flex items-center gap-4 mb-6">
+      <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
         <button
           onClick={onBack}
           className="p-2 hover:bg-white/50 rounded-lg transition-colors"
@@ -88,6 +88,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
             imageUrl={item.imageUrl}
             selected={selectedMain === item.id}
             onClick={() => handleMainSelect(item.id)}
+            responsive
           />
         ))}
       </CategorySection>
@@ -104,22 +105,25 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
             imageUrl={item.imageUrl}
             selected={selectedSides.includes(item.id)}
             onClick={() => handleSideSelect(item.id)}
+            responsive
           />
         ))}
       </CategorySection>
 
       {/* Confirm button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-kid-bg via-kid-bg to-transparent pt-12">
-        <Button
-          mode="kid"
-          variant="primary"
-          size="touch"
-          fullWidth
-          onClick={handleConfirm}
-          disabled={!canConfirm}
-        >
-          {canConfirm ? "All done!" : "Pick your food first!"}
-        </Button>
+      <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-kid-bg via-kid-bg to-transparent pt-12">
+        <div className="max-w-xl mx-auto">
+          <Button
+            mode="kid"
+            variant="primary"
+            size="touch"
+            fullWidth
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+          >
+            {canConfirm ? "All done!" : "Pick your food first!"}
+          </Button>
+        </div>
       </div>
 
       {/* Spacer for fixed button */}

@@ -15,7 +15,7 @@ export function CategorySection({ title, subtitle, children }: CategorySectionPr
           <p className="text-lg text-gray-600 mt-1">{subtitle}</p>
         )}
       </div>
-      <div className="flex flex-wrap justify-center gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 justify-items-center max-w-3xl mx-auto px-2">
         {children}
       </div>
     </section>
