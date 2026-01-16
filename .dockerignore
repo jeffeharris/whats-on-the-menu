@@ -1,7 +1,39 @@
+# Dependencies (installed in container)
 node_modules
-data
+
+# Build output
 dist
+dist-ssr
+
+# Data files (persisted via volume)
+data
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Editor files
+.vscode
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Git
 .git
 .gitignore
-*.md
-.env*
+
+# Docker files (don't need to copy themselves)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Dev environment script
+dev-env
+
+# Documentation
+README.md

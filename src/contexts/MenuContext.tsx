@@ -6,6 +6,7 @@ import type { Menu, KidSelection } from '../types';
 interface MenuContextType {
   currentMenu: Menu | null;
   selections: KidSelection[];
+  selectionsLocked: boolean;
   loading: boolean;
   createMenu: (mains: string[], sides: string[]) => Promise<Menu>;
   clearMenu: () => Promise<void>;
@@ -13,6 +14,8 @@ interface MenuContextType {
   getSelectionForKid: (kidId: string) => KidSelection | undefined;
   clearSelections: () => Promise<void>;
   hasKidSelected: (kidId: string) => boolean;
+  lockSelections: () => void;
+  unlockAndClearSelections: () => Promise<void>;
 }
 
 const MenuContext = createContext<MenuContextType | null>(null);
@@ -20,6 +23,7 @@ const MenuContext = createContext<MenuContextType | null>(null);
 export function MenuProvider({ children }: { children: ReactNode }) {
   const [currentMenu, setCurrentMenu] = useState<Menu | null>(null);
   const [selections, setSelections] = useState<KidSelection[]>([]);
+  const [selectionsLocked, setSelectionsLocked] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -77,11 +81,22 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     return selections.some((s) => s.kidId === kidId);
   }, [selections]);
 
+  const lockSelections = useCallback(() => {
+    setSelectionsLocked(true);
+  }, []);
+
+  const unlockAndClearSelections = useCallback(async () => {
+    await menusApi.clearSelections();
+    setSelections([]);
+    setSelectionsLocked(false);
+  }, []);
+
   return (
     <MenuContext.Provider
       value={{
         currentMenu,
         selections,
+        selectionsLocked,
         loading,
         createMenu,
         clearMenu,
@@ -89,6 +104,8 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         getSelectionForKid,
         clearSelections,
         hasKidSelected,
+        lockSelections,
+        unlockAndClearSelections,
       }}
     >
       {children}

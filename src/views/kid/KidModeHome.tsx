@@ -3,20 +3,25 @@ import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { PinPad } from '../../components/common/PinPad';
 import { KidAvatar } from '../../components/kid/KidAvatar';
+import { SelectionThumbnails } from '../../components/kid/SelectionThumbnails';
 import { useAppState } from '../../contexts/AppStateContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
 
 interface KidModeHomeProps {
   onSelectKid: (kidId: string) => void;
+  onConfirmSelections?: () => void;
 }
 
-export function KidModeHome({ onSelectKid }: KidModeHomeProps) {
+export function KidModeHome({ onSelectKid, onConfirmSelections }: KidModeHomeProps) {
   const { authenticateParent } = useAppState();
   const { profiles } = useKidProfiles();
-  const { currentMenu, hasKidSelected } = useMenu();
+  const { currentMenu, hasKidSelected, selections, selectionsLocked, lockSelections, getSelectionForKid } = useMenu();
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showConfirmPinModal, setShowConfirmPinModal] = useState(false);
   const [pinError, setPinError] = useState('');
+
+  const hasAnySelections = selections.length > 0;
 
   const handlePinSubmit = (pin: string) => {
     const success = authenticateParent(pin);
@@ -25,6 +30,18 @@ export function KidModeHome({ onSelectKid }: KidModeHomeProps) {
     } else {
       setShowPinModal(false);
       setPinError('');
+    }
+  };
+
+  const handleConfirmPinSubmit = (pin: string) => {
+    const success = authenticateParent(pin);
+    if (!success) {
+      setPinError('Wrong PIN!');
+    } else {
+      setShowConfirmPinModal(false);
+      setPinError('');
+      lockSelections();
+      onConfirmSelections?.();
     }
   };
 
@@ -122,13 +139,14 @@ export function KidModeHome({ onSelectKid }: KidModeHomeProps) {
           Who's hungry?
         </h1>
         <p className="text-xl text-gray-600 mb-12 text-center">
-          Tap your name to pick your food!
+          {selectionsLocked ? 'Selections are locked!' : 'Tap your name to pick your food!'}
         </p>
 
         {/* Kid avatars */}
         <div className="flex flex-wrap justify-center gap-8">
           {profiles.map((profile) => {
             const hasSelected = hasKidSelected(profile.id);
+            const selection = getSelectionForKid(profile.id);
             return (
               <div key={profile.id} className="flex flex-col items-center">
                 <div className="relative">
@@ -149,8 +167,11 @@ export function KidModeHome({ onSelectKid }: KidModeHomeProps) {
                 <span className="mt-3 text-2xl font-semibold text-gray-800">
                   {profile.name}
                 </span>
-                {hasSelected && (
-                  <span className="text-sm text-success font-medium">Done!</span>
+                {hasSelected && selection && (
+                  <>
+                    <SelectionThumbnails selection={selection} />
+                    <span className="text-sm text-success font-medium mt-1">Done!</span>
+                  </>
                 )}
               </div>
             );
@@ -158,6 +179,22 @@ export function KidModeHome({ onSelectKid }: KidModeHomeProps) {
         </div>
       </div>
 
+      {/* Confirm Selections Button */}
+      {hasAnySelections && !selectionsLocked && (
+        <div className="mt-6">
+          <Button
+            mode="kid"
+            variant="primary"
+            size="touch"
+            fullWidth
+            onClick={() => setShowConfirmPinModal(true)}
+          >
+            Confirm Selections
+          </Button>
+        </div>
+      )}
+
+      {/* Parent Login Modal */}
       <Modal isOpen={showPinModal} onClose={() => setShowPinModal(false)} mode="kid">
         <PinPad
           onSubmit={handlePinSubmit}
@@ -166,6 +203,19 @@ export function KidModeHome({ onSelectKid }: KidModeHomeProps) {
             setPinError('');
           }}
           title="Enter Parent PIN"
+          error={pinError}
+        />
+      </Modal>
+
+      {/* Confirm Selections PIN Modal */}
+      <Modal isOpen={showConfirmPinModal} onClose={() => setShowConfirmPinModal(false)} mode="kid">
+        <PinPad
+          onSubmit={handleConfirmPinSubmit}
+          onCancel={() => {
+            setShowConfirmPinModal(false);
+            setPinError('');
+          }}
+          title="Parent PIN to Confirm"
           error={pinError}
         />
       </Modal>

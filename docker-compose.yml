@@ -1,6 +1,8 @@
 services:
   app:
     build: .
+    container_name: whats-on-the-menu
+    env_file: .env
     ports:
       - "${PORT:-5173}:5173"
       - "${SERVER_PORT:-3001}:3001"
@@ -11,10 +13,9 @@ services:
       - /app/node_modules
       # Persist data directory
       - app-data:/app/data
-    env_file:
-      - .env
     environment:
       - NODE_ENV=development
+    restart: unless-stopped
 
 volumes:
   app-data:

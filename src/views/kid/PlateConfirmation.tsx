@@ -14,7 +14,7 @@ interface PlateConfirmationProps {
 export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { getSelectionForKid } = useMenu();
+  const { getSelectionForKid, selectionsLocked } = useMenu();
 
   const kid = getProfile(kidId);
   const selection = getSelectionForKid(kidId);
@@ -90,15 +90,22 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
         >
           All Done!
         </Button>
-        <Button
-          mode="kid"
-          variant="ghost"
-          size="lg"
-          fullWidth
-          onClick={onEdit}
-        >
-          Change my mind
-        </Button>
+        {!selectionsLocked && (
+          <Button
+            mode="kid"
+            variant="ghost"
+            size="lg"
+            fullWidth
+            onClick={onEdit}
+          >
+            Change my mind
+          </Button>
+        )}
+        {selectionsLocked && (
+          <p className="text-center text-gray-500 text-lg">
+            Selections are locked!
+          </p>
+        )}
       </div>
     </div>
   );

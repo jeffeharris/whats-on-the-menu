@@ -57,4 +57,26 @@ export interface KidProfilesState {
 export interface MenuState {
   currentMenu: Menu | null;
   selections: KidSelection[];
+  selectionsLocked: boolean;
+}
+
+export type CompletionStatus = 'all' | 'some' | 'none' | null;
+
+export interface KidMealReview {
+  kidId: string;
+  mainCompletion: CompletionStatus;
+  sideCompletions: { [sideId: string]: CompletionStatus };
+}
+
+export interface MealRecord {
+  id: string;
+  menuId: string;
+  date: number;
+  selections: KidSelection[];
+  reviews: KidMealReview[];
+  completedAt: number;
+}
+
+export interface MealHistoryState {
+  meals: MealRecord[];
 }
