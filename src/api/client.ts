@@ -1,4 +1,4 @@
-import type { FoodItem, FoodCategory, KidProfile, AvatarColor, SavedMenu, KidSelection } from '../types';
+import type { FoodItem, FoodCategory, KidProfile, AvatarColor, SavedMenu, KidSelection, MealRecord, KidMealReview } from '../types';
 
 const API_BASE = '/api';
 
@@ -131,5 +131,35 @@ export const menusApi = {
   async clearSelections(): Promise<void> {
     const res = await fetch(`${API_BASE}/menus/selections`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to clear selections');
+  },
+};
+
+// Meals API
+export const mealsApi = {
+  async getAll(): Promise<{ meals: MealRecord[] }> {
+    const res = await fetch(`${API_BASE}/meals`);
+    if (!res.ok) throw new Error('Failed to fetch meals');
+    return res.json();
+  },
+
+  async get(id: string): Promise<MealRecord> {
+    const res = await fetch(`${API_BASE}/meals/${id}`);
+    if (!res.ok) throw new Error('Failed to fetch meal');
+    return res.json();
+  },
+
+  async create(menuId: string, selections: KidSelection[], reviews: KidMealReview[]): Promise<MealRecord> {
+    const res = await fetch(`${API_BASE}/meals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ menuId, selections, reviews }),
+    });
+    if (!res.ok) throw new Error('Failed to create meal');
+    return res.json();
+  },
+
+  async delete(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/meals/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete meal');
   },
 };

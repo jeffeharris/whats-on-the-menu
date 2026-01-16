@@ -71,9 +71,9 @@ export function MealHistoryDetail({ mealId, onBack }: MealHistoryDetailProps) {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this meal record?')) {
-      deleteMeal(mealId);
+      await deleteMeal(mealId);
       onBack();
     }
   };
