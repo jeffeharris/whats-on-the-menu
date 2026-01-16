@@ -30,20 +30,20 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
 
   const canSave = selectedMains.length >= 2 && selectedSides.length >= 2;
 
-  const handleSave = () => {
-    createMenu(selectedMains, selectedSides);
+  const handleSave = async () => {
+    await createMenu(selectedMains, selectedSides);
   };
 
-  const handleLaunch = () => {
+  const handleLaunch = async () => {
     if (!currentMenu && canSave) {
-      createMenu(selectedMains, selectedSides);
+      await createMenu(selectedMains, selectedSides);
     }
     setMode('kid');
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
     if (confirm('Are you sure you want to clear the current menu?')) {
-      clearMenu();
+      await clearMenu();
       setSelectedMains([]);
       setSelectedSides([]);
     }

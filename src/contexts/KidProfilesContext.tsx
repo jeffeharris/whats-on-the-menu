@@ -1,61 +1,55 @@
-import { createContext, useContext, useCallback } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
-import { STORAGE_KEYS } from '../utils/storage';
-import { generateId } from '../utils/imageUtils';
-import type { KidProfile, KidProfilesState, AvatarColor } from '../types';
-
-const DEFAULT_STATE: KidProfilesState = {
-  profiles: [],
-};
+import { profilesApi } from '../api/client';
+import type { KidProfile, AvatarColor } from '../types';
 
 interface KidProfilesContextType {
   profiles: KidProfile[];
-  addProfile: (name: string, avatarColor: AvatarColor) => KidProfile;
-  updateProfile: (id: string, updates: Partial<Omit<KidProfile, 'id'>>) => void;
-  deleteProfile: (id: string) => void;
+  loading: boolean;
+  addProfile: (name: string, avatarColor: AvatarColor) => Promise<KidProfile>;
+  updateProfile: (id: string, updates: Partial<Omit<KidProfile, 'id'>>) => Promise<void>;
+  deleteProfile: (id: string) => Promise<void>;
   getProfile: (id: string) => KidProfile | undefined;
 }
 
 const KidProfilesContext = createContext<KidProfilesContextType | null>(null);
 
 export function KidProfilesProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useLocalStorage<KidProfilesState>(STORAGE_KEYS.KID_PROFILES, DEFAULT_STATE);
+  const [profiles, setProfiles] = useState<KidProfile[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addProfile = useCallback((name: string, avatarColor: AvatarColor): KidProfile => {
-    const newProfile: KidProfile = {
-      id: generateId(),
-      name,
-      avatarColor,
-    };
-    setState((prev) => ({
-      profiles: [...prev.profiles, newProfile],
-    }));
+  useEffect(() => {
+    profilesApi.getAll()
+      .then((data) => setProfiles(data.profiles))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const addProfile = useCallback(async (name: string, avatarColor: AvatarColor): Promise<KidProfile> => {
+    const newProfile = await profilesApi.create(name, avatarColor);
+    setProfiles((prev) => [...prev, newProfile]);
     return newProfile;
-  }, [setState]);
+  }, []);
 
-  const updateProfile = useCallback((id: string, updates: Partial<Omit<KidProfile, 'id'>>) => {
-    setState((prev) => ({
-      profiles: prev.profiles.map((profile) =>
-        profile.id === id ? { ...profile, ...updates } : profile
-      ),
-    }));
-  }, [setState]);
+  const updateProfile = useCallback(async (id: string, updates: Partial<Omit<KidProfile, 'id'>>) => {
+    const updated = await profilesApi.update(id, updates);
+    setProfiles((prev) => prev.map((profile) => profile.id === id ? updated : profile));
+  }, []);
 
-  const deleteProfile = useCallback((id: string) => {
-    setState((prev) => ({
-      profiles: prev.profiles.filter((profile) => profile.id !== id),
-    }));
-  }, [setState]);
+  const deleteProfile = useCallback(async (id: string) => {
+    await profilesApi.delete(id);
+    setProfiles((prev) => prev.filter((profile) => profile.id !== id));
+  }, []);
 
   const getProfile = useCallback((id: string): KidProfile | undefined => {
-    return state.profiles.find((profile) => profile.id === id);
-  }, [state.profiles]);
+    return profiles.find((profile) => profile.id === id);
+  }, [profiles]);
 
   return (
     <KidProfilesContext.Provider
       value={{
-        profiles: state.profiles,
+        profiles,
+        loading,
         addProfile,
         updateProfile,
         deleteProfile,

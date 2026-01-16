@@ -49,8 +49,8 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
 
   const canConfirm = selectedMain !== null && selectedSides.length >= 1;
 
-  const handleConfirm = () => {
-    addSelection(kidId, selectedMain, selectedSides);
+  const handleConfirm = async () => {
+    await addSelection(kidId, selectedMain, selectedSides);
     onComplete();
   };
 

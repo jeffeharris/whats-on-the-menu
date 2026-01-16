@@ -16,11 +16,11 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<KidProfile | null>(null);
 
-  const handleSubmit = (name: string, avatarColor: AvatarColor) => {
+  const handleSubmit = async (name: string, avatarColor: AvatarColor) => {
     if (editingProfile) {
-      updateProfile(editingProfile.id, { name, avatarColor });
+      await updateProfile(editingProfile.id, { name, avatarColor });
     } else {
-      addProfile(name, avatarColor);
+      await addProfile(name, avatarColor);
     }
     setIsFormOpen(false);
     setEditingProfile(null);
@@ -31,9 +31,9 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
     setIsFormOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this profile?')) {
-      deleteProfile(id);
+      await deleteProfile(id);
     }
   };
 

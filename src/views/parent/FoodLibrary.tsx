@@ -20,11 +20,11 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
   const mains = items.filter((i) => i.category === 'main');
   const sides = items.filter((i) => i.category === 'side');
 
-  const handleSubmit = (name: string, category: FoodCategory, imageUrl: string | null) => {
+  const handleSubmit = async (name: string, category: FoodCategory, imageUrl: string | null) => {
     if (editingItem) {
-      updateItem(editingItem.id, { name, category, imageUrl });
+      await updateItem(editingItem.id, { name, category, imageUrl });
     } else {
-      addItem(name, category, imageUrl);
+      await addItem(name, category, imageUrl);
     }
     setIsFormOpen(false);
     setEditingItem(null);
@@ -35,9 +35,9 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
     setIsFormOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this food item?')) {
-      deleteItem(id);
+      await deleteItem(id);
     }
   };
 

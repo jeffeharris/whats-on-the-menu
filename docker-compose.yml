@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    ports:
+      - "5191:5173"
+      - "3011:3001"
+    volumes:
+      # Mount source for hot reloading
+      - .:/app
+      # Preserve node_modules from container
+      - /app/node_modules
+      # Persist data directory
+      - app-data:/app/data
+    environment:
+      - NODE_ENV=development
+
+volumes:
+  app-data:
