@@ -41,8 +41,20 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
   );
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+  const [rotation, setRotation] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Detect if device likely has a camera (mobile/tablet)
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  useEffect(() => {
+    // Check for touch capability and coarse pointer (touchscreen)
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    setIsMobileDevice(hasTouch && hasCoarsePointer);
+  }, []);
 
   const { storageStats, refreshStorageStats } = useFoodLibrary();
 
@@ -57,36 +69,141 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
       setPreviewUrl(aiImageUrl);
     } else if (imageSource === 'url' && customImageUrl) {
       setPreviewUrl(customImageUrl);
+    } else if (imageSource === 'upload' && pendingPreviewUrl) {
+      setPreviewUrl(pendingPreviewUrl);
     } else if (imageSource === 'upload' && uploadedImageUrl) {
       setPreviewUrl(uploadedImageUrl);
     } else {
       setPreviewUrl(null);
     }
-  }, [imageSource, aiImageUrl, customImageUrl, uploadedImageUrl]);
+  }, [imageSource, aiImageUrl, customImageUrl, uploadedImageUrl, pendingPreviewUrl]);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Clean up object URL when component unmounts or file changes
+  useEffect(() => {
+    return () => {
+      if (pendingPreviewUrl) {
+        URL.revokeObjectURL(pendingPreviewUrl);
+      }
+    };
+  }, [pendingPreviewUrl]);
+
+  // Rotate image using canvas
+  const rotateImage = (file: File, degrees: number): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        // Swap dimensions for 90/270 degree rotations
+        if (degrees === 90 || degrees === 270) {
+          canvas.width = img.height;
+          canvas.height = img.width;
+        } else {
+          canvas.width = img.width;
+          canvas.height = img.height;
+        }
+
+        // Move to center, rotate, then draw
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((degrees * Math.PI) / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Could not create blob'));
+            }
+          },
+          'image/jpeg',
+          0.9
+        );
+      };
+      img.onerror = () => reject(new Error('Could not load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setUploadError(null);
+    setRotation(0);
+
+    // Revoke previous preview URL if exists
+    if (pendingPreviewUrl) {
+      URL.revokeObjectURL(pendingPreviewUrl);
+    }
+
+    // Create local preview
+    const previewUrl = URL.createObjectURL(file);
+    setPendingFile(file);
+    setPendingPreviewUrl(previewUrl);
+    setUploadedImageUrl(null);
+
+    // Clear inputs so the same file can be selected again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!pendingFile) return;
 
     setUploadError(null);
     setIsUploading(true);
 
     try {
-      const result = await uploadsApi.upload(file);
+      let fileToUpload: File | Blob = pendingFile;
+
+      // Apply rotation if needed
+      if (rotation !== 0) {
+        fileToUpload = await rotateImage(pendingFile, rotation);
+      }
+
+      const result = await uploadsApi.upload(fileToUpload as File);
       setUploadedImageUrl(result.imageUrl);
+
+      // Clear pending state
+      if (pendingPreviewUrl) {
+        URL.revokeObjectURL(pendingPreviewUrl);
+      }
+      setPendingFile(null);
+      setPendingPreviewUrl(null);
+      setRotation(0);
+
       refreshStorageStats();
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'Failed to upload image');
     } finally {
       setIsUploading(false);
-      // Clear both inputs so the same file can be selected again if needed
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      if (cameraInputRef.current) {
-        cameraInputRef.current.value = '';
-      }
     }
+  };
+
+  const handleRotate = (direction: 'left' | 'right') => {
+    setRotation((prev) => {
+      const delta = direction === 'right' ? 90 : -90;
+      return (prev + delta + 360) % 360;
+    });
+  };
+
+  const clearPendingFile = () => {
+    if (pendingPreviewUrl) {
+      URL.revokeObjectURL(pendingPreviewUrl);
+    }
+    setPendingFile(null);
+    setPendingPreviewUrl(null);
+    setRotation(0);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -225,42 +342,37 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
             {/* File inputs */}
             <div className="flex gap-2 flex-wrap">
               {/* Camera input - uses device camera on mobile */}
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileSelect}
-                disabled={isUploading || isStorageFull}
-                className="hidden"
-                id="camera-capture"
-              />
-              <label
-                htmlFor="camera-capture"
-                className={`
-                  inline-flex items-center px-4 py-2 rounded-lg border-2 border-dashed cursor-pointer
-                  transition-colors
-                  ${isStorageFull || isUploading
-                    ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'border-gray-300 hover:border-parent-primary text-gray-600 hover:text-parent-primary'
-                  }
-                `}
-              >
-                {isUploading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-parent-primary border-t-transparent rounded-full animate-spin mr-2" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
+              {isMobileDevice && (
+                <>
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileSelect}
+                    disabled={isUploading || isStorageFull || pendingFile !== null}
+                    className="hidden"
+                    id="camera-capture"
+                  />
+                  <label
+                    htmlFor="camera-capture"
+                    className={`
+                      inline-flex items-center px-4 py-2 rounded-lg border-2 border-dashed cursor-pointer
+                      transition-colors
+                      ${isStorageFull || isUploading || pendingFile
+                        ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'border-gray-300 hover:border-parent-primary text-gray-600 hover:text-parent-primary'
+                      }
+                    `}
+                  >
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     Take Photo
-                  </>
-                )}
-              </label>
+                  </label>
+                </>
+              )}
 
               {/* File picker input - opens photo library */}
               <input
@@ -268,7 +380,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 onChange={handleFileSelect}
-                disabled={isUploading || isStorageFull}
+                disabled={isUploading || isStorageFull || pendingFile !== null}
                 className="hidden"
                 id="photo-upload"
               />
@@ -277,25 +389,16 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
                 className={`
                   inline-flex items-center px-4 py-2 rounded-lg border-2 border-dashed cursor-pointer
                   transition-colors
-                  ${isStorageFull || isUploading
+                  ${isStorageFull || isUploading || pendingFile
                     ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'border-gray-300 hover:border-parent-primary text-gray-600 hover:text-parent-primary'
                   }
                 `}
               >
-                {isUploading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-parent-primary border-t-transparent rounded-full animate-spin mr-2" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    Choose Photo
-                  </>
-                )}
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Choose Photo
               </label>
             </div>
 
@@ -316,21 +419,77 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
               <img
                 src={previewUrl || getPlaceholderImageUrl()}
                 alt="Preview"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform"
+                style={{ transform: pendingFile ? `rotate(${rotation}deg)` : undefined }}
               />
             )}
           </div>
-          {imageSource === 'ai' && name && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={regenerate}
-              disabled={isLoading}
-            >
-              Regenerate
-            </Button>
-          )}
+          <div className="flex flex-col gap-2">
+            {imageSource === 'ai' && name && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={regenerate}
+                disabled={isLoading}
+              >
+                Regenerate
+              </Button>
+            )}
+            {/* Rotation and upload controls for pending file */}
+            {imageSource === 'upload' && pendingFile && (
+              <>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleRotate('left')}
+                    disabled={isUploading}
+                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
+                    title="Rotate left"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRotate('right')}
+                    disabled={isUploading}
+                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
+                    title="Rotate right"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? 'Uploading...' : 'Upload'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearPendingFile}
+                    disabled={isUploading}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            )}
+            {/* Show uploaded status */}
+            {imageSource === 'upload' && uploadedImageUrl && !pendingFile && (
+              <span className="text-xs text-green-600">Uploaded</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -339,10 +498,20 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
         <Button type="button" variant="ghost" onClick={onCancel} className="flex-1">
           Cancel
         </Button>
-        <Button type="submit" variant="primary" className="flex-1" disabled={!name.trim()}>
+        <Button
+          type="submit"
+          variant="primary"
+          className="flex-1"
+          disabled={!name.trim() || (imageSource === 'upload' && pendingFile !== null)}
+        >
           {initialValues ? 'Save' : 'Add Food'}
         </Button>
       </div>
+      {imageSource === 'upload' && pendingFile && (
+        <p className="text-xs text-amber-600 text-center">
+          Please upload the photo before saving
+        </p>
+      )}
     </form>
   );
 }
