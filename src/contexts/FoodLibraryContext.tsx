@@ -1,6 +1,7 @@
 import { createContext, useContext, useCallback, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { foodsApi } from '../api/client';
+import { foodsApi, uploadsApi } from '../api/client';
+import type { StorageStats } from '../api/client';
 import type { FoodItem, FoodCategory } from '../types';
 
 interface FoodLibraryContextType {
@@ -11,6 +12,8 @@ interface FoodLibraryContextType {
   deleteItem: (id: string) => Promise<void>;
   getItem: (id: string) => FoodItem | undefined;
   getItemsByCategory: (category: FoodCategory) => FoodItem[];
+  storageStats: StorageStats | null;
+  refreshStorageStats: () => Promise<void>;
 }
 
 const FoodLibraryContext = createContext<FoodLibraryContextType | null>(null);
@@ -18,13 +21,26 @@ const FoodLibraryContext = createContext<FoodLibraryContextType | null>(null);
 export function FoodLibraryProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<FoodItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+
+  const refreshStorageStats = useCallback(async () => {
+    try {
+      const stats = await uploadsApi.getStorage();
+      setStorageStats(stats);
+    } catch (error) {
+      console.error('Failed to fetch storage stats:', error);
+    }
+  }, []);
 
   useEffect(() => {
     foodsApi.getAll()
       .then((data) => setItems(data.items))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+
+    // Also fetch storage stats on mount
+    refreshStorageStats();
+  }, [refreshStorageStats]);
 
   const addItem = useCallback(async (name: string, category: FoodCategory, imageUrl: string | null): Promise<FoodItem> => {
     const newItem = await foodsApi.create(name, category, imageUrl);
@@ -40,7 +56,9 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
   const deleteItem = useCallback(async (id: string) => {
     await foodsApi.delete(id);
     setItems((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+    // Refresh storage stats since an uploaded image may have been deleted
+    refreshStorageStats();
+  }, [refreshStorageStats]);
 
   const getItem = useCallback((id: string): FoodItem | undefined => {
     return items.find((item) => item.id === id);
@@ -60,6 +78,8 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
         deleteItem,
         getItem,
         getItemsByCategory,
+        storageStats,
+        refreshStorageStats,
       }}
     >
       {children}

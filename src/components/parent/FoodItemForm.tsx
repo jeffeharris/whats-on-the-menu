@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '../common/Button';
 import { usePollinationsImage } from '../../hooks/usePollinationsImage';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
+import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
+import { uploadsApi } from '../../api/client';
 import type { FoodCategory } from '../../types';
+
+type ImageSource = 'ai' | 'url' | 'upload';
 
 interface FoodItemFormProps {
   onSubmit: (name: string, category: FoodCategory, imageUrl: string | null) => void;
@@ -14,35 +18,90 @@ interface FoodItemFormProps {
   };
 }
 
+// Determine initial image source based on existing imageUrl
+function getInitialImageSource(imageUrl: string | null): ImageSource {
+  if (!imageUrl) return 'ai';
+  if (imageUrl.startsWith('/uploads/')) return 'upload';
+  return 'url';
+}
+
 export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemFormProps) {
   const [name, setName] = useState(initialValues?.name || '');
   const [category, setCategory] = useState<FoodCategory>(initialValues?.category || 'main');
-  const [useAiImage, setUseAiImage] = useState(!initialValues?.imageUrl);
-  const [customImageUrl, setCustomImageUrl] = useState(initialValues?.imageUrl || '');
+  const [imageSource, setImageSource] = useState<ImageSource>(
+    getInitialImageSource(initialValues?.imageUrl ?? null)
+  );
+  const [customImageUrl, setCustomImageUrl] = useState(
+    initialValues?.imageUrl && !initialValues.imageUrl.startsWith('/uploads/')
+      ? initialValues.imageUrl
+      : ''
+  );
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(
+    initialValues?.imageUrl?.startsWith('/uploads/') ? initialValues.imageUrl : null
+  );
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { storageStats, refreshStorageStats } = useFoodLibrary();
 
   const { imageUrl: aiImageUrl, isLoading, regenerate } = usePollinationsImage(
-    useAiImage ? name : ''
+    imageSource === 'ai' ? name : ''
   );
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (useAiImage && aiImageUrl) {
+    if (imageSource === 'ai' && aiImageUrl) {
       setPreviewUrl(aiImageUrl);
-    } else if (!useAiImage && customImageUrl) {
+    } else if (imageSource === 'url' && customImageUrl) {
       setPreviewUrl(customImageUrl);
+    } else if (imageSource === 'upload' && uploadedImageUrl) {
+      setPreviewUrl(uploadedImageUrl);
     } else {
       setPreviewUrl(null);
     }
-  }, [useAiImage, aiImageUrl, customImageUrl]);
+  }, [imageSource, aiImageUrl, customImageUrl, uploadedImageUrl]);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    setIsUploading(true);
+
+    try {
+      const result = await uploadsApi.upload(file);
+      setUploadedImageUrl(result.imageUrl);
+      refreshStorageStats();
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+      // Clear the input so the same file can be selected again if needed
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const imageUrl = useAiImage ? aiImageUrl : customImageUrl || null;
+    let imageUrl: string | null = null;
+    if (imageSource === 'ai') {
+      imageUrl = aiImageUrl;
+    } else if (imageSource === 'url') {
+      imageUrl = customImageUrl || null;
+    } else if (imageSource === 'upload') {
+      imageUrl = uploadedImageUrl;
+    }
     onSubmit(name.trim(), category, imageUrl);
   };
+
+  const isStorageFull = storageStats ? storageStats.percentage >= 100 : false;
+  const isStorageWarning = storageStats ? storageStats.warning : false;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -89,26 +148,34 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Image
         </label>
-        <div className="flex gap-2 mb-3">
+        <div className="flex gap-2 mb-3 flex-wrap">
           <Button
             type="button"
-            variant={useAiImage ? 'primary' : 'ghost'}
+            variant={imageSource === 'ai' ? 'primary' : 'ghost'}
             size="sm"
-            onClick={() => setUseAiImage(true)}
+            onClick={() => setImageSource('ai')}
           >
             AI Generated
           </Button>
           <Button
             type="button"
-            variant={!useAiImage ? 'primary' : 'ghost'}
+            variant={imageSource === 'url' ? 'primary' : 'ghost'}
             size="sm"
-            onClick={() => setUseAiImage(false)}
+            onClick={() => setImageSource('url')}
           >
             Custom URL
           </Button>
+          <Button
+            type="button"
+            variant={imageSource === 'upload' ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setImageSource('upload')}
+          >
+            Upload Photo
+          </Button>
         </div>
 
-        {!useAiImage && (
+        {imageSource === 'url' && (
           <input
             type="url"
             value={customImageUrl}
@@ -121,10 +188,84 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
           />
         )}
 
+        {imageSource === 'upload' && (
+          <div className="space-y-3">
+            {/* Storage indicator */}
+            {storageStats && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>Storage: {storageStats.usedMB} / {storageStats.limitMB} MB</span>
+                  <span>{storageStats.percentage.toFixed(1)}%</span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${
+                      isStorageFull ? 'bg-red-500' : isStorageWarning ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min(storageStats.percentage, 100)}%` }}
+                  />
+                </div>
+                {isStorageFull && (
+                  <p className="text-xs text-red-600">
+                    Storage full. Delete some images to upload more.
+                  </p>
+                )}
+                {isStorageWarning && !isStorageFull && (
+                  <p className="text-xs text-yellow-600">
+                    Storage almost full ({storageStats.percentage.toFixed(1)}% used).
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* File input */}
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleFileSelect}
+                disabled={isUploading || isStorageFull}
+                className="hidden"
+                id="photo-upload"
+              />
+              <label
+                htmlFor="photo-upload"
+                className={`
+                  inline-flex items-center px-4 py-2 rounded-lg border-2 border-dashed cursor-pointer
+                  transition-colors
+                  ${isStorageFull
+                    ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'border-gray-300 hover:border-parent-primary text-gray-600 hover:text-parent-primary'
+                  }
+                `}
+              >
+                {isUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-parent-primary border-t-transparent rounded-full animate-spin mr-2" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Choose Photo
+                  </>
+                )}
+              </label>
+            </div>
+
+            {uploadError && (
+              <p className="text-sm text-red-600">{uploadError}</p>
+            )}
+          </div>
+        )}
+
         {/* Image preview */}
         <div className="mt-3 flex items-center gap-4">
           <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-            {isLoading ? (
+            {isLoading || isUploading ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-parent-primary border-t-transparent rounded-full animate-spin" />
               </div>
@@ -136,7 +277,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
               />
             )}
           </div>
-          {useAiImage && name && (
+          {imageSource === 'ai' && name && (
             <Button
               type="button"
               variant="ghost"

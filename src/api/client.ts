@@ -134,6 +134,51 @@ export const menusApi = {
   },
 };
 
+// Uploads API
+export interface StorageStats {
+  used: number;
+  limit: number;
+  percentage: number;
+  warning: boolean;
+  limitMB: number;
+  usedMB: number;
+}
+
+export interface UploadResponse {
+  imageUrl: string;
+  filename: string;
+  storage: StorageStats;
+}
+
+export const uploadsApi = {
+  async upload(file: File): Promise<UploadResponse> {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const res = await fetch(`${API_BASE}/uploads`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to upload image');
+    }
+    return res.json();
+  },
+
+  async getStorage(): Promise<StorageStats> {
+    const res = await fetch(`${API_BASE}/uploads/storage`);
+    if (!res.ok) throw new Error('Failed to fetch storage stats');
+    return res.json();
+  },
+
+  async delete(filename: string): Promise<{ success: boolean; storage: StorageStats }> {
+    const res = await fetch(`${API_BASE}/uploads/${filename}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete image');
+    return res.json();
+  },
+};
+
 // Meals API
 export const mealsApi = {
   async getAll(): Promise<{ meals: MealRecord[] }> {
