@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
-import { existsSync, mkdirSync, unlinkSync, readdirSync, statSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, readdirSync, statSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateId } from '../storage.js';
+
+// UUID-like filename format validation (matches generateId output + .jpg)
+const VALID_FILENAME_PATTERN = /^[a-z0-9]{20,30}\.jpg$/;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = join(__dirname, '..', '..', 'data', 'uploads');
@@ -30,11 +33,11 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10 MB max upload size
   },
   fileFilter: (_req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.'));
+      cb(new Error('Invalid file type. Only JPEG, PNG, and WebP are allowed.'));
     }
   },
 });
@@ -137,7 +140,8 @@ router.post('/', upload.single('image'), async (req, res) => {
     const filename = `${generateId()}.jpg`;
     const filepath = join(UPLOADS_DIR, filename);
 
-    await sharp(processedImage).toFile(filepath);
+    // Write the processed buffer directly (avoid double Sharp processing)
+    writeFileSync(filepath, processedImage);
 
     const imageUrl = `/uploads/${filename}`;
     const stats = getStorageStats();
@@ -157,8 +161,8 @@ router.post('/', upload.single('image'), async (req, res) => {
 router.delete('/:filename', (req, res) => {
   const { filename } = req.params;
 
-  // Security: ensure filename doesn't contain path traversal
-  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+  // Security: validate filename format and prevent path traversal
+  if (!VALID_FILENAME_PATTERN.test(filename)) {
     return res.status(400).json({ error: 'Invalid filename' });
   }
 

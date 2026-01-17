@@ -7,7 +7,12 @@ function getUploadedFilename(imageUrl: string | null): string | null {
   if (!imageUrl || !imageUrl.startsWith('/uploads/')) {
     return null;
   }
-  return imageUrl.replace('/uploads/', '');
+  const filename = imageUrl.replace('/uploads/', '');
+  // Prevent path traversal attacks
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    return null;
+  }
+  return filename;
 }
 
 interface FoodItem {

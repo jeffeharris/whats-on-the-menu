@@ -91,7 +91,11 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
   const rotateImage = (file: File, degrees: number): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
       img.onload = () => {
+        // Revoke object URL to prevent memory leak
+        URL.revokeObjectURL(objectUrl);
+
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         if (!ctx) {
@@ -125,8 +129,11 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
           0.9
         );
       };
-      img.onerror = () => reject(new Error('Could not load image'));
-      img.src = URL.createObjectURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Could not load image'));
+      };
+      img.src = objectUrl;
     });
   };
 
@@ -182,7 +189,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
       setPendingPreviewUrl(null);
       setRotation(0);
 
-      refreshStorageStats();
+      await refreshStorageStats();
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'Failed to upload image');
     } finally {
@@ -375,7 +382,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={handleFileSelect}
                 disabled={isUploading || isStorageFull || pendingFile !== null}
                 className="hidden"

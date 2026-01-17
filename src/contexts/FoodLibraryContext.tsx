@@ -59,7 +59,7 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
     await foodsApi.delete(id);
     setItems((prev) => prev.filter((item) => item.id !== id));
     // Refresh storage stats since an uploaded image may have been deleted
-    refreshStorageStats();
+    await refreshStorageStats();
   }, [refreshStorageStats]);
 
   const getItem = useCallback((id: string): FoodItem | undefined => {
