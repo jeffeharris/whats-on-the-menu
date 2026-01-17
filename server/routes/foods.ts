@@ -1,5 +1,19 @@
 import { Router } from 'express';
 import { readJsonFile, writeJsonFile, generateId } from '../storage.js';
+import { deleteUploadedFile } from './uploads.js';
+
+// Helper to extract filename from uploaded image URL
+function getUploadedFilename(imageUrl: string | null): string | null {
+  if (!imageUrl || !imageUrl.startsWith('/uploads/')) {
+    return null;
+  }
+  const filename = imageUrl.replace('/uploads/', '');
+  // Prevent path traversal attacks
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    return null;
+  }
+  return filename;
+}
 
 interface FoodItem {
   id: string;
@@ -52,6 +66,16 @@ router.put('/:id', (req, res) => {
     return res.status(404).json({ error: 'Food item not found' });
   }
 
+  // If imageUrl is being changed, clean up old uploaded image
+  if ('imageUrl' in updates) {
+    const oldFilename = getUploadedFilename(data.items[index].imageUrl);
+    const newFilename = getUploadedFilename(updates.imageUrl);
+    // Only delete if old was uploaded and new is different
+    if (oldFilename && oldFilename !== newFilename) {
+      deleteUploadedFile(oldFilename);
+    }
+  }
+
   data.items[index] = { ...data.items[index], ...updates, id };
   writeJsonFile(FILENAME, data);
   res.json(data.items[index]);
@@ -65,6 +89,12 @@ router.delete('/:id', (req, res) => {
   const index = data.items.findIndex((item) => item.id === id);
   if (index === -1) {
     return res.status(404).json({ error: 'Food item not found' });
+  }
+
+  // Clean up uploaded image if exists
+  const uploadedFilename = getUploadedFilename(data.items[index].imageUrl);
+  if (uploadedFilename) {
+    deleteUploadedFile(uploadedFilename);
   }
 
   data.items.splice(index, 1);
