@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '../../components/common/Button';
 import { MenuBuilderGroup } from '../../components/parent/MenuBuilderGroup';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
@@ -51,11 +51,19 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
     }
   }, [currentMenu]);
 
-  const handleUpdateGroup = (groupId: string, updates: Partial<MenuGroup>) => {
-    setGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, ...updates } : g))
-    );
-  };
+  // Memoized updaters to prevent infinite loops in child useEffect
+  // Each group gets a stable callback reference that only changes when groups array changes
+  const groupUpdaters = useMemo(() => {
+    const updaters: Record<string, (updates: Partial<MenuGroup>) => void> = {};
+    groups.forEach((g) => {
+      updaters[g.id] = (updates: Partial<MenuGroup>) => {
+        setGroups((prev) =>
+          prev.map((grp) => (grp.id === g.id ? { ...grp, ...updates } : grp))
+        );
+      };
+    });
+    return updaters;
+  }, [groups.map((g) => g.id).join(',')]);
 
   const handleRemoveGroup = (groupId: string) => {
     setGroups((prev) => {
@@ -156,7 +164,7 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
                   <MenuBuilderGroup
                     key={group.id}
                     group={group}
-                    onUpdate={(updates) => handleUpdateGroup(group.id, updates)}
+                    onUpdate={groupUpdaters[group.id]}
                     onRemove={() => handleRemoveGroup(group.id)}
                     canRemove={groups.length > 1}
                   />

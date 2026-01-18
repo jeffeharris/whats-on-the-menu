@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Card } from '../common/Card';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
@@ -18,11 +18,33 @@ export function MenuBuilderGroup({
   onRemove,
   canRemove,
 }: MenuBuilderGroupProps) {
-  const { items } = useFoodLibrary();
+  const { items, allTags } = useFoodLibrary();
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [labelValue, setLabelValue] = useState(group.label);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const labelInputRef = useRef<HTMLInputElement>(null);
+
+  // Track ALL selections including filtered-out ones (for remembering)
+  const [allSelectedIds, setAllSelectedIds] = useState<Set<string>>(() => new Set(group.foodIds));
+
+  // Track the group ID to detect when switching to a different group (menu load)
+  const prevGroupIdRef = useRef(group.id);
+
+  // Sync allSelectedIds when group.foodIds changes externally (e.g., loading saved menu)
+  useEffect(() => {
+    // If group ID changed, this is a new group - fully sync
+    if (prevGroupIdRef.current !== group.id) {
+      setAllSelectedIds(new Set(group.foodIds));
+      prevGroupIdRef.current = group.id;
+    } else {
+      // Same group - only add new IDs (preserve hidden selections)
+      setAllSelectedIds((prev) => {
+        const newSet = new Set(prev);
+        group.foodIds.forEach((id) => newSet.add(id));
+        return newSet;
+      });
+    }
+  }, [group.id, group.foodIds]);
 
   useEffect(() => {
     if (isEditingLabel && labelInputRef.current) {
@@ -30,6 +52,41 @@ export function MenuBuilderGroup({
       labelInputRef.current.select();
     }
   }, [isEditingLabel]);
+
+  // Filter items based on filterTags (include) and excludeTags
+  const filteredItems = useMemo(() => {
+    const includeTags = group.filterTags || [];
+    const excludeTags = group.excludeTags || [];
+
+    return items.filter((item) => {
+      // If excludeTags are set, hide items that have any of them
+      if (excludeTags.length > 0 && item.tags?.some((tag) => excludeTags.includes(tag))) {
+        return false;
+      }
+      // If includeTags are set, only show items that have at least one
+      if (includeTags.length > 0 && !item.tags?.some((tag) => includeTags.includes(tag))) {
+        return false;
+      }
+      return true;
+    });
+  }, [items, group.filterTags, group.excludeTags]);
+
+  // Get the set of filtered item IDs for quick lookup
+  const filteredItemIds = useMemo(() => new Set(filteredItems.map((i) => i.id)), [filteredItems]);
+
+  // Compute effective foodIds (only items that pass the filter)
+  const effectiveFoodIds = useMemo(() => {
+    return [...allSelectedIds].filter((id) => filteredItemIds.has(id));
+  }, [allSelectedIds, filteredItemIds]);
+
+  // Update group.foodIds when effectiveFoodIds changes
+  useEffect(() => {
+    const currentSorted = [...group.foodIds].sort().join(',');
+    const effectiveSorted = [...effectiveFoodIds].sort().join(',');
+    if (currentSorted !== effectiveSorted) {
+      onUpdate({ foodIds: effectiveFoodIds });
+    }
+  }, [effectiveFoodIds, group.foodIds, onUpdate]);
 
   const handleLabelSave = () => {
     const trimmed = labelValue.trim();
@@ -54,13 +111,41 @@ export function MenuBuilderGroup({
     onUpdate({ selectionPreset: e.target.value as SelectionPreset });
   };
 
-  const handleFoodToggle = (foodId: string) => {
-    const currentIds = group.foodIds;
-    if (currentIds.includes(foodId)) {
-      onUpdate({ foodIds: currentIds.filter((id) => id !== foodId) });
+  // 3-state toggle: neutral → include → exclude → neutral
+  const handleFilterTagToggle = (tag: string) => {
+    const includeTags = group.filterTags || [];
+    const excludeTags = group.excludeTags || [];
+
+    const isIncluded = includeTags.includes(tag);
+    const isExcluded = excludeTags.includes(tag);
+
+    if (!isIncluded && !isExcluded) {
+      // Neutral → Include
+      onUpdate({ filterTags: [...includeTags, tag] });
+    } else if (isIncluded) {
+      // Include → Exclude
+      const newInclude = includeTags.filter((t) => t !== tag);
+      onUpdate({
+        filterTags: newInclude.length > 0 ? newInclude : undefined,
+        excludeTags: [...excludeTags, tag]
+      });
     } else {
-      onUpdate({ foodIds: [...currentIds, foodId] });
+      // Exclude → Neutral
+      const newExclude = excludeTags.filter((t) => t !== tag);
+      onUpdate({ excludeTags: newExclude.length > 0 ? newExclude : undefined });
     }
+  };
+
+  const handleFoodToggle = (foodId: string) => {
+    setAllSelectedIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(foodId)) {
+        newSet.delete(foodId);
+      } else {
+        newSet.add(foodId);
+      }
+      return newSet;
+    });
   };
 
   const handleImageError = (id: string) => {
@@ -69,10 +154,13 @@ export function MenuBuilderGroup({
 
   const presetConfig = SELECTION_PRESET_CONFIG[group.selectionPreset];
 
+  // Count of hidden selected items
+  const hiddenSelectedCount = [...allSelectedIds].filter((id) => !filteredItemIds.has(id)).length;
+
   return (
     <div className="mb-6 border border-gray-200 rounded-lg p-4 bg-white">
       {/* Header with label and preset */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-3">
         {/* Editable label */}
         <div className="flex-1 flex items-center gap-2">
           {isEditingLabel ? (
@@ -124,15 +212,58 @@ export function MenuBuilderGroup({
         )}
       </div>
 
+      {/* Tag filter chips */}
+      <div className="mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500">Filter:</span>
+          {allTags.map((tag) => {
+            const isIncluded = group.filterTags?.includes(tag);
+            const isExcluded = group.excludeTags?.includes(tag);
+            return (
+              <button
+                key={tag}
+                onClick={() => handleFilterTagToggle(tag)}
+                className={`
+                  px-2 py-0.5 rounded-full text-xs transition-colors
+                  ${isIncluded
+                    ? 'bg-success text-white'
+                    : isExcluded
+                      ? 'bg-danger text-white line-through'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }
+                `}
+                title={isIncluded ? 'Including (click to exclude)' : isExcluded ? 'Excluding (click to reset)' : 'Click to include'}
+              >
+                {isIncluded && '+ '}
+                {isExcluded && '- '}
+                {tag}
+              </button>
+            );
+          })}
+          {((group.filterTags && group.filterTags.length > 0) || (group.excludeTags && group.excludeTags.length > 0)) && (
+            <button
+              onClick={() => onUpdate({ filterTags: undefined, excludeTags: undefined })}
+              className="text-xs text-gray-400 hover:text-gray-600 underline"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Food selection grid */}
       {items.length === 0 ? (
         <p className="text-gray-500 text-center py-4">
           No food items yet. Add some in the Food Library!
         </p>
+      ) : filteredItems.length === 0 ? (
+        <p className="text-gray-500 text-center py-4">
+          No foods match the selected tags.
+        </p>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-          {items.map((item: FoodItem) => {
-            const isSelected = group.foodIds.includes(item.id);
+          {filteredItems.map((item: FoodItem) => {
+            const isSelected = allSelectedIds.has(item.id);
             const hasError = imageErrors.has(item.id);
 
             return (
@@ -180,7 +311,12 @@ export function MenuBuilderGroup({
 
       {/* Selection count and preset info */}
       <div className="mt-3 text-sm text-gray-500">
-        Kids will {presetConfig.label.toLowerCase()} from {group.foodIds.length} {group.foodIds.length === 1 ? 'item' : 'items'} selected.
+        Kids will {presetConfig.label.toLowerCase()} from {effectiveFoodIds.length} {effectiveFoodIds.length === 1 ? 'item' : 'items'} selected.
+        {hiddenSelectedCount > 0 && (
+          <span className="text-warning ml-1">
+            ({hiddenSelectedCount} hidden by filter)
+          </span>
+        )}
       </div>
     </div>
   );

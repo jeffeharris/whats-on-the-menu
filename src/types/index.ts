@@ -37,6 +37,8 @@ export interface MenuGroup {
   foodIds: string[];
   selectionPreset: SelectionPreset;
   order: number;
+  filterTags?: string[];   // Include: only show foods WITH these tags
+  excludeTags?: string[];  // Exclude: hide foods WITH these tags
 }
 
 export interface Menu {
