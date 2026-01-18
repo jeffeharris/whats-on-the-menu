@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
+import { SearchInput } from '../../components/common/SearchInput';
+import { TagFilter } from '../../components/common/TagFilter';
 import { FoodItemForm } from '../../components/parent/FoodItemForm';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
@@ -12,19 +14,45 @@ interface FoodLibraryProps {
 }
 
 export function FoodLibrary({ onBack }: FoodLibraryProps) {
-  const { items, addItem, updateItem, deleteItem } = useFoodLibrary();
+  const { items, allTags, addItem, updateItem, deleteItem } = useFoodLibrary();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [prefillName, setPrefillName] = useState('');
+  const [includeTags, setIncludeTags] = useState<string[]>([]);
+  const [excludeTags, setExcludeTags] = useState<string[]>([]);
+
+  // Filter items based on search and tags
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return items.filter((item) => {
+      // Search filter
+      if (query && !item.name.toLowerCase().includes(query)) {
+        return false;
+      }
+      // If excludeTags are set, hide items that have any of them
+      if (excludeTags.length > 0 && item.tags?.some((tag) => excludeTags.includes(tag))) {
+        return false;
+      }
+      // If includeTags are set, only show items that have at least one
+      if (includeTags.length > 0 && !item.tags?.some((tag) => includeTags.includes(tag))) {
+        return false;
+      }
+      return true;
+    });
+  }, [items, searchQuery, includeTags, excludeTags]);
 
   const handleSubmit = async (name: string, tags: string[], imageUrl: string | null) => {
     if (editingItem) {
       await updateItem(editingItem.id, { name, tags, imageUrl });
     } else {
       await addItem(name, tags, imageUrl);
+      setSearchQuery(''); // Clear search to show the new item
     }
     setIsFormOpen(false);
     setEditingItem(null);
+    setPrefillName('');
   };
 
   const handleEdit = (item: FoodItem) => {
@@ -62,11 +90,46 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
         <div className="max-w-lg md:max-w-3xl mx-auto">
+          {/* Search and filter */}
+          {items.length > 0 && (
+            <div className="mb-4 space-y-3">
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search foods..."
+              />
+              {allTags.length > 0 && (
+                <TagFilter
+                  allTags={allTags}
+                  includeTags={includeTags}
+                  excludeTags={excludeTags}
+                  onIncludeTagsChange={(tags) => setIncludeTags(tags || [])}
+                  onExcludeTagsChange={(tags) => setExcludeTags(tags || [])}
+                />
+              )}
+            </div>
+          )}
+
           {items.length === 0 ? (
             <p className="text-gray-500 text-center py-8">No food items yet. Add some!</p>
+          ) : filteredItems.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No foods match your search or filters.</p>
+              {searchQuery.trim() && (
+                <button
+                  onClick={() => {
+                    setPrefillName(searchQuery.trim());
+                    setIsFormOpen(true);
+                  }}
+                  className="mt-2 text-parent-primary hover:text-parent-primary-dark underline text-sm"
+                >
+                  Add "{searchQuery.trim()}" to library
+                </button>
+              )}
+            </div>
           ) : (
             <div className="grid gap-3">
-              {items.map((item) => {
+              {filteredItems.map((item) => {
                 const hasError = imageErrors.has(item.id);
                 return (
                   <Card key={item.id} padding="sm" className="flex items-center gap-3">
@@ -126,6 +189,7 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
         onClose={() => {
           setIsFormOpen(false);
           setEditingItem(null);
+          setPrefillName('');
         }}
         title={editingItem ? 'Edit Food' : 'Add Food'}
       >
@@ -134,6 +198,7 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
           onCancel={() => {
             setIsFormOpen(false);
             setEditingItem(null);
+            setPrefillName('');
           }}
           initialValues={
             editingItem
@@ -142,7 +207,9 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
                   tags: editingItem.tags || [],
                   imageUrl: editingItem.imageUrl,
                 }
-              : undefined
+              : prefillName
+                ? { name: prefillName, tags: [], imageUrl: null }
+                : undefined
           }
         />
       </Modal>

@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Card } from '../common/Card';
+import { SearchInput } from '../common/SearchInput';
+import { TagFilter } from '../common/TagFilter';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import type { MenuGroup, SelectionPreset, FoodItem } from '../../types';
@@ -9,6 +11,7 @@ interface MenuBuilderGroupProps {
   group: MenuGroup;
   onUpdate: (updates: Partial<MenuGroup>) => void;
   onRemove: () => void;
+  onAddFood: (prefillName?: string) => void;
   canRemove: boolean;
 }
 
@@ -16,12 +19,14 @@ export function MenuBuilderGroup({
   group,
   onUpdate,
   onRemove,
+  onAddFood,
   canRemove,
 }: MenuBuilderGroupProps) {
   const { items, allTags } = useFoodLibrary();
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [labelValue, setLabelValue] = useState(group.label);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
   const labelInputRef = useRef<HTMLInputElement>(null);
 
   // Track ALL selections including filtered-out ones (for remembering)
@@ -53,12 +58,17 @@ export function MenuBuilderGroup({
     }
   }, [isEditingLabel]);
 
-  // Filter items based on filterTags (include) and excludeTags
+  // Filter items based on search, filterTags (include) and excludeTags
   const filteredItems = useMemo(() => {
     const includeTags = group.filterTags || [];
     const excludeTags = group.excludeTags || [];
+    const query = searchQuery.toLowerCase().trim();
 
     return items.filter((item) => {
+      // Search filter
+      if (query && !item.name.toLowerCase().includes(query)) {
+        return false;
+      }
       // If excludeTags are set, hide items that have any of them
       if (excludeTags.length > 0 && item.tags?.some((tag) => excludeTags.includes(tag))) {
         return false;
@@ -69,7 +79,7 @@ export function MenuBuilderGroup({
       }
       return true;
     });
-  }, [items, group.filterTags, group.excludeTags]);
+  }, [items, searchQuery, group.filterTags, group.excludeTags]);
 
   // Get the set of filtered item IDs for quick lookup
   const filteredItemIds = useMemo(() => new Set(filteredItems.map((i) => i.id)), [filteredItems]);
@@ -109,31 +119,6 @@ export function MenuBuilderGroup({
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onUpdate({ selectionPreset: e.target.value as SelectionPreset });
-  };
-
-  // 3-state toggle: neutral → include → exclude → neutral
-  const handleFilterTagToggle = (tag: string) => {
-    const includeTags = group.filterTags || [];
-    const excludeTags = group.excludeTags || [];
-
-    const isIncluded = includeTags.includes(tag);
-    const isExcluded = excludeTags.includes(tag);
-
-    if (!isIncluded && !isExcluded) {
-      // Neutral → Include
-      onUpdate({ filterTags: [...includeTags, tag] });
-    } else if (isIncluded) {
-      // Include → Exclude
-      const newInclude = includeTags.filter((t) => t !== tag);
-      onUpdate({
-        filterTags: newInclude.length > 0 ? newInclude : undefined,
-        excludeTags: [...excludeTags, tag]
-      });
-    } else {
-      // Exclude → Neutral
-      const newExclude = excludeTags.filter((t) => t !== tag);
-      onUpdate({ excludeTags: newExclude.length > 0 ? newExclude : undefined });
-    }
   };
 
   const handleFoodToggle = (foodId: string) => {
@@ -212,54 +197,45 @@ export function MenuBuilderGroup({
         )}
       </div>
 
-      {/* Tag filter chips */}
-      <div className="mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500">Filter:</span>
-          {allTags.map((tag) => {
-            const isIncluded = group.filterTags?.includes(tag);
-            const isExcluded = group.excludeTags?.includes(tag);
-            return (
-              <button
-                key={tag}
-                onClick={() => handleFilterTagToggle(tag)}
-                className={`
-                  px-2 py-0.5 rounded-full text-xs transition-colors
-                  ${isIncluded
-                    ? 'bg-success text-white'
-                    : isExcluded
-                      ? 'bg-danger text-white line-through'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }
-                `}
-                title={isIncluded ? 'Including (click to exclude)' : isExcluded ? 'Excluding (click to reset)' : 'Click to include'}
-              >
-                {isIncluded && '+ '}
-                {isExcluded && '- '}
-                {tag}
-              </button>
-            );
-          })}
-          {((group.filterTags && group.filterTags.length > 0) || (group.excludeTags && group.excludeTags.length > 0)) && (
-            <button
-              onClick={() => onUpdate({ filterTags: undefined, excludeTags: undefined })}
-              className="text-xs text-gray-400 hover:text-gray-600 underline"
-            >
-              Clear all
-            </button>
-          )}
-        </div>
+      {/* Search and tag filter */}
+      <div className="mb-3 space-y-2">
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search foods..."
+        />
+        <TagFilter
+          allTags={allTags}
+          includeTags={group.filterTags || []}
+          excludeTags={group.excludeTags || []}
+          onIncludeTagsChange={(tags) => onUpdate({ filterTags: tags })}
+          onExcludeTagsChange={(tags) => onUpdate({ excludeTags: tags })}
+        />
       </div>
 
       {/* Food selection grid */}
       {items.length === 0 ? (
-        <p className="text-gray-500 text-center py-4">
-          No food items yet. Add some in the Food Library!
-        </p>
+        <div className="text-center py-4">
+          <p className="text-gray-500">No food items yet.</p>
+          <button
+            onClick={() => onAddFood()}
+            className="mt-1 text-parent-primary hover:text-parent-primary-dark underline text-sm"
+          >
+            Add your first food
+          </button>
+        </div>
       ) : filteredItems.length === 0 ? (
-        <p className="text-gray-500 text-center py-4">
-          No foods match the selected tags.
-        </p>
+        <div className="text-center py-4">
+          <p className="text-gray-500">No foods match your search or filters.</p>
+          {searchQuery.trim() && (
+            <button
+              onClick={() => onAddFood(searchQuery.trim())}
+              className="mt-1 text-parent-primary hover:text-parent-primary-dark underline text-sm"
+            >
+              Add "{searchQuery.trim()}" to library
+            </button>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
           {filteredItems.map((item: FoodItem) => {

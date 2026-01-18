@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '../../components/common/Button';
+import { Modal } from '../../components/common/Modal';
 import { MenuBuilderGroup } from '../../components/parent/MenuBuilderGroup';
+import { FoodItemForm } from '../../components/parent/FoodItemForm';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useMenu } from '../../contexts/MenuContext';
 import { useAppState } from '../../contexts/AppStateContext';
@@ -35,7 +37,7 @@ const DEFAULT_GROUPS: MenuGroup[] = [
 ];
 
 export function MenuBuilder({ onBack }: MenuBuilderProps) {
-  const { items } = useFoodLibrary();
+  const { items, addItem } = useFoodLibrary();
   const { currentMenu, createMenu, clearMenu } = useMenu();
   const { setMode } = useAppState();
 
@@ -43,6 +45,10 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
   const [groups, setGroups] = useState<MenuGroup[]>(
     currentMenu?.groups || DEFAULT_GROUPS
   );
+
+  // State for quick-add food form
+  const [isAddFoodOpen, setIsAddFoodOpen] = useState(false);
+  const [prefillFoodName, setPrefillFoodName] = useState('');
 
   // Sync with current menu when it changes
   useEffect(() => {
@@ -129,6 +135,18 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
 
   const validationMessage = getValidationMessage();
 
+  // Quick-add food handler
+  const handleAddFood = useCallback((prefillName?: string) => {
+    setPrefillFoodName(prefillName || '');
+    setIsAddFoodOpen(true);
+  }, []);
+
+  const handleFoodSubmit = async (name: string, tags: string[], imageUrl: string | null) => {
+    await addItem(name, tags, imageUrl);
+    setIsAddFoodOpen(false);
+    setPrefillFoodName('');
+  };
+
   return (
     <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
       <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
@@ -166,6 +184,7 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
                     group={group}
                     onUpdate={groupUpdaters[group.id]}
                     onRemove={() => handleRemoveGroup(group.id)}
+                    onAddFood={handleAddFood}
                     canRemove={groups.length > 1}
                   />
                 ))}
@@ -216,6 +235,28 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
           )}
         </div>
       </main>
+
+      <Modal
+        isOpen={isAddFoodOpen}
+        onClose={() => {
+          setIsAddFoodOpen(false);
+          setPrefillFoodName('');
+        }}
+        title="Add Food"
+      >
+        <FoodItemForm
+          onSubmit={handleFoodSubmit}
+          onCancel={() => {
+            setIsAddFoodOpen(false);
+            setPrefillFoodName('');
+          }}
+          initialValues={
+            prefillFoodName
+              ? { name: prefillFoodName, tags: [], imageUrl: null }
+              : undefined
+          }
+        />
+      </Modal>
     </div>
   );
 }
