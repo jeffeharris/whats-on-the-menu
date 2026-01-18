@@ -38,8 +38,8 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
   };
 
   return (
-    <div className="min-h-screen bg-parent-bg p-4">
-      <header className="flex items-center gap-4 mb-6">
+    <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
+      <header className="flex-shrink-0 flex items-center gap-4 p-4">
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -55,8 +55,9 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
         </Button>
       </header>
 
-      <div className="max-w-lg mx-auto">
-        {profiles.length === 0 ? (
+      <main className="flex-1 overflow-y-auto p-4 pt-0">
+        <div className="max-w-lg mx-auto">
+          {profiles.length === 0 ? (
           <Card className="text-center py-8">
             <p className="text-gray-500 mb-4">No kids added yet</p>
             <Button variant="primary" onClick={() => setIsFormOpen(true)}>
@@ -94,8 +95,9 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
               </Card>
             ))}
           </div>
-        )}
-      </div>
+          )}
+        </div>
+      </main>
 
       <Modal
         isOpen={isFormOpen}

@@ -55,9 +55,9 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   };
 
   return (
-    <div className="min-h-screen bg-kid-bg p-4 md:p-6">
+    <div className="h-full bg-kid-bg flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
+      <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 pb-0 max-w-3xl mx-auto w-full">
         <button
           onClick={onBack}
           className="p-2 hover:bg-white/50 rounded-lg transition-colors"
@@ -76,8 +76,10 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
         </div>
       </header>
 
-      {/* Main selection */}
-      <CategorySection
+      {/* Scrollable Content */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-4">
+        {/* Main selection */}
+        <CategorySection
         title="Pick your yummy main!"
         subtitle="Choose 1"
       >
@@ -109,9 +111,10 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
           />
         ))}
       </CategorySection>
+      </main>
 
-      {/* Confirm button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-kid-bg via-kid-bg to-transparent pt-12">
+      {/* Fixed Footer */}
+      <footer className="flex-shrink-0 p-4 md:p-6 bg-kid-bg border-t border-kid-primary/10">
         <div className="max-w-xl mx-auto">
           <Button
             mode="kid"
@@ -124,10 +127,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
             {canConfirm ? "All done!" : "Pick your food first!"}
           </Button>
         </div>
-      </div>
-
-      {/* Spacer for fixed button */}
-      <div className="h-24" />
+      </footer>
     </div>
   );
 }

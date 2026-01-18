@@ -27,8 +27,8 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
   const sideItems = selection.sideIds.map((id) => getItem(id)).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-kid-bg flex flex-col p-4 md:p-8">
-      <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col">
+    <div className="h-full bg-kid-bg flex flex-col p-4 md:p-8 overflow-hidden">
+      <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col overflow-y-auto">
         {/* Header */}
         <div className="text-center mb-6 md:mb-8">
           <KidAvatar name={kid.name} color={kid.avatarColor} size="lg" />

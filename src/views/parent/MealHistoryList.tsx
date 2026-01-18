@@ -23,9 +23,9 @@ export function MealHistoryList({ onBack, onSelectMeal }: MealHistoryListProps) 
   };
 
   return (
-    <div className="min-h-screen bg-parent-bg p-4 md:p-6">
+    <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
+      <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -38,8 +38,9 @@ export function MealHistoryList({ onBack, onSelectMeal }: MealHistoryListProps) 
         <h1 className="text-2xl font-bold text-gray-800">Meal History</h1>
       </header>
 
-      <div className="max-w-lg md:max-w-3xl mx-auto grid gap-4 md:grid-cols-2">
-        {meals.length === 0 ? (
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
+        <div className="max-w-lg md:max-w-3xl mx-auto grid gap-4 md:grid-cols-2">
+          {meals.length === 0 ? (
           <div className="text-center py-12 md:col-span-2">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -80,8 +81,9 @@ export function MealHistoryList({ onBack, onSelectMeal }: MealHistoryListProps) 
               </Card>
             );
           })
-        )}
-      </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

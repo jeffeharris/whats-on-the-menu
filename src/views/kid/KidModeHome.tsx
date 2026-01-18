@@ -48,7 +48,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections }: KidModeHomePro
   // No menu set
   if (!currentMenu) {
     return (
-      <div className="min-h-screen bg-kid-bg flex flex-col items-center justify-center p-6">
+      <div className="h-full bg-kid-bg flex flex-col items-center justify-center p-6 overflow-hidden">
         <div className="text-center max-w-md">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">
             No Menu Yet!
@@ -84,7 +84,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections }: KidModeHomePro
   // No kids set up
   if (profiles.length === 0) {
     return (
-      <div className="min-h-screen bg-kid-bg flex flex-col items-center justify-center p-6">
+      <div className="h-full bg-kid-bg flex flex-col items-center justify-center p-6 overflow-hidden">
         <div className="text-center max-w-md">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">
             Who's Here?
@@ -118,9 +118,9 @@ export function KidModeHome({ onSelectKid, onConfirmSelections }: KidModeHomePro
   }
 
   return (
-    <div className="min-h-screen bg-kid-bg flex flex-col p-4 md:p-8">
+    <div className="h-full bg-kid-bg flex flex-col p-4 md:p-8 overflow-hidden">
       {/* Header with parent access */}
-      <div className="flex justify-end mb-4">
+      <div className="flex-shrink-0 flex justify-end mb-4">
         <button
           onClick={() => setShowPinModal(true)}
           className="text-gray-400 hover:text-gray-600 transition-colors p-2"

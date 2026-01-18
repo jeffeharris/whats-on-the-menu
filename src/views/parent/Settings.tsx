@@ -38,8 +38,8 @@ export function Settings({ onBack }: SettingsProps) {
   };
 
   return (
-    <div className="min-h-screen bg-parent-bg p-4">
-      <header className="flex items-center gap-4 mb-6">
+    <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
+      <header className="flex-shrink-0 flex items-center gap-4 p-4">
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -52,8 +52,9 @@ export function Settings({ onBack }: SettingsProps) {
         <h1 className="text-2xl font-bold text-gray-800 flex-1">Settings</h1>
       </header>
 
-      <div className="max-w-lg mx-auto">
-        <Card className="mb-4">
+      <main className="flex-1 overflow-y-auto p-4 pt-0">
+        <div className="max-w-lg mx-auto">
+          <Card className="mb-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-semibold text-gray-800">Parent PIN</h2>
@@ -77,7 +78,8 @@ export function Settings({ onBack }: SettingsProps) {
             Version 1.0.0
           </p>
         </Card>
-      </div>
+        </div>
+      </main>
 
       <Modal
         isOpen={showPinModal}

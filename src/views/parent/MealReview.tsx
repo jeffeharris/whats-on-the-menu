@@ -75,8 +75,8 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
 
   if (selections.length === 0) {
     return (
-      <div className="min-h-screen bg-parent-bg p-4 md:p-6">
-        <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
+      <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
+        <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
           <button
             onClick={onBack}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -88,17 +88,17 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
           </button>
           <h1 className="text-2xl font-bold text-gray-800">Review Meal</h1>
         </header>
-        <div className="text-center py-12">
+        <main className="flex-1 flex items-center justify-center">
           <p className="text-gray-500 text-lg">No selections to review.</p>
-        </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-parent-bg p-4 md:p-6">
+    <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
+      <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -111,9 +111,10 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
         <h1 className="text-2xl font-bold text-gray-800">Review Meal</h1>
       </header>
 
-      <div className="max-w-lg md:max-w-3xl mx-auto">
-        {/* Kid sections */}
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
+        <div className="max-w-lg md:max-w-3xl mx-auto">
+          {/* Kid sections */}
+          <div className="grid gap-6 md:grid-cols-2 mb-6">
         {selections.map((selection) => {
           const kid = getProfile(selection.kidId);
           const mainItem = selection.mainId ? getItem(selection.mainId) : null;
@@ -183,17 +184,18 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
         </div>
 
         {/* Complete button */}
-        <div className="max-w-md mx-auto">
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            onClick={handleComplete}
-          >
-            Complete Meal
-          </Button>
+          <div className="max-w-md mx-auto">
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={handleComplete}
+            >
+              Complete Meal
+            </Button>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

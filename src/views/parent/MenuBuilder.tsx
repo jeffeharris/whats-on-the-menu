@@ -55,8 +55,8 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
       JSON.stringify(selectedSides.sort()) !== JSON.stringify([...currentMenu.sides].sort()));
 
   return (
-    <div className="min-h-screen bg-parent-bg p-4 md:p-6">
-      <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
+    <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
+      <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -69,8 +69,9 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
         <h1 className="text-2xl font-bold text-gray-800 flex-1">Menu Builder</h1>
       </header>
 
-      <div className="max-w-2xl md:max-w-3xl mx-auto">
-        {items.length === 0 ? (
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
+        <div className="max-w-2xl md:max-w-3xl mx-auto">
+          {items.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500 mb-4">
               You need to add some food items first!
@@ -131,8 +132,9 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
               )}
             </div>
           </>
-        )}
-      </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

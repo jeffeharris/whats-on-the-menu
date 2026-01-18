@@ -97,8 +97,8 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
   );
 
   return (
-    <div className="min-h-screen bg-parent-bg p-4 md:p-6">
-      <header className="flex items-center gap-4 mb-6 max-w-3xl mx-auto">
+    <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
+      <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -114,10 +114,12 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
         </Button>
       </header>
 
-      <div className="max-w-lg md:max-w-3xl mx-auto md:grid md:grid-cols-2 md:gap-8">
-        {renderFoodList(mains, 'Main Dishes')}
-        {renderFoodList(sides, 'Side Dishes')}
-      </div>
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
+        <div className="max-w-lg md:max-w-3xl mx-auto md:grid md:grid-cols-2 md:gap-8">
+          {renderFoodList(mains, 'Main Dishes')}
+          {renderFoodList(sides, 'Side Dishes')}
+        </div>
+      </main>
 
       <Modal
         isOpen={isFormOpen}
