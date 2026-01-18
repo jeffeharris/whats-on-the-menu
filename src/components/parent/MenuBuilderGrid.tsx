@@ -76,6 +76,18 @@ export function MenuBuilderGrid({
                 </div>
                 <div className="p-2 text-center">
                   <span className="text-sm font-medium text-gray-800">{item.name}</span>
+                  {item.tags && item.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1 justify-center">
+                      {item.tags.slice(0, 2).map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-block px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full text-xs"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {isSelected && (
                   <div className="absolute top-1 right-1 w-6 h-6 bg-parent-primary rounded-full flex items-center justify-center">

@@ -1,17 +1,19 @@
-import { createContext, useContext, useCallback, useState, useEffect } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { foodsApi, uploadsApi } from '../api/client';
 import type { StorageStats } from '../api/client';
-import type { FoodItem, FoodCategory } from '../types';
+import type { FoodItem } from '../types';
+import { PREDEFINED_TAGS } from '../types';
 
 interface FoodLibraryContextType {
   items: FoodItem[];
   loading: boolean;
-  addItem: (name: string, category: FoodCategory, imageUrl: string | null) => Promise<FoodItem>;
+  addItem: (name: string, tags: string[], imageUrl: string | null) => Promise<FoodItem>;
   updateItem: (id: string, updates: Partial<Omit<FoodItem, 'id'>>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   getItem: (id: string) => FoodItem | undefined;
-  getItemsByCategory: (category: FoodCategory) => FoodItem[];
+  getItemsByTag: (tag: string) => FoodItem[];
+  allTags: string[];
   storageStats: StorageStats | null;
   refreshStorageStats: () => Promise<void>;
 }
@@ -44,8 +46,21 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
       .catch((error) => console.error('Failed to fetch storage stats:', error));
   }, []);
 
-  const addItem = useCallback(async (name: string, category: FoodCategory, imageUrl: string | null): Promise<FoodItem> => {
-    const newItem = await foodsApi.create(name, category, imageUrl);
+  // Compute all unique tags from items + predefined tags
+  const allTags = useMemo(() => {
+    const tagsFromItems = new Set<string>();
+    items.forEach((item) => {
+      if (item.tags) {
+        item.tags.forEach((tag) => tagsFromItems.add(tag));
+      }
+    });
+    // Combine predefined tags with custom tags from items
+    const combined = new Set([...PREDEFINED_TAGS, ...tagsFromItems]);
+    return Array.from(combined).sort();
+  }, [items]);
+
+  const addItem = useCallback(async (name: string, tags: string[], imageUrl: string | null): Promise<FoodItem> => {
+    const newItem = await foodsApi.create(name, tags, imageUrl);
     setItems((prev) => [...prev, newItem]);
     return newItem;
   }, []);
@@ -66,8 +81,8 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
     return items.find((item) => item.id === id);
   }, [items]);
 
-  const getItemsByCategory = useCallback((category: FoodCategory): FoodItem[] => {
-    return items.filter((item) => item.category === category);
+  const getItemsByTag = useCallback((tag: string): FoodItem[] => {
+    return items.filter((item) => item.tags?.includes(tag));
   }, [items]);
 
   return (
@@ -79,7 +94,8 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
         updateItem,
         deleteItem,
         getItem,
-        getItemsByCategory,
+        getItemsByTag,
+        allTags,
         storageStats,
         refreshStorageStats,
       }}

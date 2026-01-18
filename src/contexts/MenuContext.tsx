@@ -1,24 +1,32 @@
 import { createContext, useContext, useCallback, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { menusApi } from '../api/client';
-import type { Menu, KidSelection } from '../types';
+import type { Menu, KidSelection, MenuGroup, GroupSelections } from '../types';
 
 interface MenuContextType {
   currentMenu: Menu | null;
   selections: KidSelection[];
   selectionsLocked: boolean;
   loading: boolean;
-  createMenu: (mains: string[], sides: string[]) => Promise<Menu>;
+  createMenu: (groups: MenuGroup[]) => Promise<Menu>;
   clearMenu: () => Promise<void>;
-  addSelection: (kidId: string, mainId: string | null, sideIds: string[]) => Promise<void>;
+  addSelection: (kidId: string, selections: GroupSelections) => Promise<void>;
   getSelectionForKid: (kidId: string) => KidSelection | undefined;
   clearSelections: () => Promise<void>;
   hasKidSelected: (kidId: string) => boolean;
   lockSelections: () => void;
   unlockAndClearSelections: () => Promise<void>;
+  updateMenuGroup: (groupId: string, updates: Partial<MenuGroup>) => void;
+  addMenuGroup: () => void;
+  removeMenuGroup: (groupId: string) => void;
 }
 
 const MenuContext = createContext<MenuContextType | null>(null);
+
+// Generate a unique ID for new groups
+function generateGroupId(): string {
+  return `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
 
 export function MenuProvider({ children }: { children: ReactNode }) {
   const [currentMenu, setCurrentMenu] = useState<Menu | null>(null);
@@ -32,8 +40,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         if (data.menu) {
           setCurrentMenu({
             id: data.menu.id,
-            mains: data.menu.mains,
-            sides: data.menu.sides,
+            groups: data.menu.groups,
           });
         }
         setSelections(data.selections);
@@ -42,12 +49,11 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const createMenu = useCallback(async (mains: string[], sides: string[]): Promise<Menu> => {
-    const savedMenu = await menusApi.create(mains, sides, 'Menu');
+  const createMenu = useCallback(async (groups: MenuGroup[]): Promise<Menu> => {
+    const savedMenu = await menusApi.create(groups, 'Menu');
     const newMenu: Menu = {
       id: savedMenu.id,
-      mains: savedMenu.mains,
-      sides: savedMenu.sides,
+      groups: savedMenu.groups,
     };
     setCurrentMenu(newMenu);
     setSelections([]);
@@ -60,8 +66,8 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     setSelections([]);
   }, []);
 
-  const addSelection = useCallback(async (kidId: string, mainId: string | null, sideIds: string[]) => {
-    const newSelection = await menusApi.addSelection(kidId, mainId, sideIds);
+  const addSelection = useCallback(async (kidId: string, groupSelections: GroupSelections) => {
+    const newSelection = await menusApi.addSelection(kidId, groupSelections);
     setSelections((prev) => [
       ...prev.filter((s) => s.kidId !== kidId),
       newSelection,
@@ -91,6 +97,48 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     setSelectionsLocked(false);
   }, []);
 
+  // Local state updates for menu building (before saving)
+  const updateMenuGroup = useCallback((groupId: string, updates: Partial<MenuGroup>) => {
+    setCurrentMenu((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        groups: prev.groups.map((g) =>
+          g.id === groupId ? { ...g, ...updates } : g
+        ),
+      };
+    });
+  }, []);
+
+  const addMenuGroup = useCallback(() => {
+    setCurrentMenu((prev) => {
+      if (!prev) return prev;
+      const newGroup: MenuGroup = {
+        id: generateGroupId(),
+        label: 'New Group',
+        foodIds: [],
+        selectionPreset: 'pick-1',
+        order: prev.groups.length,
+      };
+      return {
+        ...prev,
+        groups: [...prev.groups, newGroup],
+      };
+    });
+  }, []);
+
+  const removeMenuGroup = useCallback((groupId: string) => {
+    setCurrentMenu((prev) => {
+      if (!prev) return prev;
+      const filteredGroups = prev.groups.filter((g) => g.id !== groupId);
+      // Re-order remaining groups
+      return {
+        ...prev,
+        groups: filteredGroups.map((g, idx) => ({ ...g, order: idx })),
+      };
+    });
+  }, []);
+
   return (
     <MenuContext.Provider
       value={{
@@ -106,6 +154,9 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         hasKidSelected,
         lockSelections,
         unlockAndClearSelections,
+        updateMenuGroup,
+        addMenuGroup,
+        removeMenuGroup,
       }}
     >
       {children}

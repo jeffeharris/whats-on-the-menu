@@ -25,10 +25,25 @@ function Thumbnail({ imageUrl, name }: { imageUrl: string | null; name: string }
 export function SelectionThumbnails({ selection }: SelectionThumbnailsProps) {
   const { getItem } = useFoodLibrary();
 
-  const mainItem = selection.mainId ? getItem(selection.mainId) : null;
-  const sideItems = selection.sideIds.map((id) => getItem(id)).filter(Boolean);
+  // Get all selected food IDs from the new selections structure
+  const allFoodIds: string[] = [];
 
-  const allItems = [mainItem, ...sideItems].filter(Boolean);
+  if (selection.selections) {
+    // New structure: selections is a GroupSelections object
+    Object.values(selection.selections).forEach((ids) => {
+      allFoodIds.push(...ids);
+    });
+  } else {
+    // Legacy structure: mainId and sideIds
+    if (selection.mainId) {
+      allFoodIds.push(selection.mainId);
+    }
+    if (selection.sideIds) {
+      allFoodIds.push(...selection.sideIds);
+    }
+  }
+
+  const allItems = allFoodIds.map((id) => getItem(id)).filter(Boolean);
 
   if (allItems.length === 0) {
     return null;

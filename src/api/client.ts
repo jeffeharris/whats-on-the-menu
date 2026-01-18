@@ -1,4 +1,4 @@
-import type { FoodItem, FoodCategory, KidProfile, AvatarColor, SavedMenu, KidSelection, MealRecord, KidMealReview } from '../types';
+import type { FoodItem, KidProfile, AvatarColor, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections } from '../types';
 
 const API_BASE = '/api';
 
@@ -10,11 +10,11 @@ export const foodsApi = {
     return res.json();
   },
 
-  async create(name: string, category: FoodCategory, imageUrl: string | null): Promise<FoodItem> {
+  async create(name: string, tags: string[], imageUrl: string | null): Promise<FoodItem> {
     const res = await fetch(`${API_BASE}/foods`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, category, imageUrl }),
+      body: JSON.stringify({ name, tags, imageUrl }),
     });
     if (!res.ok) throw new Error('Failed to create food');
     return res.json();
@@ -78,11 +78,11 @@ export const menusApi = {
     return res.json();
   },
 
-  async create(mains: string[], sides: string[], name?: string): Promise<SavedMenu> {
+  async create(groups: MenuGroup[], name?: string): Promise<SavedMenu> {
     const res = await fetch(`${API_BASE}/menus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, mains, sides }),
+      body: JSON.stringify({ name, groups }),
     });
     if (!res.ok) throw new Error('Failed to create menu');
     return res.json();
@@ -118,11 +118,11 @@ export const menusApi = {
     if (!res.ok) throw new Error('Failed to set active menu');
   },
 
-  async addSelection(kidId: string, mainId: string | null, sideIds: string[]): Promise<KidSelection> {
+  async addSelection(kidId: string, selections: GroupSelections): Promise<KidSelection> {
     const res = await fetch(`${API_BASE}/menus/selections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kidId, mainId, sideIds }),
+      body: JSON.stringify({ kidId, selections }),
     });
     if (!res.ok) throw new Error('Failed to add selection');
     return res.json();

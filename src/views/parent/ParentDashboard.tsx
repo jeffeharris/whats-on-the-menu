@@ -17,9 +17,6 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
   const { currentMenu } = useMenu();
   const { meals } = useMealHistory();
 
-  const mainCount = items.filter((i) => i.category === 'main').length;
-  const sideCount = items.filter((i) => i.category === 'side').length;
-
   return (
     <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
       <header className="flex-shrink-0 flex justify-between items-center p-4 md:p-6 pb-0 max-w-2xl mx-auto w-full">
@@ -45,7 +42,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
             <div className="flex-1">
               <h2 className="font-semibold text-gray-800">Food Library</h2>
               <p className="text-sm text-gray-500">
-                {items.length} items ({mainCount} mains, {sideCount} sides)
+                {items.length} {items.length === 1 ? 'item' : 'items'}
               </p>
             </div>
             <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

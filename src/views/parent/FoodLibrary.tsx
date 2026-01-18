@@ -5,7 +5,7 @@ import { Modal } from '../../components/common/Modal';
 import { FoodItemForm } from '../../components/parent/FoodItemForm';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
-import type { FoodItem, FoodCategory } from '../../types';
+import type { FoodItem } from '../../types';
 
 interface FoodLibraryProps {
   onBack: () => void;
@@ -17,14 +17,11 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
-  const mains = items.filter((i) => i.category === 'main');
-  const sides = items.filter((i) => i.category === 'side');
-
-  const handleSubmit = async (name: string, category: FoodCategory, imageUrl: string | null) => {
+  const handleSubmit = async (name: string, tags: string[], imageUrl: string | null) => {
     if (editingItem) {
-      await updateItem(editingItem.id, { name, category, imageUrl });
+      await updateItem(editingItem.id, { name, tags, imageUrl });
     } else {
-      await addItem(name, category, imageUrl);
+      await addItem(name, tags, imageUrl);
     }
     setIsFormOpen(false);
     setEditingItem(null);
@@ -45,57 +42,6 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
     setImageErrors((prev) => new Set(prev).add(id));
   };
 
-  const renderFoodList = (foodItems: FoodItem[], title: string) => (
-    <div className="mb-6">
-      <h2 className="text-lg font-semibold text-gray-800 mb-3">{title}</h2>
-      {foodItems.length === 0 ? (
-        <p className="text-gray-500 text-center py-4">No {title.toLowerCase()} yet</p>
-      ) : (
-        <div className="grid gap-3">
-          {foodItems.map((item) => {
-            const hasError = imageErrors.has(item.id);
-            return (
-              <Card key={item.id} padding="sm" className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                  <img
-                    src={hasError || !item.imageUrl ? getPlaceholderImageUrl() : item.imageUrl}
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                    onError={() => handleImageError(item.id)}
-                  />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-gray-800">{item.name}</h3>
-                  <p className="text-sm text-gray-500 capitalize">{item.category}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className="p-2 text-gray-500 hover:text-parent-primary transition-colors"
-                    aria-label={`Edit ${item.name}`}
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="p-2 text-gray-500 hover:text-danger transition-colors"
-                    aria-label={`Delete ${item.name}`}
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
       <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
@@ -115,9 +61,63 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
-        <div className="max-w-lg md:max-w-3xl mx-auto md:grid md:grid-cols-2 md:gap-8">
-          {renderFoodList(mains, 'Main Dishes')}
-          {renderFoodList(sides, 'Side Dishes')}
+        <div className="max-w-lg md:max-w-3xl mx-auto">
+          {items.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No food items yet. Add some!</p>
+          ) : (
+            <div className="grid gap-3">
+              {items.map((item) => {
+                const hasError = imageErrors.has(item.id);
+                return (
+                  <Card key={item.id} padding="sm" className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                      <img
+                        src={hasError || !item.imageUrl ? getPlaceholderImageUrl() : item.imageUrl}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        onError={() => handleImageError(item.id)}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-gray-800">{item.name}</h3>
+                      {item.tags && item.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {item.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="p-2 text-gray-500 hover:text-parent-primary transition-colors"
+                        aria-label={`Edit ${item.name}`}
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="p-2 text-gray-500 hover:text-danger transition-colors"
+                        aria-label={`Delete ${item.name}`}
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       </main>
 
@@ -139,7 +139,7 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
             editingItem
               ? {
                   name: editingItem.name,
-                  category: editingItem.category,
+                  tags: editingItem.tags || [],
                   imageUrl: editingItem.imageUrl,
                 }
               : undefined

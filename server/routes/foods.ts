@@ -19,7 +19,9 @@ interface FoodItem {
   id: string;
   name: string;
   imageUrl: string | null;
-  category: 'main' | 'side';
+  tags: string[];
+  // Legacy field for migration
+  category?: 'main' | 'side';
 }
 
 interface FoodsData {
@@ -30,24 +32,77 @@ const router = Router();
 const FILENAME = 'foods.json';
 const DEFAULT_DATA: FoodsData = { items: [] };
 
+// Migration: Convert old category field to tags
+function migrateFood(item: FoodItem): FoodItem {
+  // If item already has tags array, no migration needed
+  if (item.tags && Array.isArray(item.tags) && item.tags.length > 0) {
+    // Remove legacy category field
+    const { category, ...rest } = item;
+    return rest as FoodItem;
+  }
+
+  // Migrate category to tags
+  const tags: string[] = [];
+  if (item.category === 'main') {
+    tags.push('Main');
+  } else if (item.category === 'side') {
+    tags.push('Side');
+  }
+
+  // Remove legacy category field
+  const { category, ...rest } = item;
+  return { ...rest, tags } as FoodItem;
+}
+
+// Migrate all foods and save if changes were made
+function migrateAndGetFoods(): FoodsData {
+  const data = readJsonFile<FoodsData>(FILENAME, DEFAULT_DATA);
+  let needsSave = false;
+
+  const migratedItems = data.items.map((item) => {
+    // Check if migration is needed
+    if (!item.tags || !Array.isArray(item.tags) || item.tags.length === 0 || item.category) {
+      needsSave = true;
+      return migrateFood(item);
+    }
+    return item;
+  });
+
+  if (needsSave) {
+    const newData = { items: migratedItems };
+    writeJsonFile(FILENAME, newData);
+    return newData;
+  }
+
+  return data;
+}
+
 // GET /api/foods - Get all food items
 router.get('/', (_req, res) => {
-  const data = readJsonFile<FoodsData>(FILENAME, DEFAULT_DATA);
+  const data = migrateAndGetFoods();
   res.json(data);
 });
 
 // POST /api/foods - Create a new food item
 router.post('/', (req, res) => {
-  const { name, category, imageUrl } = req.body;
-  if (!name || !category) {
-    return res.status(400).json({ error: 'Name and category are required' });
+  const { name, tags, imageUrl, category } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'Name is required' });
   }
 
-  const data = readJsonFile<FoodsData>(FILENAME, DEFAULT_DATA);
+  const data = migrateAndGetFoods();
+
+  // Support both new tags and legacy category for backwards compatibility
+  let foodTags: string[] = tags || [];
+  if ((!tags || tags.length === 0) && category) {
+    // Legacy support: convert category to tag
+    foodTags = category === 'main' ? ['Main'] : ['Side'];
+  }
+
   const newItem: FoodItem = {
     id: generateId(),
     name,
-    category,
+    tags: foodTags,
     imageUrl: imageUrl || null,
   };
   data.items.push(newItem);
@@ -60,7 +115,7 @@ router.put('/:id', (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
-  const data = readJsonFile<FoodsData>(FILENAME, DEFAULT_DATA);
+  const data = migrateAndGetFoods();
   const index = data.items.findIndex((item) => item.id === id);
   if (index === -1) {
     return res.status(404).json({ error: 'Food item not found' });
@@ -76,6 +131,12 @@ router.put('/:id', (req, res) => {
     }
   }
 
+  // Handle legacy category updates by converting to tags
+  if ('category' in updates && !('tags' in updates)) {
+    updates.tags = updates.category === 'main' ? ['Main'] : ['Side'];
+    delete updates.category;
+  }
+
   data.items[index] = { ...data.items[index], ...updates, id };
   writeJsonFile(FILENAME, data);
   res.json(data.items[index]);
@@ -85,7 +146,7 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
 
-  const data = readJsonFile<FoodsData>(FILENAME, DEFAULT_DATA);
+  const data = migrateAndGetFoods();
   const index = data.items.findIndex((item) => item.id === id);
   if (index === -1) {
     return res.status(404).json({ error: 'Food item not found' });

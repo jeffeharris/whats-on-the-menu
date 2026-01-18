@@ -8,11 +8,27 @@ import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
 import { useMealHistory } from '../../contexts/MealHistoryContext';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
-import type { CompletionStatus, KidMealReview } from '../../types';
+import type { CompletionStatus, KidMealReview, KidSelection } from '../../types';
 
 interface MealReviewProps {
   onComplete: () => void;
   onBack: () => void;
+}
+
+// Helper to get all food IDs from a selection (handles both old and new format)
+function getAllFoodIds(selection: KidSelection): string[] {
+  const ids: string[] = [];
+  if (selection.selections) {
+    // New structure
+    Object.values(selection.selections).forEach((groupIds) => {
+      ids.push(...groupIds);
+    });
+  } else {
+    // Legacy structure
+    if (selection.mainId) ids.push(selection.mainId);
+    if (selection.sideIds) ids.push(...selection.sideIds);
+  }
+  return ids;
 }
 
 export function MealReview({ onComplete, onBack }: MealReviewProps) {
@@ -25,36 +41,26 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
   const [reviews, setReviews] = useState<{ [kidId: string]: KidMealReview }>(() => {
     const initial: { [kidId: string]: KidMealReview } = {};
     selections.forEach((selection) => {
+      const allFoodIds = getAllFoodIds(selection);
       initial[selection.kidId] = {
         kidId: selection.kidId,
-        mainCompletion: null,
-        sideCompletions: selection.sideIds.reduce((acc, sideId) => {
-          acc[sideId] = null;
+        completions: allFoodIds.reduce((acc, foodId) => {
+          acc[foodId] = null;
           return acc;
-        }, {} as { [sideId: string]: CompletionStatus }),
+        }, {} as { [foodId: string]: CompletionStatus }),
       };
     });
     return initial;
   });
 
-  const updateMainCompletion = (kidId: string, status: CompletionStatus) => {
+  const updateCompletion = (kidId: string, foodId: string, status: CompletionStatus) => {
     setReviews((prev) => ({
       ...prev,
       [kidId]: {
         ...prev[kidId],
-        mainCompletion: status,
-      },
-    }));
-  };
-
-  const updateSideCompletion = (kidId: string, sideId: string, status: CompletionStatus) => {
-    setReviews((prev) => ({
-      ...prev,
-      [kidId]: {
-        ...prev[kidId],
-        sideCompletions: {
-          ...prev[kidId].sideCompletions,
-          [sideId]: status,
+        completions: {
+          ...prev[kidId].completions,
+          [foodId]: status,
         },
       },
     }));
@@ -117,8 +123,8 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
           <div className="grid gap-6 md:grid-cols-2 mb-6">
         {selections.map((selection) => {
           const kid = getProfile(selection.kidId);
-          const mainItem = selection.mainId ? getItem(selection.mainId) : null;
-          const sideItems = selection.sideIds.map((id) => getItem(id)).filter(Boolean);
+          const allFoodIds = getAllFoodIds(selection);
+          const foodItems = allFoodIds.map((id) => getItem(id)).filter(Boolean);
           const review = reviews[selection.kidId];
 
           if (!kid) return null;
@@ -131,32 +137,8 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
                 <h2 className="text-xl font-semibold text-gray-800">{kid.name}'s Meal</h2>
               </div>
 
-              {/* Main dish */}
-              {mainItem && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200">
-                      <img
-                        src={mainItem.imageUrl || getPlaceholderImageUrl()}
-                        alt={mainItem.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <span className="text-xs text-gray-500 uppercase tracking-wider">Main</span>
-                      <p className="font-medium text-gray-800">{mainItem.name}</p>
-                    </div>
-                  </div>
-                  <CompletionStatusSelector
-                    value={review.mainCompletion}
-                    onChange={(status) => updateMainCompletion(selection.kidId, status)}
-                    foodName={mainItem.name}
-                  />
-                </div>
-              )}
-
-              {/* Side dishes */}
-              {sideItems.map((item) => item && (
+              {/* Food items */}
+              {foodItems.map((item) => item && (
                 <div key={item.id} className="mb-4 p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200">
@@ -167,13 +149,17 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
                       />
                     </div>
                     <div className="flex-1">
-                      <span className="text-xs text-gray-500 uppercase tracking-wider">Side</span>
+                      {item.tags && item.tags.length > 0 && (
+                        <span className="text-xs text-gray-500 uppercase tracking-wider">
+                          {item.tags[0]}
+                        </span>
+                      )}
                       <p className="font-medium text-gray-800">{item.name}</p>
                     </div>
                   </div>
                   <CompletionStatusSelector
-                    value={review.sideCompletions[item.id]}
-                    onChange={(status) => updateSideCompletion(selection.kidId, item.id, status)}
+                    value={review?.completions?.[item.id] ?? null}
+                    onChange={(status) => updateCompletion(selection.kidId, item.id, status)}
                     foodName={item.name}
                   />
                 </div>

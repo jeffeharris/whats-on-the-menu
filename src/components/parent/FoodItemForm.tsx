@@ -1,19 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '../common/Button';
+import { TagInput } from './TagInput';
 import { usePollinationsImage } from '../../hooks/usePollinationsImage';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { uploadsApi } from '../../api/client';
-import type { FoodCategory } from '../../types';
 
 type ImageSource = 'ai' | 'upload';
 
 interface FoodItemFormProps {
-  onSubmit: (name: string, category: FoodCategory, imageUrl: string | null) => void;
+  onSubmit: (name: string, tags: string[], imageUrl: string | null) => void;
   onCancel: () => void;
   initialValues?: {
     name: string;
-    category: FoodCategory;
+    tags: string[];
     imageUrl: string | null;
   };
 }
@@ -27,7 +27,7 @@ function getInitialImageSource(imageUrl: string | null): ImageSource {
 
 export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemFormProps) {
   const [name, setName] = useState(initialValues?.name || '');
-  const [category, setCategory] = useState<FoodCategory>(initialValues?.category || 'main');
+  const [tags, setTags] = useState<string[]>(initialValues?.tags || []);
   const [imageSource, setImageSource] = useState<ImageSource>(
     getInitialImageSource(initialValues?.imageUrl ?? null)
   );
@@ -48,7 +48,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
     setIsMobileDevice(hasTouch && hasCoarsePointer);
   }, []);
 
-  const { storageStats, refreshStorageStats } = useFoodLibrary();
+  const { storageStats, refreshStorageStats, allTags } = useFoodLibrary();
 
   const { imageUrl: aiImageUrl, isLoading, regenerate } = usePollinationsImage(
     imageSource === 'ai' ? name : ''
@@ -105,7 +105,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
     } else if (imageSource === 'upload') {
       imageUrl = uploadedImageUrl;
     }
-    onSubmit(name.trim(), category, imageUrl);
+    onSubmit(name.trim(), tags, imageUrl);
   };
 
   const isStorageFull = storageStats ? storageStats.percentage >= 100 : false;
@@ -132,23 +132,17 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
         />
       </div>
 
-      {/* Category select */}
+      {/* Tags input */}
       <div>
-        <label htmlFor="food-category" className="block text-sm font-medium text-gray-700 mb-1">
-          Category
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Tags
         </label>
-        <select
-          id="food-category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as FoodCategory)}
-          className="
-            w-full px-4 py-2 rounded-lg border border-gray-300
-            focus:outline-none focus:ring-2 focus:ring-parent-primary focus:border-transparent
-          "
-        >
-          <option value="main">Main Dish</option>
-          <option value="side">Side Dish</option>
-        </select>
+        <TagInput
+          selectedTags={tags}
+          availableTags={allTags}
+          onChange={setTags}
+          placeholder="Add tags (e.g., Protein, Veggie)"
+        />
       </div>
 
       {/* Image options */}

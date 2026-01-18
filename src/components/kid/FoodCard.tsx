@@ -5,6 +5,7 @@ interface FoodCardProps {
   name: string;
   imageUrl: string | null;
   selected?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
   size?: 'md' | 'lg';
   responsive?: boolean;
@@ -14,12 +15,13 @@ export function FoodCard({
   name,
   imageUrl,
   selected = false,
+  disabled = false,
   onClick,
   size = 'lg',
   responsive = false,
 }: FoodCardProps) {
   const [imageError, setImageError] = useState(false);
-  const isClickable = !!onClick;
+  const isClickable = !!onClick && !disabled;
 
   // Responsive sizing adapts to container width via CSS grid
   const sizeStyles = {
@@ -32,6 +34,12 @@ export function FoodCard({
     lg: responsive ? 'aspect-[4/3]' : 'h-36',
   };
 
+  const handleClick = () => {
+    if (isClickable && onClick) {
+      onClick();
+    }
+  };
+
   return (
     <div
       className={`
@@ -40,12 +48,13 @@ export function FoodCard({
         bg-white rounded-2xl shadow-lg overflow-hidden
         flex flex-col
         ${isClickable ? 'cursor-pointer touch-feedback' : ''}
+        ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
         ${selected ? 'ring-4 ring-kid-secondary scale-105' : ''}
         transition-all duration-150
       `}
-      onClick={onClick}
-      role={isClickable ? 'button' : undefined}
-      tabIndex={isClickable ? 0 : undefined}
+      onClick={handleClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : disabled ? -1 : undefined}
       onKeyDown={
         isClickable
           ? (e) => {
@@ -56,8 +65,9 @@ export function FoodCard({
             }
           : undefined
       }
-      aria-label={isClickable ? `Select ${name}` : name}
+      aria-label={onClick ? `Select ${name}` : name}
       aria-pressed={selected}
+      aria-disabled={disabled}
     >
       {/* Image */}
       <div className={`${imageSizeStyles[size]} bg-gray-100 overflow-hidden`}>
@@ -92,6 +102,27 @@ export function FoodCard({
               d="M5 13l4 4L19 7"
             />
           </svg>
+        </div>
+      )}
+
+      {/* Disabled indicator - shows when item is selected elsewhere */}
+      {disabled && !selected && (
+        <div className="absolute inset-0 bg-gray-500/20 flex items-center justify-center">
+          <div className="bg-white/80 rounded-full p-2">
+            <svg
+              className="w-6 h-6 text-gray-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
         </div>
       )}
     </div>

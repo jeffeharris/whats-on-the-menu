@@ -14,17 +14,44 @@ interface PlateConfirmationProps {
 export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { getSelectionForKid, selectionsLocked } = useMenu();
+  const { currentMenu, getSelectionForKid, selectionsLocked } = useMenu();
 
   const kid = getProfile(kidId);
   const selection = getSelectionForKid(kidId);
 
-  if (!kid || !selection) {
+  if (!kid || !selection || !currentMenu) {
     return null;
   }
 
-  const mainItem = selection.mainId ? getItem(selection.mainId) : null;
-  const sideItems = selection.sideIds.map((id) => getItem(id)).filter(Boolean);
+  // Get items from the new selections structure, grouped by menu groups
+  const groupedItems: { label: string; items: ReturnType<typeof getItem>[] }[] = [];
+
+  if (selection.selections) {
+    // New structure
+    currentMenu.groups
+      .sort((a, b) => a.order - b.order)
+      .forEach((group) => {
+        const selectedIds = selection.selections[group.id] || [];
+        const items = selectedIds.map((id) => getItem(id)).filter(Boolean);
+        if (items.length > 0) {
+          groupedItems.push({ label: group.label, items });
+        }
+      });
+  } else {
+    // Legacy structure: mainId and sideIds
+    if (selection.mainId) {
+      const mainItem = getItem(selection.mainId);
+      if (mainItem) {
+        groupedItems.push({ label: 'Main', items: [mainItem] });
+      }
+    }
+    if (selection.sideIds && selection.sideIds.length > 0) {
+      const sideItems = selection.sideIds.map((id) => getItem(id)).filter(Boolean);
+      if (sideItems.length > 0) {
+        groupedItems.push({ label: 'Sides', items: sideItems });
+      }
+    }
+  }
 
   return (
     <div className="h-full bg-kid-bg flex flex-col p-4 md:p-8 overflow-hidden">
@@ -40,44 +67,26 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
           </p>
         </div>
 
-        {/* Selected items */}
+        {/* Selected items by group */}
         <div className="flex-1">
-          {/* Main */}
-          {mainItem && (
-            <div className="mb-6">
+          {groupedItems.map((group, idx) => (
+            <div key={idx} className="mb-6">
               <h2 className="text-xl font-semibold text-gray-700 mb-3 text-center">
-                Main
-              </h2>
-              <div className="flex justify-center">
-                <FoodCard
-                  name={mainItem.name}
-                  imageUrl={mainItem.imageUrl}
-                  selected
-                  size="lg"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Sides */}
-          {sideItems.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-700 mb-3 text-center">
-                Sides
+                {group.label}
               </h2>
               <div className="flex justify-center gap-4 md:gap-6 flex-wrap">
-                {sideItems.map((item) => item && (
+                {group.items.map((item) => item && (
                   <FoodCard
                     key={item.id}
                     name={item.name}
                     imageUrl={item.imageUrl}
                     selected
-                    size="md"
+                    size={group.items.length === 1 ? 'lg' : 'md'}
                   />
                 ))}
               </div>
             </div>
-          )}
+          ))}
         </div>
 
         {/* Actions */}
