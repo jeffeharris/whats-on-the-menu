@@ -7,6 +7,7 @@ import profilesRouter from './routes/profiles.js';
 import menusRouter from './routes/menus.js';
 import mealsRouter from './routes/meals.js';
 import uploadsRouter from './routes/uploads.js';
+import sharedMenusRouter from './routes/shared-menus.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -23,6 +24,7 @@ app.use('/api/profiles', profilesRouter);
 app.use('/api/menus', menusRouter);
 app.use('/api/meals', mealsRouter);
 app.use('/api/uploads', uploadsRouter);
+app.use('/api/shared-menus', sharedMenusRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

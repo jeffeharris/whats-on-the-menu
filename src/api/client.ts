@@ -1,4 +1,4 @@
-import type { FoodItem, KidProfile, AvatarColor, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections } from '../types';
+import type { FoodItem, KidProfile, AvatarColor, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup } from '../types';
 
 const API_BASE = '/api';
 
@@ -132,6 +132,35 @@ export const menusApi = {
     const res = await fetch(`${API_BASE}/menus/selections`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to clear selections');
   },
+
+  async getPresets(): Promise<{ presets: Record<PresetSlot, SavedMenu | null> }> {
+    const res = await fetch(`${API_BASE}/menus/presets`);
+    if (!res.ok) throw new Error('Failed to fetch presets');
+    return res.json();
+  },
+
+  async updatePreset(slot: PresetSlot, name: string, groups: MenuGroup[]): Promise<SavedMenu> {
+    const res = await fetch(`${API_BASE}/menus/presets/${slot}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, groups }),
+    });
+    if (!res.ok) throw new Error('Failed to update preset');
+    return res.json();
+  },
+
+  async deletePreset(slot: PresetSlot): Promise<void> {
+    const res = await fetch(`${API_BASE}/menus/presets/${slot}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete preset');
+  },
+
+  async copyPreset(fromSlot: PresetSlot, toSlot: PresetSlot): Promise<SavedMenu> {
+    const res = await fetch(`${API_BASE}/menus/presets/${fromSlot}/copy/${toSlot}`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Failed to copy preset');
+    return res.json();
+  },
 };
 
 // Uploads API
@@ -206,5 +235,67 @@ export const mealsApi = {
   async delete(id: string): Promise<void> {
     const res = await fetch(`${API_BASE}/meals/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete meal');
+  },
+};
+
+// Shared Menus API
+export const sharedMenusApi = {
+  async create(title: string, description: string | undefined, groups: SharedMenuGroup[]): Promise<SharedMenu> {
+    const res = await fetch(`${API_BASE}/shared-menus`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description, groups }),
+    });
+    if (!res.ok) throw new Error('Failed to create shared menu');
+    return res.json();
+  },
+
+  async getAll(): Promise<{ menus: SharedMenu[] }> {
+    const res = await fetch(`${API_BASE}/shared-menus`);
+    if (!res.ok) throw new Error('Failed to fetch shared menus');
+    return res.json();
+  },
+
+  async get(id: string): Promise<{ menu: SharedMenu }> {
+    const res = await fetch(`${API_BASE}/shared-menus/${id}`);
+    if (!res.ok) throw new Error('Failed to fetch shared menu');
+    return res.json();
+  },
+
+  async getByToken(token: string): Promise<{ menu: SharedMenu }> {
+    const res = await fetch(`${API_BASE}/shared-menus/view/${token}`);
+    if (!res.ok) throw new Error('Failed to fetch shared menu');
+    return res.json();
+  },
+
+  async submitResponse(token: string, respondentName: string, selections: { [groupId: string]: string[] }): Promise<SharedMenuResponse> {
+    const res = await fetch(`${API_BASE}/shared-menus/respond/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ respondentName, selections }),
+    });
+    if (!res.ok) throw new Error('Failed to submit response');
+    return res.json();
+  },
+
+  async getResponses(menuId: string): Promise<{ responses: SharedMenuResponse[] }> {
+    const res = await fetch(`${API_BASE}/shared-menus/${menuId}/responses`);
+    if (!res.ok) throw new Error('Failed to fetch responses');
+    return res.json();
+  },
+
+  async update(id: string, updates: Partial<SharedMenu>): Promise<SharedMenu> {
+    const res = await fetch(`${API_BASE}/shared-menus/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error('Failed to update shared menu');
+    return res.json();
+  },
+
+  async delete(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/shared-menus/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete shared menu');
   },
 };

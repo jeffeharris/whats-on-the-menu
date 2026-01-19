@@ -1,13 +1,14 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { MenuBuilderGroup } from '../../components/parent/MenuBuilderGroup';
 import { FoodItemForm } from '../../components/parent/FoodItemForm';
+import { PresetSelector } from '../../components/parent/PresetSelector';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useMenu } from '../../contexts/MenuContext';
 import { useAppState } from '../../contexts/AppStateContext';
 import type { MenuGroup } from '../../types';
-import { SELECTION_PRESET_CONFIG } from '../../types';
+import { SELECTION_PRESET_CONFIG, PRESET_CONFIG } from '../../types';
 
 interface MenuBuilderProps {
   onBack: () => void;
@@ -38,7 +39,16 @@ const DEFAULT_GROUPS: MenuGroup[] = [
 
 export function MenuBuilder({ onBack }: MenuBuilderProps) {
   const { items, addItem } = useFoodLibrary();
-  const { currentMenu, createMenu, clearMenu } = useMenu();
+  const {
+    currentMenu,
+    createMenu,
+    clearMenu,
+    currentPresetSlot,
+    presets,
+    saveCurrentAsPreset,
+    startScratchMenu,
+    loadPresetAsActive,
+  } = useMenu();
   const { setMode } = useAppState();
 
   // Local state for editing groups
@@ -50,12 +60,62 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
   const [isAddFoodOpen, setIsAddFoodOpen] = useState(false);
   const [prefillFoodName, setPrefillFoodName] = useState('');
 
+  // Auto-save debounce timer ref
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Sync with current menu when it changes
   useEffect(() => {
     if (currentMenu?.groups) {
       setGroups(currentMenu.groups);
     }
   }, [currentMenu]);
+
+  // Auto-save effect for presets with 1-second debounce
+  useEffect(() => {
+    if (!currentPresetSlot) return;
+
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Get the preset's current saved state
+    const savedPreset = presets[currentPresetSlot];
+    const savedGroups = savedPreset?.groups;
+
+    // Check if there are actual changes
+    if (savedGroups && JSON.stringify(groups) === JSON.stringify(savedGroups)) {
+      return; // No changes, don't save
+    }
+
+    // Check if menu is valid (at least one group with items meeting preset minimum)
+    const isValid = groups.length > 0 && groups.every((group) => {
+      const presetConfig = SELECTION_PRESET_CONFIG[group.selectionPreset];
+      return group.foodIds.length >= presetConfig.min;
+    });
+
+    if (!isValid) return; // Don't auto-save invalid menus
+
+    // Debounce save
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      setIsSaving(true);
+      try {
+        const presetName = savedPreset?.name || PRESET_CONFIG[currentPresetSlot].label;
+        await saveCurrentAsPreset(currentPresetSlot, presetName, groups);
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 1000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [groups, currentPresetSlot, presets, saveCurrentAsPreset]);
 
   // Memoized updaters to prevent infinite loops in child useEffect
   // Each group gets a stable callback reference that only changes when groups array changes
@@ -97,17 +157,39 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
     return group.foodIds.length >= presetConfig.min;
   });
 
-  // Check if there are changes from the saved menu
-  const hasChanges = !currentMenu ||
-    JSON.stringify(groups) !== JSON.stringify(currentMenu.groups);
+  // Check if there are changes from the saved menu/preset
+  const hasChanges = useMemo(() => {
+    if (currentPresetSlot) {
+      const savedPreset = presets[currentPresetSlot];
+      if (!savedPreset) return groups.some((g) => g.foodIds.length > 0);
+      return JSON.stringify(groups) !== JSON.stringify(savedPreset.groups);
+    }
+    if (!currentMenu) return true;
+    return JSON.stringify(groups) !== JSON.stringify(currentMenu.groups);
+  }, [groups, currentMenu, currentPresetSlot, presets]);
 
   const handleSave = async () => {
-    await createMenu(groups);
+    if (currentPresetSlot) {
+      const presetName = presets[currentPresetSlot]?.name || PRESET_CONFIG[currentPresetSlot].label;
+      await saveCurrentAsPreset(currentPresetSlot, presetName, groups);
+    } else {
+      await createMenu(groups);
+    }
   };
 
   const handleLaunch = async () => {
-    if (hasChanges && isValidMenu) {
-      await createMenu(groups);
+    if (currentPresetSlot) {
+      // For presets, save then set as active
+      if (hasChanges && isValidMenu) {
+        const presetName = presets[currentPresetSlot]?.name || PRESET_CONFIG[currentPresetSlot].label;
+        await saveCurrentAsPreset(currentPresetSlot, presetName, groups);
+      }
+      await loadPresetAsActive(currentPresetSlot);
+    } else {
+      // For scratch menus, create and launch
+      if (hasChanges && isValidMenu) {
+        await createMenu(groups);
+      }
     }
     setMode('kid');
   };
@@ -117,6 +199,11 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
       await clearMenu();
       setGroups(DEFAULT_GROUPS);
     }
+  };
+
+  const handleScratchClick = () => {
+    startScratchMenu();
+    setGroups(DEFAULT_GROUPS);
   };
 
   // Validation message
@@ -147,6 +234,15 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
     setPrefillFoodName('');
   };
 
+  // Get current mode label
+  const getModeLabel = () => {
+    if (currentPresetSlot) {
+      const presetName = presets[currentPresetSlot]?.name || PRESET_CONFIG[currentPresetSlot].label;
+      return `Editing ${presetName}`;
+    }
+    return 'Building from Scratch';
+  };
+
   return (
     <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
       <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
@@ -159,11 +255,20 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <h1 className="text-2xl font-bold text-gray-800 flex-1">Menu Builder</h1>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-800">Menu Builder</h1>
+          <p className="text-sm text-gray-500 flex items-center gap-2">
+            {getModeLabel()}
+            {isSaving && <span className="text-parent-primary">Saving...</span>}
+          </p>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
         <div className="max-w-2xl md:max-w-3xl mx-auto">
+          {/* Preset selector */}
+          <PresetSelector onScratchClick={handleScratchClick} />
+
           {items.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500 mb-4">
@@ -209,7 +314,7 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
 
               {/* Action buttons */}
               <div className="flex flex-col gap-3 mt-8">
-                {hasChanges && isValidMenu && (
+                {!currentPresetSlot && hasChanges && isValidMenu && (
                   <Button variant="secondary" fullWidth onClick={handleSave}>
                     Save Changes
                   </Button>
@@ -220,12 +325,17 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
                   size="lg"
                   fullWidth
                   onClick={handleLaunch}
-                  disabled={!isValidMenu && !currentMenu}
+                  disabled={!isValidMenu}
                 >
-                  {currentMenu && !hasChanges ? 'Launch Kid Mode' : 'Save & Launch Kid Mode'}
+                  {currentPresetSlot
+                    ? `Launch ${presets[currentPresetSlot]?.name || PRESET_CONFIG[currentPresetSlot].label}`
+                    : hasChanges
+                      ? 'Save & Launch Kid Mode'
+                      : 'Launch Kid Mode'
+                  }
                 </Button>
 
-                {currentMenu && (
+                {currentMenu && !currentPresetSlot && (
                   <Button variant="ghost" fullWidth onClick={handleClear}>
                     Clear Menu
                   </Button>

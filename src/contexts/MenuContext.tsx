@@ -1,13 +1,20 @@
-import { createContext, useContext, useCallback, useState, useEffect } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { menusApi } from '../api/client';
-import type { Menu, KidSelection, MenuGroup, GroupSelections } from '../types';
+import type { Menu, KidSelection, MenuGroup, GroupSelections, PresetSlot, SavedMenu } from '../types';
+
+type Presets = Record<PresetSlot, SavedMenu | null>;
 
 interface MenuContextType {
   currentMenu: Menu | null;
   selections: KidSelection[];
   selectionsLocked: boolean;
   loading: boolean;
+  // Preset state
+  presets: Presets;
+  currentPresetSlot: PresetSlot | null;
+  presetsLoading: boolean;
+  // Original menu methods
   createMenu: (groups: MenuGroup[]) => Promise<Menu>;
   clearMenu: () => Promise<void>;
   addSelection: (kidId: string, selections: GroupSelections) => Promise<void>;
@@ -19,6 +26,15 @@ interface MenuContextType {
   updateMenuGroup: (groupId: string, updates: Partial<MenuGroup>) => void;
   addMenuGroup: () => void;
   removeMenuGroup: (groupId: string) => void;
+  // Preset methods
+  loadPreset: (slot: PresetSlot) => void;
+  saveCurrentAsPreset: (slot: PresetSlot, name: string, groups: MenuGroup[]) => Promise<void>;
+  clearPreset: (slot: PresetSlot) => Promise<void>;
+  copyPreset: (fromSlot: PresetSlot, toSlot: PresetSlot) => Promise<void>;
+  renamePreset: (slot: PresetSlot, name: string) => Promise<void>;
+  loadPresetAsActive: (slot: PresetSlot) => Promise<void>;
+  setCurrentPresetSlot: (slot: PresetSlot | null) => void;
+  startScratchMenu: () => void;
 }
 
 const MenuContext = createContext<MenuContextType | null>(null);
@@ -28,25 +44,70 @@ function generateGroupId(): string {
   return `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+// Default groups when starting fresh
+const DEFAULT_GROUPS: MenuGroup[] = [
+  {
+    id: 'main-group',
+    label: 'Main Dishes',
+    foodIds: [],
+    selectionPreset: 'pick-1',
+    order: 0,
+  },
+  {
+    id: 'side-group',
+    label: 'Side Dishes',
+    foodIds: [],
+    selectionPreset: 'pick-1-2',
+    order: 1,
+  },
+];
+
 export function MenuProvider({ children }: { children: ReactNode }) {
   const [currentMenu, setCurrentMenu] = useState<Menu | null>(null);
   const [selections, setSelections] = useState<KidSelection[]>([]);
   const [selectionsLocked, setSelectionsLocked] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Preset state
+  const [presets, setPresets] = useState<Presets>({
+    breakfast: null,
+    snack: null,
+    dinner: null,
+    custom: null,
+  });
+  const [currentPresetSlot, setCurrentPresetSlot] = useState<PresetSlot | null>(null);
+  const [presetsLoading, setPresetsLoading] = useState(true);
+
+  // Track if initial load has happened
+  const initialLoadDone = useRef(false);
+
   useEffect(() => {
-    menusApi.getActive()
-      .then((data) => {
-        if (data.menu) {
+    if (initialLoadDone.current) return;
+    initialLoadDone.current = true;
+
+    Promise.all([
+      menusApi.getActive(),
+      menusApi.getPresets(),
+    ])
+      .then(([activeData, presetsData]) => {
+        if (activeData.menu) {
           setCurrentMenu({
-            id: data.menu.id,
-            groups: data.menu.groups,
+            id: activeData.menu.id,
+            groups: activeData.menu.groups,
           });
+          // If the active menu is a preset, set currentPresetSlot
+          if (activeData.menu.presetSlot) {
+            setCurrentPresetSlot(activeData.menu.presetSlot);
+          }
         }
-        setSelections(data.selections);
+        setSelections(activeData.selections);
+        setPresets(presetsData.presets);
       })
       .catch(console.error)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setPresetsLoading(false);
+      });
   }, []);
 
   const createMenu = useCallback(async (groups: MenuGroup[]): Promise<Menu> => {
@@ -64,6 +125,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     await menusApi.setActive(null);
     setCurrentMenu(null);
     setSelections([]);
+    setCurrentPresetSlot(null);
   }, []);
 
   const addSelection = useCallback(async (kidId: string, groupSelections: GroupSelections) => {
@@ -139,6 +201,88 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Preset methods
+  const loadPreset = useCallback((slot: PresetSlot) => {
+    const preset = presets[slot];
+    if (preset) {
+      setCurrentMenu({
+        id: preset.id,
+        groups: JSON.parse(JSON.stringify(preset.groups)), // Deep clone to avoid mutations
+      });
+      setCurrentPresetSlot(slot);
+    } else {
+      // Empty preset - start with default groups
+      setCurrentMenu({
+        id: `new-${slot}`,
+        groups: JSON.parse(JSON.stringify(DEFAULT_GROUPS)),
+      });
+      setCurrentPresetSlot(slot);
+    }
+  }, [presets]);
+
+  const saveCurrentAsPreset = useCallback(async (slot: PresetSlot, name: string, groups: MenuGroup[]) => {
+    const savedMenu = await menusApi.updatePreset(slot, name, groups);
+    setPresets((prev) => ({
+      ...prev,
+      [slot]: savedMenu,
+    }));
+    setCurrentMenu({
+      id: savedMenu.id,
+      groups: savedMenu.groups,
+    });
+  }, []);
+
+  const clearPreset = useCallback(async (slot: PresetSlot) => {
+    await menusApi.deletePreset(slot);
+    setPresets((prev) => ({
+      ...prev,
+      [slot]: null,
+    }));
+    if (currentPresetSlot === slot) {
+      setCurrentMenu(null);
+      setCurrentPresetSlot(null);
+    }
+  }, [currentPresetSlot]);
+
+  const copyPreset = useCallback(async (fromSlot: PresetSlot, toSlot: PresetSlot) => {
+    const copiedMenu = await menusApi.copyPreset(fromSlot, toSlot);
+    setPresets((prev) => ({
+      ...prev,
+      [toSlot]: copiedMenu,
+    }));
+  }, []);
+
+  const renamePreset = useCallback(async (slot: PresetSlot, name: string) => {
+    const preset = presets[slot];
+    if (!preset) return;
+    const savedMenu = await menusApi.updatePreset(slot, name, preset.groups);
+    setPresets((prev) => ({
+      ...prev,
+      [slot]: savedMenu,
+    }));
+  }, [presets]);
+
+  const loadPresetAsActive = useCallback(async (slot: PresetSlot) => {
+    const preset = presets[slot];
+    if (!preset) return;
+
+    await menusApi.setActive(preset.id);
+    setCurrentMenu({
+      id: preset.id,
+      groups: preset.groups,
+    });
+    setSelections([]);
+    setCurrentPresetSlot(slot);
+  }, [presets]);
+
+  const startScratchMenu = useCallback(() => {
+    setCurrentMenu({
+      id: 'scratch',
+      groups: JSON.parse(JSON.stringify(DEFAULT_GROUPS)),
+    });
+    setCurrentPresetSlot(null);
+  }, []);
+
   return (
     <MenuContext.Provider
       value={{
@@ -146,6 +290,9 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         selections,
         selectionsLocked,
         loading,
+        presets,
+        currentPresetSlot,
+        presetsLoading,
         createMenu,
         clearMenu,
         addSelection,
@@ -157,6 +304,14 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         updateMenuGroup,
         addMenuGroup,
         removeMenuGroup,
+        loadPreset,
+        saveCurrentAsPreset,
+        clearPreset,
+        copyPreset,
+        renamePreset,
+        loadPresetAsActive,
+        setCurrentPresetSlot,
+        startScratchMenu,
       }}
     >
       {children}

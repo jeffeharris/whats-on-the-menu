@@ -8,6 +8,16 @@ export const SELECTION_PRESET_CONFIG: Record<SelectionPreset, { min: number; max
   'pick-2-3': { min: 2, max: 3, label: 'Choose 2 or 3' },
 };
 
+// Preset slots for quick-access menus
+export type PresetSlot = 'breakfast' | 'snack' | 'dinner' | 'custom';
+
+export const PRESET_CONFIG: Record<PresetSlot, { label: string; icon: string; order: number }> = {
+  breakfast: { label: 'Breakfast', icon: 'Sunrise', order: 0 },
+  snack: { label: 'Snack', icon: 'Cookie', order: 1 },
+  dinner: { label: 'Dinner', icon: 'Moon', order: 2 },
+  custom: { label: 'Custom', icon: 'Sun', order: 3 },
+};
+
 // Predefined tags for food items
 export const PREDEFINED_TAGS = ['Protein', 'Veggie', 'Grain', 'Fruit', 'Dairy', 'Breakfast'] as const;
 
@@ -55,6 +65,7 @@ export interface SavedMenu {
   groups: MenuGroup[];
   createdAt: number;
   updatedAt: number;
+  presetSlot?: PresetSlot;
   // Legacy fields for migration - will be removed after migration
   mains?: string[];
   sides?: string[];
@@ -118,4 +129,40 @@ export interface MealRecord {
 
 export interface MealHistoryState {
   meals: MealRecord[];
+}
+
+// Shared Menu Domain - separate from kid menu domain
+export interface SharedMenuOption {
+  id: string;
+  text: string;
+  imageUrl: string | null;
+  order: number;
+}
+
+export interface SharedMenuGroup {
+  id: string;
+  label: string;
+  options: SharedMenuOption[];
+  selectionPreset: SelectionPreset;
+  order: number;
+}
+
+export interface SharedMenu {
+  id: string;
+  token: string;
+  title: string;
+  description?: string;
+  groups: SharedMenuGroup[];
+  createdAt: number;
+  isActive: boolean;
+}
+
+export interface SharedMenuResponse {
+  id: string;
+  menuId: string;
+  respondentName: string;
+  selections: {
+    [groupId: string]: string[];
+  };
+  timestamp: number;
 }

@@ -2,6 +2,9 @@ import { Router } from 'express';
 import { readJsonFile, writeJsonFile, generateId } from '../storage.js';
 
 type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3';
+type PresetSlot = 'breakfast' | 'snack' | 'dinner' | 'custom';
+
+const VALID_PRESET_SLOTS: PresetSlot[] = ['breakfast', 'snack', 'dinner', 'custom'];
 
 interface MenuGroup {
   id: string;
@@ -17,6 +20,7 @@ interface SavedMenu {
   groups: MenuGroup[];
   createdAt: number;
   updatedAt: number;
+  presetSlot?: PresetSlot;
   // Legacy fields for migration
   mains?: string[];
   sides?: string[];
@@ -274,6 +278,148 @@ router.delete('/selections', (_req, res) => {
   data.selections = [];
   writeJsonFile(FILENAME, data);
   res.status(204).send();
+});
+
+// GET /api/menus/presets - Get all 4 presets
+router.get('/presets', (_req, res) => {
+  const data = migrateAndGetData();
+  const presets: Record<PresetSlot, SavedMenu | null> = {
+    breakfast: null,
+    snack: null,
+    dinner: null,
+    custom: null,
+  };
+
+  for (const menu of data.menus) {
+    if (menu.presetSlot && VALID_PRESET_SLOTS.includes(menu.presetSlot)) {
+      presets[menu.presetSlot] = menu;
+    }
+  }
+
+  res.json({ presets });
+});
+
+// PUT /api/menus/presets/:slot - Create/update a preset slot
+router.put('/presets/:slot', (req, res) => {
+  const { slot } = req.params;
+  const { name, groups } = req.body;
+
+  if (!VALID_PRESET_SLOTS.includes(slot as PresetSlot)) {
+    return res.status(400).json({ error: 'Invalid preset slot' });
+  }
+
+  if (!groups || !Array.isArray(groups)) {
+    return res.status(400).json({ error: 'groups is required' });
+  }
+
+  const data = migrateAndGetData();
+  const now = Date.now();
+
+  // Find existing preset for this slot
+  const existingIndex = data.menus.findIndex((m) => m.presetSlot === slot);
+
+  if (existingIndex !== -1) {
+    // Update existing preset
+    data.menus[existingIndex] = {
+      ...data.menus[existingIndex],
+      name: name || data.menus[existingIndex].name,
+      groups,
+      updatedAt: now,
+    };
+    writeJsonFile(FILENAME, data);
+    res.json(data.menus[existingIndex]);
+  } else {
+    // Create new preset
+    const newMenu: SavedMenu = {
+      id: generateId(),
+      name: name || slot.charAt(0).toUpperCase() + slot.slice(1),
+      groups,
+      presetSlot: slot as PresetSlot,
+      createdAt: now,
+      updatedAt: now,
+    };
+    data.menus.push(newMenu);
+    writeJsonFile(FILENAME, data);
+    res.status(201).json(newMenu);
+  }
+});
+
+// DELETE /api/menus/presets/:slot - Clear a preset slot
+router.delete('/presets/:slot', (req, res) => {
+  const { slot } = req.params;
+
+  if (!VALID_PRESET_SLOTS.includes(slot as PresetSlot)) {
+    return res.status(400).json({ error: 'Invalid preset slot' });
+  }
+
+  const data = migrateAndGetData();
+  const index = data.menus.findIndex((m) => m.presetSlot === slot);
+
+  if (index === -1) {
+    return res.status(404).json({ error: 'Preset not found' });
+  }
+
+  const deletedId = data.menus[index].id;
+  data.menus.splice(index, 1);
+
+  // If deleted preset was active, clear active menu and selections
+  if (data.activeMenuId === deletedId) {
+    data.activeMenuId = null;
+    data.selections = [];
+  }
+
+  writeJsonFile(FILENAME, data);
+  res.status(204).send();
+});
+
+// POST /api/menus/presets/:fromSlot/copy/:toSlot - Copy preset between slots
+router.post('/presets/:fromSlot/copy/:toSlot', (req, res) => {
+  const { fromSlot, toSlot } = req.params;
+
+  if (!VALID_PRESET_SLOTS.includes(fromSlot as PresetSlot)) {
+    return res.status(400).json({ error: 'Invalid source preset slot' });
+  }
+  if (!VALID_PRESET_SLOTS.includes(toSlot as PresetSlot)) {
+    return res.status(400).json({ error: 'Invalid target preset slot' });
+  }
+
+  const data = migrateAndGetData();
+  const sourceIndex = data.menus.findIndex((m) => m.presetSlot === fromSlot);
+
+  if (sourceIndex === -1) {
+    return res.status(404).json({ error: 'Source preset not found' });
+  }
+
+  const sourceMenu = data.menus[sourceIndex];
+  const now = Date.now();
+
+  // Check if target slot already has a preset
+  const targetIndex = data.menus.findIndex((m) => m.presetSlot === toSlot);
+
+  if (targetIndex !== -1) {
+    // Update existing target preset
+    data.menus[targetIndex] = {
+      ...data.menus[targetIndex],
+      name: sourceMenu.name,
+      groups: JSON.parse(JSON.stringify(sourceMenu.groups)), // Deep clone
+      updatedAt: now,
+    };
+    writeJsonFile(FILENAME, data);
+    res.json(data.menus[targetIndex]);
+  } else {
+    // Create new preset in target slot
+    const newMenu: SavedMenu = {
+      id: generateId(),
+      name: sourceMenu.name,
+      groups: JSON.parse(JSON.stringify(sourceMenu.groups)), // Deep clone
+      presetSlot: toSlot as PresetSlot,
+      createdAt: now,
+      updatedAt: now,
+    };
+    data.menus.push(newMenu);
+    writeJsonFile(FILENAME, data);
+    res.status(201).json(newMenu);
+  }
 });
 
 // PUT /api/menus/:id - Update a menu

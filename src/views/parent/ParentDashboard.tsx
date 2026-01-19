@@ -1,21 +1,30 @@
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
+import { QuickLaunchPresets } from '../../components/parent/QuickLaunchPresets';
 import { useAppState } from '../../contexts/AppStateContext';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
 import { useMealHistory } from '../../contexts/MealHistoryContext';
+import type { PresetSlot } from '../../types';
+
+const FEATURE_SHARED_MENUS = import.meta.env.VITE_FEATURE_SHARED_MENUS === 'true';
 
 interface ParentDashboardProps {
-  onNavigate: (view: 'food-library' | 'kid-profiles' | 'menu-builder' | 'settings' | 'meal-history-list') => void;
+  onNavigate: (view: 'food-library' | 'kid-profiles' | 'menu-builder' | 'settings' | 'meal-history-list' | 'shared-menus-list') => void;
 }
 
 export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
-  const { logoutParent } = useAppState();
+  const { logoutParent, setMode } = useAppState();
   const { items } = useFoodLibrary();
   const { profiles } = useKidProfiles();
-  const { currentMenu } = useMenu();
+  const { currentMenu, loadPresetAsActive } = useMenu();
   const { meals } = useMealHistory();
+
+  const handleQuickLaunch = async (slot: PresetSlot) => {
+    await loadPresetAsActive(slot);
+    setMode('kid');
+  };
 
   return (
     <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
@@ -27,7 +36,11 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="grid gap-4 max-w-lg md:max-w-2xl mx-auto md:grid-cols-2">
+        <div className="max-w-lg md:max-w-2xl mx-auto">
+          {/* Quick Launch Presets */}
+          <QuickLaunchPresets onLaunch={handleQuickLaunch} />
+
+          <div className="grid gap-4 md:grid-cols-2">
         {/* Food Library */}
         <Card
           onClick={() => onNavigate('food-library')}
@@ -120,6 +133,29 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
           </div>
         </Card>
 
+        {/* Shared Menus */}
+        {FEATURE_SHARED_MENUS && (
+          <Card
+            onClick={() => onNavigate('shared-menus-list')}
+            className="hover:shadow-lg transition-shadow"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h2 className="font-semibold text-gray-800">Shared Menus</h2>
+                <p className="text-sm text-gray-500">Create shareable links</p>
+              </div>
+              <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </Card>
+        )}
+
         {/* Settings */}
         <Card
           onClick={() => onNavigate('settings')}
@@ -141,6 +177,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
             </svg>
           </div>
         </Card>
+          </div>
         </div>
       </main>
     </div>
