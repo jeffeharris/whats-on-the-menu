@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { useSharedMenu } from '../../contexts/SharedMenuContext';
-import { generateAIImageUrl } from '../../utils/aiImageGenerator';
+import { useImageGenerationContext } from '../../contexts/ImageGenerationContext';
 import type { SharedMenuGroup, SharedMenuOption, SelectionPreset } from '../../types';
 import { SELECTION_PRESET_CONFIG } from '../../types';
 
@@ -21,6 +21,7 @@ function generateGroupId(): string {
 
 export function SharedMenuBuilder({ onBack, onSuccess }: SharedMenuBuilderProps) {
   const { createMenu } = useSharedMenu();
+  const { getProviderService } = useImageGenerationContext();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [groups, setGroups] = useState<SharedMenuGroup[]>([
@@ -81,8 +82,18 @@ export function SharedMenuBuilder({ onBack, onSuccess }: SharedMenuBuilderProps)
 
     setGeneratingImage(optionId);
     try {
-      const imageUrl = generateAIImageUrl(text);
+      const provider = getProviderService();
+      const result = provider.generateImageUrl({
+        prompt: text,
+        width: 512,
+        height: 512,
+      });
+
+      // Handle both sync (Pollinations) and async (Runware) providers
+      const imageUrl = result instanceof Promise ? await result : result;
       updateOption(groupId, optionId, { imageUrl });
+    } catch (error) {
+      console.error('Failed to generate image:', error);
     } finally {
       setGeneratingImage(null);
     }
@@ -177,7 +188,7 @@ export function SharedMenuBuilder({ onBack, onSuccess }: SharedMenuBuilderProps)
           </Card>
 
           {/* Groups */}
-          {groups.map((group, groupIndex) => (
+          {groups.map((group) => (
             <Card key={group.id}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3">

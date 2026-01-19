@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '../common/Button';
 import { TagInput } from './TagInput';
-import { usePollinationsImage } from '../../hooks/usePollinationsImage';
+import { useImageGeneration } from '../../hooks/useImageGeneration';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { uploadsApi } from '../../api/client';
@@ -50,7 +50,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
 
   const { storageStats, refreshStorageStats, allTags } = useFoodLibrary();
 
-  const { imageUrl: aiImageUrl, isLoading, regenerate } = usePollinationsImage(
+  const { imageUrl: aiImageUrl, isLoading, regenerate } = useImageGeneration(
     imageSource === 'ai' ? name : ''
   );
 

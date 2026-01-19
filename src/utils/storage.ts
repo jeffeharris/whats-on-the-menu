@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   KID_PROFILES: 'whats-on-menu-kid-profiles',
   MENU: 'whats-on-menu-menu',
   MEAL_HISTORY: 'whats-on-menu-meal-history',
+  IMAGE_GENERATION: 'whats-on-menu-image-generation',
 } as const;
 
 export function getStorageItem<T>(key: string, defaultValue: T): T {

@@ -4,6 +4,8 @@ import { Card } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
 import { PinPad } from '../../components/common/PinPad';
 import { useAppState } from '../../contexts/AppStateContext';
+import { useImageGenerationContext } from '../../contexts/ImageGenerationContext';
+import type { ImageProvider } from '../../services/imageGeneration';
 
 interface SettingsProps {
   onBack: () => void;
@@ -11,9 +13,14 @@ interface SettingsProps {
 
 export function Settings({ onBack }: SettingsProps) {
   const { setParentPin, parentPin } = useAppState();
+  const { provider, setProvider } = useImageGenerationContext();
   const [showPinModal, setShowPinModal] = useState(false);
   const [step, setStep] = useState<'verify' | 'new'>('verify');
   const [error, setError] = useState('');
+
+  const handleProviderChange = (newProvider: ImageProvider) => {
+    setProvider(newProvider);
+  };
 
   const handleVerifyPin = (pin: string) => {
     if (pin === parentPin) {
@@ -65,6 +72,45 @@ export function Settings({ onBack }: SettingsProps) {
             <Button variant="ghost" size="sm" onClick={() => setShowPinModal(true)}>
               Change
             </Button>
+          </div>
+        </Card>
+
+        <Card className="mb-4">
+          <div>
+            <h2 className="font-semibold text-gray-800 mb-1">Image Generation</h2>
+            <p className="text-sm text-gray-500 mb-3">
+              Choose which AI service generates food images
+            </p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="image-provider"
+                  value="pollinations"
+                  checked={provider === 'pollinations'}
+                  onChange={() => handleProviderChange('pollinations')}
+                  className="w-4 h-4 text-parent-primary focus:ring-parent-primary"
+                />
+                <div className="flex-1">
+                  <span className="font-medium text-gray-800">Pollinations</span>
+                  <p className="text-xs text-gray-500">Free, no API key required</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="image-provider"
+                  value="runware"
+                  checked={provider === 'runware'}
+                  onChange={() => handleProviderChange('runware')}
+                  className="w-4 h-4 text-parent-primary focus:ring-parent-primary"
+                />
+                <div className="flex-1">
+                  <span className="font-medium text-gray-800">Runware</span>
+                  <p className="text-xs text-gray-500">Fast, requires API key (server-side)</p>
+                </div>
+              </label>
+            </div>
           </div>
         </Card>
 

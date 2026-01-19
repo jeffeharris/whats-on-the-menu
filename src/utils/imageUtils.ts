@@ -1,17 +1,4 @@
 /**
- * Generate a Pollinations.ai image URL for a food item
- * @param foodName - The name of the food item
- * @returns URL string for the AI-generated image
- */
-export function generateFoodImageUrl(foodName: string): string {
-  const prompt = `A friendly cartoon illustration of ${foodName}, simple, colorful, appetizing, white background, for children`;
-  const encodedPrompt = encodeURIComponent(prompt);
-  const apiKey = import.meta.env.VITE_POLLINATIONS_API_KEY;
-  const keyParam = apiKey ? `&key=${apiKey}` : '';
-  return `https://gen.pollinations.ai/image/${encodedPrompt}?width=400&height=400&model=flux${keyParam}`;
-}
-
-/**
  * Generate a unique ID
  */
 export function generateId(): string {
