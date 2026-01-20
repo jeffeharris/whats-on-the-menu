@@ -37,21 +37,19 @@ export function SharedMenuView({ token }: SharedMenuViewProps) {
       const preset = SELECTION_PRESET_CONFIG[group.selectionPreset];
 
       if (current.includes(optionId)) {
+        // Deselect if already selected
         return { ...prev, [groupId]: current.filter((id) => id !== optionId) };
       } else {
         if (current.length >= preset.max) {
-          return prev;
+          // At max - replace the oldest selection with the new one
+          const newSelections = [...current.slice(1), optionId];
+          return { ...prev, [groupId]: newSelections };
         }
         return { ...prev, [groupId]: [...current, optionId] };
       }
     });
   };
 
-  const isGroupAtMax = (groupId: string, group: SharedMenuGroup): boolean => {
-    const current = selections[groupId] || [];
-    const preset = SELECTION_PRESET_CONFIG[group.selectionPreset];
-    return current.length >= preset.max;
-  };
 
   const handleSubmit = async () => {
     if (!respondentName.trim()) {
@@ -111,20 +109,20 @@ export function SharedMenuView({ token }: SharedMenuViewProps) {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="max-w-lg mx-auto px-6 py-12">
+      <div className="w-full max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-2xl font-medium text-white mb-2">{menu.title}</h1>
-          {menu.description && <p className="text-zinc-500">{menu.description}</p>}
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">{menu.title}</h1>
+          {menu.description && <p className="text-zinc-400 text-lg">{menu.description}</p>}
         </div>
 
         {/* Name Input */}
-        <div className="mb-10">
+        <div className="mb-8 max-w-md mx-auto">
           <input
             type="text"
             value={respondentName}
             onChange={(e) => setRespondentName(e.target.value)}
-            className="w-full px-0 py-3 bg-transparent border-0 border-b border-zinc-800 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 text-lg"
+            className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-zinc-800 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 text-xl text-center"
             placeholder="Your name"
           />
         </div>
@@ -137,52 +135,61 @@ export function SharedMenuView({ token }: SharedMenuViewProps) {
             const selectedCount = (selections[group.id] || []).length;
 
             return (
-              <div key={group.id} className="mb-10">
-                <div className="flex items-baseline justify-between mb-4">
-                  <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">{group.label}</h2>
-                  <span className="text-xs text-zinc-600">
-                    {selectedCount}/{preset.max}
+              <div key={group.id} className="mb-12">
+                <div className="flex items-baseline justify-between mb-6 px-2">
+                  <h2 className="text-lg font-semibold text-zinc-300 uppercase tracking-wider">{group.label}</h2>
+                  <span className="text-sm text-zinc-500 font-medium">
+                    {selectedCount} of {preset.max}
                   </span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   {group.options
                     .sort((a, b) => a.order - b.order)
                     .map((option) => {
                       const isSelected = (selections[group.id] || []).includes(option.id);
-                      const atMax = isGroupAtMax(group.id, group);
-                      const isDisabled = !isSelected && atMax;
 
                       return (
                         <button
                           key={option.id}
                           onClick={() => toggleSelection(group.id, option.id, group)}
-                          disabled={isDisabled}
-                          className={`w-full flex items-center gap-4 p-4 rounded-lg transition-colors text-left ${
+                          className={`relative aspect-[3/4] sm:aspect-square rounded-3xl overflow-hidden transition-all duration-200 ${
                             isSelected
-                              ? 'bg-zinc-800'
-                              : isDisabled
-                              ? 'opacity-30 cursor-not-allowed'
-                              : 'hover:bg-zinc-900'
+                              ? 'ring-4 ring-white scale-[1.02] shadow-2xl shadow-white/20'
+                              : 'hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]'
                           }`}
                         >
-                          {option.imageUrl && (
+                          {/* Background image or gradient */}
+                          {option.imageUrl ? (
                             <img
                               src={option.imageUrl}
                               alt=""
-                              className="w-12 h-12 object-cover rounded"
+                              className="absolute inset-0 w-full h-full object-cover"
                             />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-zinc-700 to-zinc-900" />
                           )}
-                          <span className="flex-1 text-zinc-200">{option.text}</span>
+
+                          {/* Overlay gradient for text readability */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                          {/* Content */}
+                          <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6">
+                            <span className="text-xl sm:text-2xl font-bold text-white drop-shadow-lg leading-tight">
+                              {option.text}
+                            </span>
+                          </div>
+
+                          {/* Selection indicator */}
                           <div
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                            className={`absolute top-4 right-4 w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center transition-all ${
                               isSelected
                                 ? 'border-white bg-white'
-                                : 'border-zinc-700'
+                                : 'border-white/50 bg-black/30'
                             }`}
                           >
                             {isSelected && (
-                              <svg className="w-3 h-3 text-zinc-950" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                              <svg className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-950" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             )}
@@ -196,13 +203,15 @@ export function SharedMenuView({ token }: SharedMenuViewProps) {
           })}
 
         {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="w-full py-4 bg-white text-zinc-950 font-medium rounded-lg hover:bg-zinc-200 disabled:bg-zinc-800 disabled:text-zinc-600 transition-colors"
-        >
-          {submitting ? 'Submitting...' : 'Done'}
-        </button>
+        <div className="sticky bottom-4 pt-4">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full py-5 bg-white text-zinc-950 text-xl font-bold rounded-2xl hover:bg-zinc-100 disabled:bg-zinc-800 disabled:text-zinc-600 transition-all shadow-xl hover:shadow-2xl hover:scale-[1.01] active:scale-[0.99]"
+          >
+            {submitting ? 'Submitting...' : "I'm Done!"}
+          </button>
+        </div>
       </div>
     </div>
   );
