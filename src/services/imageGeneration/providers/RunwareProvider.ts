@@ -22,6 +22,6 @@ export class RunwareProvider implements ImageProviderService {
   }
 
   supportsPreloading(): boolean {
-    return false;
+    return true;
   }
 }

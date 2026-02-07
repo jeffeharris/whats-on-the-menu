@@ -10,7 +10,7 @@ import { generateId } from '../storage.js';
 const VALID_FILENAME_PATTERN = /^[a-z0-9]{20,30}\.jpg$/;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const UPLOADS_DIR = join(__dirname, '..', '..', 'data', 'uploads');
+export const UPLOADS_DIR = join(__dirname, '..', '..', 'data', 'uploads');
 
 // Ensure uploads directory exists
 if (!existsSync(UPLOADS_DIR)) {
@@ -23,8 +23,8 @@ const STORAGE_LIMIT_BYTES = STORAGE_LIMIT_MB * 1024 * 1024;
 const WARNING_THRESHOLD = 0.8;
 
 // Image processing configuration
-const MAX_DIMENSION = 800;
-const JPEG_QUALITY = 80;
+export const MAX_DIMENSION = 800;
+export const JPEG_QUALITY = 80;
 
 // Configure multer for memory storage (we'll process before saving)
 const upload = multer({

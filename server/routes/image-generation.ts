@@ -1,5 +1,10 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
+import sharp from 'sharp';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
+import { generateId } from '../storage.js';
+import { UPLOADS_DIR, MAX_DIMENSION, JPEG_QUALITY } from './uploads.js';
 
 const router = Router();
 
@@ -8,8 +13,40 @@ function roundToMultipleOf64(value: number): number {
   return Math.round(value / 64) * 64;
 }
 
+// Download an image from an external URL, process it, and save locally
+async function downloadAndSaveImage(url: string, timeoutMs = 30000): Promise<string> {
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to download image: ${response.status}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  if (buffer.length === 0) {
+    throw new Error('Downloaded image is empty');
+  }
+
+  const processedImage = await sharp(buffer)
+    .resize(MAX_DIMENSION, MAX_DIMENSION, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: JPEG_QUALITY })
+    .toBuffer();
+
+  const filename = `${generateId()}.jpg`;
+  const filepath = join(UPLOADS_DIR, filename);
+  writeFileSync(filepath, processedImage);
+
+  return `/uploads/${filename}`;
+}
+
 // GET /api/image-generation/pollinations - Generate Pollinations image URL
-router.get('/pollinations', (req, res) => {
+router.get('/pollinations', async (req, res) => {
   const { prompt, width = 400, height = 400, seed } = req.query;
 
   if (!prompt || typeof prompt !== 'string') {
@@ -21,9 +58,15 @@ router.get('/pollinations', (req, res) => {
   const keyParam = apiKey ? `&key=${apiKey}` : '';
   const seedParam = seed ? `&seed=${seed}` : '';
 
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true${keyParam}${seedParam}`;
+  const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true${keyParam}${seedParam}`;
 
-  return res.json({ imageUrl });
+  try {
+    const imageUrl = await downloadAndSaveImage(pollinationsUrl, 60000);
+    return res.json({ imageUrl });
+  } catch (error) {
+    console.error('Pollinations download error:', error);
+    return res.status(500).json({ error: 'Failed to generate and save image' });
+  }
 });
 
 // POST /api/image-generation/runware - Proxy to Runware API
@@ -89,7 +132,9 @@ router.post('/runware', async (req, res) => {
 
     // Runware returns { data: [...] } with imageURL in each result
     if (data.data && data.data.length > 0 && data.data[0].imageURL) {
-      return res.json({ imageUrl: data.data[0].imageURL });
+      const cdnUrl = data.data[0].imageURL;
+      const imageUrl = await downloadAndSaveImage(cdnUrl);
+      return res.json({ imageUrl });
     }
 
     console.error('Unexpected Runware response:', data);
