@@ -84,21 +84,21 @@ Express
 - [x] Write JSON-to-PostgreSQL migration script for existing data
 - [ ] Test locally with Docker Compose
 
-### Phase 3: Authentication & Multi-Tenancy
+### Phase 3: Authentication & Multi-Tenancy ✓
 > Add user accounts, households, and tenant isolation
 
-- [ ] Create auth tables (users, households, sessions, magic_link_tokens)
-- [ ] Build magic link flow:
-  - [ ] `POST /api/auth/login` — send magic link email
-  - [ ] `GET /api/auth/verify?token=...` — verify token, create session
-  - [ ] `POST /api/auth/logout` — destroy session
-  - [ ] `GET /api/auth/me` — get current user
-- [ ] Add auth middleware (session cookie → household_id)
-- [ ] Scope ALL API routes to `household_id`
-- [ ] Create signup flow (new household + seed foods)
-- [ ] Move kid PIN from localStorage to DB (per household)
-- [ ] Build login/signup UI screens
-- [ ] Email service integration (Resend, Postmark, or SES)
+- [x] Create auth tables (users, households, sessions, magic_link_tokens)
+- [x] Build magic link flow:
+  - [x] `POST /api/auth/login` — send magic link email
+  - [x] `GET /api/auth/verify?token=...` — verify token, create session
+  - [x] `POST /api/auth/logout` — destroy session
+  - [x] `GET /api/auth/me` — get current user
+- [x] Add auth middleware (session cookie → household_id)
+- [x] Scope ALL API routes to `household_id`
+- [x] Create signup flow (new household + seed foods)
+- [x] Move kid PIN from localStorage to DB (per household)
+- [x] Build login/signup UI screens
+- [x] Email service integration (Resend, Postmark, or SES)
 
 ### Phase 4: Seed Food Library
 > Curate starter foods with images for new signups
