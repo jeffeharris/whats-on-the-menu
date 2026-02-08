@@ -1,4 +1,3 @@
-import { Button } from '../../components/common/Button';
 import { FoodCard } from '../../components/kid/FoodCard';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
@@ -54,23 +53,26 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
   }
 
   return (
-    <div className="h-full bg-kid-bg flex flex-col p-4 md:p-8 overflow-hidden">
-      <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col overflow-y-auto">
-        {/* Header */}
-        <div className="text-center mb-6 md:mb-8">
-          <KidAvatar name={kid.name} color={kid.avatarColor} size="lg" />
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mt-4">
+    <div className="h-full bg-kid-bg flex flex-col overflow-hidden">
+      {/* Header - fixed at top */}
+      <header className="flex-shrink-0 flex items-center gap-3 px-4 pt-4 pb-2 max-w-2xl mx-auto w-full">
+        <KidAvatar name={kid.name} color={kid.avatarColor} size="md" />
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">
             {kid.name}'s Plate
           </h1>
-          <p className="text-lg md:text-xl text-gray-600 mt-2">
+          <p className="text-gray-500 text-sm">
             Yummy choices!
           </p>
         </div>
+      </header>
 
+      {/* Scrollable content */}
+      <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col overflow-y-auto px-4 md:px-8">
         {/* Selected items by group */}
-        <div className="flex-1">
+        <div className="flex-1 pt-2">
           {groupedItems.map((group, idx) => (
-            <div key={idx} className="mb-6">
+            <div key={idx} className="mb-4">
               <h2 className="text-xl font-semibold text-gray-700 mb-3 text-center">
                 {group.label}
               </h2>
@@ -89,35 +91,38 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
           ))}
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-3 max-w-md mx-auto w-full">
-        <Button
-          mode="kid"
-          variant="primary"
-          size="touch"
-          fullWidth
-          onClick={onDone}
-        >
-          All Done!
-        </Button>
-        {!selectionsLocked && (
-          <Button
-            mode="kid"
-            variant="ghost"
-            size="lg"
-            fullWidth
-            onClick={onEdit}
-          >
-            Change my mind
-          </Button>
-        )}
-        {selectionsLocked && (
-          <p className="text-center text-gray-500 text-lg">
-            Selections are locked!
-          </p>
-        )}
-        </div>
       </div>
+
+      {/* Actions - fixed footer */}
+      <footer className="flex-shrink-0 border-t border-kid-primary/10 bg-kid-bg px-4 py-3">
+        <div className="flex justify-center items-center gap-6 max-w-md mx-auto">
+          {!selectionsLocked && (
+            <button
+              onClick={onEdit}
+              className="w-16 h-16 rounded-full bg-white shadow-lg ring-2 ring-danger/30 flex items-center justify-center touch-feedback hover:scale-110 transition-transform"
+              aria-label="Change my mind"
+            >
+              <svg className="w-8 h-8 text-danger" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={onDone}
+            className="w-20 h-20 rounded-full bg-kid-secondary shadow-xl ring-4 ring-kid-secondary/30 flex items-center justify-center touch-feedback hover:scale-110 transition-transform"
+            aria-label="All Done"
+          >
+            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          {selectionsLocked && (
+            <p className="text-center text-gray-500 text-sm">
+              Selections are locked
+            </p>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }
