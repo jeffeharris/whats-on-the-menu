@@ -100,14 +100,14 @@ Express
 - [x] Build login/signup UI screens
 - [x] Email service integration (Resend, Postmark, or SES)
 
-### Phase 4: Seed Food Library
+### Phase 4: Seed Food Library ✓
 > Curate starter foods with images for new signups
 
-- [ ] Curate ~50 kid-friendly foods across categories
-- [ ] Create/source common food images (or use AI generation)
-- [ ] Create `seed_food_templates` table + seed data SQL
-- [ ] Build `initialize_household_foods()` function
-- [ ] Test signup → verify seed foods appear in library
+- [x] Curate ~50 kid-friendly foods across categories
+- [x] Create/source common food images (or use AI generation)
+- [x] Create `seed_food_templates` table + seed data SQL
+- [x] Build `initialize_household_foods()` function
+- [x] Test signup → verify seed foods appear in library
 
 ### Phase 5: Polish & Launch Prep
 > Harden for public use

@@ -15,6 +15,7 @@ import {
   getHousehold,
 } from '../db/queries/auth.js';
 import { requireAuth } from '../middleware/auth.js';
+import { initializeHouseholdFoods } from '../db/queries/foods.js';
 
 // ============================================================
 // Email sending helper
@@ -84,6 +85,7 @@ router.post('/signup', async (req: Request, res: Response) => {
 
     const household = await createHousehold(householdName || 'My Household', '1234');
     await createUser(email, household.id);
+    await initializeHouseholdFoods(household.id);
 
     const token = await createMagicLinkToken(email);
     await sendMagicLinkEmail(email, token);

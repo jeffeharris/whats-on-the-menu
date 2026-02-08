@@ -93,6 +93,16 @@ export async function updateFood(
   return rows.length > 0 ? rowToFoodItem(rows[0]) : null;
 }
 
+export async function initializeHouseholdFoods(householdId: string): Promise<number> {
+  const { rowCount } = await pool.query(
+    `INSERT INTO food_items (household_id, name, tags, image_url)
+     SELECT $1, name, tags, image_url
+     FROM seed_food_templates`,
+    [householdId]
+  );
+  return rowCount ?? 0;
+}
+
 export async function deleteFood(
   householdId: string,
   id: string

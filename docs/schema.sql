@@ -248,4 +248,70 @@ CREATE TABLE shared_menu_responses (
 
 CREATE INDEX idx_shared_menu_responses_menu ON shared_menu_responses(menu_id);
 
+-- ============================================================
+-- seed_food_templates (global — copied to new households)
+-- ============================================================
+CREATE TABLE seed_food_templates (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT NOT NULL,
+  tags        TEXT[] NOT NULL DEFAULT '{}',
+  image_url   TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Seed data (~46 kid-friendly foods)
+INSERT INTO seed_food_templates (name, tags) VALUES
+  -- Protein (10)
+  ('Chicken Nuggets', ARRAY['Protein']),
+  ('Grilled Chicken', ARRAY['Protein']),
+  ('Hot Dog', ARRAY['Protein']),
+  ('Turkey Slices', ARRAY['Protein']),
+  ('Fish Sticks', ARRAY['Protein']),
+  ('Scrambled Eggs', ARRAY['Protein', 'Breakfast']),
+  ('Hard Boiled Egg', ARRAY['Protein']),
+  ('Meatballs', ARRAY['Protein']),
+  ('Peanut Butter', ARRAY['Protein']),
+  ('Black Beans', ARRAY['Protein']),
+  -- Grain (10)
+  ('Mac & Cheese', ARRAY['Grain']),
+  ('Rice', ARRAY['Grain']),
+  ('Pasta', ARRAY['Grain']),
+  ('Toast', ARRAY['Grain', 'Breakfast']),
+  ('Pancakes', ARRAY['Grain', 'Breakfast']),
+  ('Waffles', ARRAY['Grain', 'Breakfast']),
+  ('Tortilla', ARRAY['Grain']),
+  ('Crackers', ARRAY['Grain']),
+  ('Oatmeal', ARRAY['Grain', 'Breakfast']),
+  ('Bagel', ARRAY['Grain', 'Breakfast']),
+  -- Veggie (10)
+  ('Broccoli', ARRAY['Veggie']),
+  ('Carrot Sticks', ARRAY['Veggie']),
+  ('Cucumber Slices', ARRAY['Veggie']),
+  ('Corn', ARRAY['Veggie']),
+  ('Green Beans', ARRAY['Veggie']),
+  ('Peas', ARRAY['Veggie']),
+  ('Sweet Potato', ARRAY['Veggie']),
+  ('Celery', ARRAY['Veggie']),
+  ('Bell Pepper Strips', ARRAY['Veggie']),
+  ('Cherry Tomatoes', ARRAY['Veggie']),
+  -- Fruit (10)
+  ('Apple Slices', ARRAY['Fruit']),
+  ('Banana', ARRAY['Fruit']),
+  ('Strawberries', ARRAY['Fruit']),
+  ('Grapes', ARRAY['Fruit']),
+  ('Orange Slices', ARRAY['Fruit']),
+  ('Blueberries', ARRAY['Fruit']),
+  ('Watermelon', ARRAY['Fruit']),
+  ('Pineapple', ARRAY['Fruit']),
+  ('Mango', ARRAY['Fruit']),
+  ('Raisins', ARRAY['Fruit']),
+  -- Dairy (4)
+  ('Yogurt', ARRAY['Dairy', 'Breakfast']),
+  ('Cheese Stick', ARRAY['Dairy']),
+  ('Milk', ARRAY['Dairy']),
+  ('Cottage Cheese', ARRAY['Dairy']),
+  -- Breakfast (2, cross-tagged)
+  ('Cereal', ARRAY['Grain', 'Breakfast']),
+  ('Granola Bar', ARRAY['Grain', 'Breakfast']);
+
 COMMIT;
