@@ -18,12 +18,17 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
   const { logoutParent, setMode } = useAppState();
   const { items } = useFoodLibrary();
   const { profiles } = useKidProfiles();
-  const { currentMenu, loadPresetAsActive } = useMenu();
+  const { currentMenu, loadPresetAsActive, loadPreset } = useMenu();
   const { meals } = useMealHistory();
 
   const handleQuickLaunch = async (slot: PresetSlot) => {
     await loadPresetAsActive(slot);
     setMode('kid');
+  };
+
+  const handleQuickEdit = (slot: PresetSlot) => {
+    loadPreset(slot);
+    onNavigate('menu-builder');
   };
 
   return (
@@ -38,7 +43,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="max-w-lg md:max-w-2xl mx-auto">
           {/* Quick Launch Presets */}
-          <QuickLaunchPresets onLaunch={handleQuickLaunch} />
+          <QuickLaunchPresets onLaunch={handleQuickLaunch} onEdit={handleQuickEdit} />
 
           <div className="grid gap-4 md:grid-cols-2">
         {/* Food Library */}
