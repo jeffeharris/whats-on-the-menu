@@ -49,9 +49,9 @@ export function Modal({ isOpen, onClose, title, children, mode = 'parent' }: Mod
       {/* Modal content */}
       <div
         className={`
-          relative w-full max-w-md
+          relative w-full max-w-md max-h-[calc(100dvh-2rem)]
           bg-white rounded-2xl shadow-xl
-          p-6
+          flex flex-col
           animate-in fade-in zoom-in-95 duration-200
         `}
         role="dialog"
@@ -62,14 +62,17 @@ export function Modal({ isOpen, onClose, title, children, mode = 'parent' }: Mod
           <h2
             id="modal-title"
             className={`
-              text-xl font-bold mb-4
+              text-xl font-bold px-6 pt-6 pb-4 flex-shrink-0
               ${mode === 'kid' ? 'text-gray-800' : 'text-gray-900'}
             `}
+            style={{ fontFamily: 'var(--font-heading)' }}
           >
             {title}
           </h2>
         )}
-        {children}
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          {children}
+        </div>
       </div>
     </div>
   );

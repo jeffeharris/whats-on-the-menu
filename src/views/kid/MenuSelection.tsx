@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { FoodCard } from '../../components/kid/FoodCard';
 import { KidAvatar } from '../../components/kid/KidAvatar';
@@ -266,7 +267,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
         className={`${animClass ? 'absolute inset-0' : 'relative h-full'} p-4 md:p-6 overflow-y-auto ${animClass}`}
       >
         <div className="text-center mb-6 relative">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-800 tracking-tight">
+          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-800 tracking-tight font-heading">
             {getStepTitle(stepIndex)}
           </h2>
           <p className="text-lg text-gray-500 mt-1">{config.label}</p>
@@ -311,9 +312,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
           className="p-2 hover:bg-white/50 rounded-lg transition-colors"
           aria-label={currentStep > 0 ? 'Previous step' : 'Go back'}
         >
-          <svg className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft className="w-8 h-8 text-gray-600" />
         </button>
         <div className="flex items-center gap-3 flex-1">
           <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="md" />

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 interface CardProps {
   children: ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   onClick?: () => void;
   selected?: boolean;
   mode?: 'kid' | 'parent';
@@ -19,6 +20,7 @@ const paddingStyles = {
 export function Card({
   children,
   className = '',
+  style,
   onClick,
   selected = false,
   mode = 'parent',
@@ -42,6 +44,7 @@ export function Card({
   return (
     <div
       className={`${baseStyles} ${selectedStyles} ${className}`}
+      style={style}
       onClick={onClick}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}

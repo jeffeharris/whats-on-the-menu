@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMealHistory } from '../../contexts/MealHistoryContext';
@@ -36,11 +37,9 @@ export function FamilyStars({ onBack }: FamilyStarsProps) {
           className="p-2 hover:bg-white/10 rounded-lg transition-colors"
           aria-label="Go back"
         >
-          <svg className="w-6 h-6 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft className="w-6 h-6 text-white/80" />
         </button>
-        <h1 className="text-2xl font-bold text-white">Our Stars</h1>
+        <h1 className="text-2xl font-bold text-white font-heading">Our Stars</h1>
       </header>
 
       {/* Scattered stars in the sky */}

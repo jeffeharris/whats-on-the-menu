@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Check } from 'lucide-react';
 import { Card } from '../common/Card';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 import type { FoodItem } from '../../types';
@@ -41,7 +42,7 @@ export function MenuBuilderGrid({
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+        <h3 className="text-lg font-semibold text-gray-800 font-heading">{title}</h3>
         <span className="text-sm text-gray-500">
           {selectedIds.length}/{maxSelection} selected (min {minSelection})
         </span>
@@ -91,19 +92,7 @@ export function MenuBuilderGrid({
                 </div>
                 {isSelected && (
                   <div className="absolute top-1 right-1 w-6 h-6 bg-parent-primary rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-4 h-4 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+                    <Check className="w-4 h-4 text-white" strokeWidth={2} />
                   </div>
                 )}
               </Card>

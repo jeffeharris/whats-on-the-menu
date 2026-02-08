@@ -28,10 +28,14 @@ export function KidProfileForm({ onSubmit, onCancel, initialValues }: KidProfile
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {/* Name input */}
       <div>
-        <label htmlFor="kid-name" className="block text-sm font-medium text-gray-700 mb-1">
+        <label
+          htmlFor="kid-name"
+          className="block text-sm font-medium text-gray-700 mb-1"
+          style={{ fontFamily: 'var(--font-heading)' }}
+        >
           Name
         </label>
         <input
@@ -41,8 +45,9 @@ export function KidProfileForm({ onSubmit, onCancel, initialValues }: KidProfile
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g., Emma, Jack"
           className="
-            w-full px-4 py-2 rounded-lg border border-gray-300
+            w-full px-4 py-2.5 rounded-xl border border-gray-300
             focus:outline-none focus:ring-2 focus:ring-parent-primary focus:border-transparent
+            text-sm
           "
           required
         />
@@ -50,8 +55,11 @@ export function KidProfileForm({ onSubmit, onCancel, initialValues }: KidProfile
 
       {/* Avatar color selection */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Avatar Color
+        <label
+          className="block text-sm font-medium text-gray-700 mb-2"
+          style={{ fontFamily: 'var(--font-heading)' }}
+        >
+          Color
         </label>
         <div className="grid grid-cols-4 gap-3 justify-items-center">
           {AVATAR_COLORS.map((color) => (
@@ -60,8 +68,8 @@ export function KidProfileForm({ onSubmit, onCancel, initialValues }: KidProfile
               type="button"
               onClick={() => setAvatarColor(color)}
               className={`
-                rounded-full p-1 transition-all
-                ${avatarColor === color ? 'ring-2 ring-offset-2 ring-parent-primary' : ''}
+                rounded-full p-1 transition-all duration-150
+                ${avatarColor === color ? 'ring-2 ring-offset-2 ring-parent-primary scale-110' : 'hover:scale-105'}
               `}
               aria-label={`Select ${color} color`}
               aria-pressed={avatarColor === color}
@@ -74,23 +82,31 @@ export function KidProfileForm({ onSubmit, onCancel, initialValues }: KidProfile
 
       {/* Animal avatar selection */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Animal Avatar
+        <label
+          className="block text-sm font-medium text-gray-700 mb-2"
+          style={{ fontFamily: 'var(--font-heading)' }}
+        >
+          Avatar
         </label>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-4 gap-2">
           {/* None option - shows initial letter */}
           <button
             type="button"
             onClick={() => setAvatarAnimal(undefined)}
             className={`
-              flex flex-col items-center gap-1 p-2 rounded-xl transition-all
-              ${avatarAnimal === undefined ? 'ring-2 ring-parent-primary bg-parent-primary/5' : 'hover:bg-gray-50'}
+              flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all duration-150
+              ${avatarAnimal === undefined
+                ? 'ring-2 ring-parent-primary bg-parent-primary/5 shadow-sm'
+                : 'hover:bg-gray-50'
+              }
             `}
             aria-label="No animal avatar"
             aria-pressed={avatarAnimal === undefined}
           >
             <KidAvatar name={name || '?'} color={avatarColor} size="sm" />
-            <span className="text-xs text-gray-500">None</span>
+            <span className="text-[11px] text-gray-500 font-medium" style={{ fontFamily: 'var(--font-heading)' }}>
+              Letter
+            </span>
           </button>
           {AVATAR_ANIMALS.map(({ id, label }) => (
             <button
@@ -98,29 +114,39 @@ export function KidProfileForm({ onSubmit, onCancel, initialValues }: KidProfile
               type="button"
               onClick={() => setAvatarAnimal(id)}
               className={`
-                flex flex-col items-center gap-1 p-2 rounded-xl transition-all
-                ${avatarAnimal === id ? 'ring-2 ring-parent-primary bg-parent-primary/5' : 'hover:bg-gray-50'}
+                flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all duration-150
+                ${avatarAnimal === id
+                  ? 'ring-2 ring-parent-primary bg-parent-primary/5 shadow-sm'
+                  : 'hover:bg-gray-50'
+                }
               `}
               aria-label={`Select ${label} avatar`}
               aria-pressed={avatarAnimal === id}
             >
               <KidAvatar name={name || '?'} color={avatarColor} avatarAnimal={id} size="sm" />
-              <span className="text-xs text-gray-500">{label}</span>
+              <span className="text-[11px] text-gray-500 font-medium" style={{ fontFamily: 'var(--font-heading)' }}>
+                {label}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Preview */}
-      <div className="flex justify-center py-4">
+      <div className="flex justify-center py-3">
         <div className="text-center">
           <KidAvatar name={name || '?'} color={avatarColor} avatarAnimal={avatarAnimal} size="lg" />
-          <p className="mt-2 font-semibold text-gray-800">{name || 'Preview'}</p>
+          <p
+            className="mt-2 font-semibold text-gray-800"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            {name || 'Preview'}
+          </p>
         </div>
       </div>
 
       {/* Action buttons */}
-      <div className="flex gap-3 pt-4">
+      <div className="flex gap-3 pt-2">
         <Button type="button" variant="ghost" onClick={onCancel} className="flex-1">
           Cancel
         </Button>

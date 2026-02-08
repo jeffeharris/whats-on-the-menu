@@ -72,7 +72,7 @@ export function PinPad({
 
   return (
     <div className="flex flex-col items-center">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 font-heading">
         {isConfirming ? 'Confirm PIN' : title}
       </h3>
 

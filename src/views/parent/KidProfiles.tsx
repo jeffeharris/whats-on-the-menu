@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
@@ -39,62 +40,88 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
 
   return (
     <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 flex items-center gap-4 p-4">
+      <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
         <button
           onClick={onBack}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           aria-label="Go back"
         >
-          <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeft className="w-6 h-6 text-gray-600" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-800 flex-1">Kid Profiles</h1>
+        <h1 className="text-2xl font-bold text-gray-800 flex-1" style={{ fontFamily: 'var(--font-heading)' }}>
+          Kid Profiles
+        </h1>
         <Button variant="primary" size="sm" onClick={() => setIsFormOpen(true)}>
-          Add Kid
+          <span className="flex items-center gap-1.5">
+            <Plus className="w-4 h-4" />
+            Add
+          </span>
         </Button>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 pt-0">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
         <div className="max-w-lg mx-auto">
           {profiles.length === 0 ? (
-          <Card className="text-center py-8">
-            <p className="text-gray-500 mb-4">No kids added yet</p>
-            <Button variant="primary" onClick={() => setIsFormOpen(true)}>
-              Add Your First Kid
-            </Button>
-          </Card>
-        ) : (
-          <div className="grid gap-3">
-            {profiles.map((profile) => (
-              <Card key={profile.id} padding="sm" className="flex items-center gap-4">
-                <KidAvatar name={profile.name} color={profile.avatarColor} avatarAnimal={profile.avatarAnimal} size="md" />
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-800 text-lg">{profile.name}</h3>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(profile)}
-                    className="p-2 text-gray-500 hover:text-parent-primary transition-colors"
-                    aria-label={`Edit ${profile.name}`}
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-parent-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-parent-secondary/60" />
+              </div>
+              <p className="text-gray-500 text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+                No kids added yet
+              </p>
+              <p className="text-gray-400 text-sm mt-1">Add your first kid to get started!</p>
+              <Button variant="primary" className="mt-4" onClick={() => setIsFormOpen(true)}>
+                <span className="flex items-center gap-1.5">
+                  <Plus className="w-4 h-4" />
+                  Add Your First Kid
+                </span>
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-3">
+                <span
+                  className="text-xs font-semibold tracking-widest uppercase text-gray-400"
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  {profiles.length} {profiles.length === 1 ? 'kid' : 'kids'}
+                </span>
+                <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
+              </div>
+              <div className="grid gap-3">
+                {profiles.map((profile, index) => (
+                  <Card
+                    key={profile.id}
+                    padding="sm"
+                    className="fade-up-in"
+                    style={{ animationDelay: `${Math.min(index * 60, 500)}ms` }}
                   >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(profile.id)}
-                    className="p-2 text-gray-500 hover:text-danger transition-colors"
-                    aria-label={`Delete ${profile.name}`}
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </Card>
-            ))}
-          </div>
+                    <div className="flex items-center gap-4">
+                      <KidAvatar name={profile.name} color={profile.avatarColor} avatarAnimal={profile.avatarAnimal} size="md" />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-800 text-lg">{profile.name}</h3>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(profile)}
+                          className="p-2 text-gray-500 hover:text-parent-primary transition-colors"
+                          aria-label={`Edit ${profile.name}`}
+                        >
+                          <Pencil className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(profile.id)}
+                          className="p-2 text-gray-500 hover:text-danger transition-colors"
+                          aria-label={`Delete ${profile.name}`}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </main>

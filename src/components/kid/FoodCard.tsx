@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Check } from 'lucide-react';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 
 interface FoodCardProps {
@@ -91,19 +92,7 @@ export function FoodCard({
       {/* Selection indicator */}
       {selected && (
         <div className="absolute top-2 right-2 w-8 h-8 bg-kid-secondary rounded-full flex items-center justify-center">
-          <svg
-            className="w-5 h-5 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={3}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+          <Check className="w-5 h-5 text-white" strokeWidth={3} />
         </div>
       )}
 
@@ -111,19 +100,7 @@ export function FoodCard({
       {disabled && !selected && (
         <div className="absolute inset-0 bg-gray-500/20 flex items-center justify-center">
           <div className="bg-white/80 rounded-full p-2">
-            <svg
-              className="w-6 h-6 text-gray-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+            <Check className="w-6 h-6 text-gray-500" strokeWidth={2} />
           </div>
         </div>
       )}

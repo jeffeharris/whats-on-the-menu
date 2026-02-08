@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Sunrise, Cookie, Moon, Sun, MoreVertical, Copy, Trash2, Check, X } from 'lucide-react';
+import { Sunrise, Cookie, Moon, Sun, MoreVertical, Copy, Trash2, Check, X, Plus } from 'lucide-react';
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { useMenu } from '../../contexts/MenuContext';
 import type { PresetSlot } from '../../types';
@@ -226,9 +226,7 @@ export function PresetSelector({ onScratchClick }: PresetSelectorProps) {
             }
           `}
         >
-          <svg className={`w-5 h-5 ${currentPresetSlot === null ? 'text-parent-primary' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <Plus className={`w-5 h-5 ${currentPresetSlot === null ? 'text-parent-primary' : 'text-gray-500'}`} />
           <div className="flex flex-col items-start">
             <span className={`text-sm font-medium ${currentPresetSlot === null ? 'text-parent-primary' : 'text-gray-700'}`}>
               From Scratch

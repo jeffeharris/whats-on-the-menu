@@ -10,7 +10,7 @@ export function CategorySection({ title, subtitle, children }: CategorySectionPr
   return (
     <section className="mb-8">
       <div className="mb-4 text-center">
-        <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+        <h2 className="text-2xl font-bold text-gray-800 font-heading">{title}</h2>
         {subtitle && (
           <p className="text-lg text-gray-600 mt-1">{subtitle}</p>
         )}
