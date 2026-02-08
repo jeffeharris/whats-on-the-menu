@@ -6,7 +6,7 @@ import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { uploadsApi } from '../../api/client';
 
-type ImageSource = 'ai' | 'upload';
+type ImageSource = 'ai' | 'upload' | 'existing';
 
 interface FoodItemFormProps {
   onSubmit: (name: string, tags: string[], imageUrl: string | null) => void;
@@ -22,7 +22,8 @@ interface FoodItemFormProps {
 function getInitialImageSource(imageUrl: string | null): ImageSource {
   if (!imageUrl) return 'upload';
   if (imageUrl.startsWith('/uploads/')) return 'upload';
-  return 'ai';
+  // Existing AI-generated image — don't re-trigger generation
+  return 'existing';
 }
 
 export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemFormProps) {
@@ -33,6 +34,9 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
   );
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(
     initialValues?.imageUrl?.startsWith('/uploads/') ? initialValues.imageUrl : null
+  );
+  const [existingImageUrl] = useState<string | null>(
+    initialValues?.imageUrl && !initialValues.imageUrl.startsWith('/uploads/') ? initialValues.imageUrl : null
   );
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -54,17 +58,22 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
     imageSource === 'ai' ? name : ''
   );
 
+  // Resolve the effective image source for UI display (existing behaves like ai visually)
+  const effectiveSource = imageSource === 'existing' ? 'ai' : imageSource;
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (imageSource === 'ai' && aiImageUrl) {
+    if (imageSource === 'existing' && existingImageUrl) {
+      setPreviewUrl(existingImageUrl);
+    } else if (imageSource === 'ai' && aiImageUrl) {
       setPreviewUrl(aiImageUrl);
     } else if (imageSource === 'upload' && uploadedImageUrl) {
       setPreviewUrl(uploadedImageUrl);
     } else {
       setPreviewUrl(null);
     }
-  }, [imageSource, aiImageUrl, uploadedImageUrl]);
+  }, [imageSource, aiImageUrl, uploadedImageUrl, existingImageUrl]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,7 +109,9 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
     if (!name.trim()) return;
 
     let imageUrl: string | null = null;
-    if (imageSource === 'ai') {
+    if (imageSource === 'existing') {
+      imageUrl = existingImageUrl;
+    } else if (imageSource === 'ai') {
       imageUrl = aiImageUrl;
     } else if (imageSource === 'upload') {
       imageUrl = uploadedImageUrl;
@@ -202,7 +213,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
                 transition-colors min-h-[48px] font-medium
                 ${isStorageFull || isUploading
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : imageSource === 'upload' && uploadedImageUrl
+                  : effectiveSource === 'upload' && uploadedImageUrl
                     ? 'bg-parent-primary text-white'
                     : 'bg-parent-primary text-white hover:bg-parent-primary/90'
                 }
@@ -243,7 +254,7 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
               transition-colors min-h-[48px] font-medium border-2
               ${!name.trim()
                 ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-                : imageSource === 'ai'
+                : effectiveSource === 'ai'
                   ? 'border-parent-primary bg-parent-primary text-white'
                   : 'border-parent-primary text-parent-primary hover:bg-parent-primary/10'
               }
@@ -296,18 +307,24 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
             )}
           </div>
           <div className="flex flex-col gap-2">
-            {imageSource === 'ai' && name && (
+            {effectiveSource === 'ai' && name && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={regenerate}
+                onClick={() => {
+                  if (imageSource === 'existing') {
+                    setImageSource('ai');
+                  } else {
+                    regenerate();
+                  }
+                }}
                 disabled={isLoading}
               >
                 Regenerate
               </Button>
             )}
-            {imageSource === 'upload' && uploadedImageUrl && (
+            {effectiveSource === 'upload' && uploadedImageUrl && (
               <span className="text-xs text-green-600">Photo uploaded</span>
             )}
           </div>
