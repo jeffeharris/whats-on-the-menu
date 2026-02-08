@@ -167,28 +167,28 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
               {/* Food items */}
               {foodItems.map((item) => item && (
                 <div key={item.id} className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
                       <img
                         src={item.imageUrl || getPlaceholderImageUrl()}
                         alt={item.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       {item.tags && item.tags.length > 0 && (
                         <span className="text-xs text-gray-500 uppercase tracking-wider">
                           {item.tags[0]}
                         </span>
                       )}
-                      <p className="font-medium text-gray-800">{item.name}</p>
+                      <p className="font-medium text-gray-800 truncate">{item.name}</p>
                     </div>
+                    <CompletionStatusSelector
+                      value={review?.completions?.[item.id] ?? null}
+                      onChange={(status) => updateCompletion(selection.kidId, item.id, status)}
+                      foodName={item.name}
+                    />
                   </div>
-                  <CompletionStatusSelector
-                    value={review?.completions?.[item.id] ?? null}
-                    onChange={(status) => updateCompletion(selection.kidId, item.id, status)}
-                    foodName={item.name}
-                  />
                 </div>
               ))}
 

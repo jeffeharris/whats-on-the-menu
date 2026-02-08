@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { AppStateProvider, useAppState } from './contexts/AppStateContext';
 import { FoodLibraryProvider } from './contexts/FoodLibraryContext';
@@ -185,10 +186,12 @@ function MenuSelectionRoute() {
   const { kidId } = useParams<{ kidId: string }>();
   const { selectKid } = useAppState();
 
-  // Ensure kid is selected in context
-  if (kidId) {
-    selectKid(kidId);
-  }
+  // Ensure kid is selected in context (must be in useEffect, not during render)
+  useEffect(() => {
+    if (kidId) {
+      selectKid(kidId);
+    }
+  }, [kidId, selectKid]);
 
   if (!kidId) {
     navigate('/');
@@ -212,10 +215,12 @@ function PlateConfirmationRoute() {
   const { kidId } = useParams<{ kidId: string }>();
   const { selectKid } = useAppState();
 
-  // Ensure kid is selected in context
-  if (kidId) {
-    selectKid(kidId);
-  }
+  // Ensure kid is selected in context (must be in useEffect, not during render)
+  useEffect(() => {
+    if (kidId) {
+      selectKid(kidId);
+    }
+  }, [kidId, selectKid]);
 
   if (!kidId) {
     navigate('/');
