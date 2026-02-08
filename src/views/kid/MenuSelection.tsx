@@ -270,12 +270,6 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
             {getStepTitle(stepIndex)}
           </h2>
           <p className="text-lg text-gray-500 mt-1">{config.label}</p>
-
-          {stepIndex === currentStep && celebrateText && (
-            <span className="celebrate-text absolute top-0 left-1/2 -translate-x-1/2 -translate-y-full text-2xl font-bold text-kid-primary">
-              {celebrateText}
-            </span>
-          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4 md:gap-6 justify-items-center max-w-lg mx-auto px-2">
@@ -357,6 +351,15 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
           Step {currentStep + 1} of {totalSteps}: {getStepTitle(currentStep)}
         </div>
       </main>
+
+      {/* Celebration text overlay */}
+      {celebrateText && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+          <span className="celebrate-text text-5xl font-extrabold text-kid-primary drop-shadow-lg">
+            {celebrateText}
+          </span>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="flex-shrink-0 p-4 md:p-6 bg-kid-bg border-t border-kid-primary/10">
