@@ -1,0 +1,25 @@
+services:
+  menu-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - SERVER_PORT=3001
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
