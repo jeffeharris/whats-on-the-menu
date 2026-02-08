@@ -54,34 +54,34 @@ Express
 
 ## 4. Implementation Phases
 
-### Phase 1: Production Infrastructure
+### Phase 1: Production Infrastructure ✓
 > Get the current app deployed as-is (single-tenant, JSON storage)
 
-- [ ] Create `Dockerfile.prod` (multi-stage build)
-- [ ] Create `docker-compose.prod.yml` (app + caddy)
-- [ ] Create `Caddyfile` for whatsonthemenu.app
-- [ ] Add `/api/health` endpoint
-- [ ] Update `server/index.ts` to serve SPA in production
-- [ ] Create `.dockerignore`
-- [ ] Create `deploy.sh` script
+- [x] Create `Dockerfile.prod` (multi-stage build)
+- [x] Create `docker-compose.prod.yml` (app + caddy)
+- [x] Create `Caddyfile` for whatsonthemenu.app
+- [x] Add `/api/health` endpoint
+- [x] Update `server/index.ts` to serve SPA in production
+- [x] Create `.dockerignore`
+- [x] Create `deploy.sh` script
 - [ ] DNS: Point whatsonthemenu.app to Hetzner VPS
 - [ ] Deploy and verify HTTPS works
 
-### Phase 2: PostgreSQL & Data Layer
+### Phase 2: PostgreSQL & Data Layer ✓
 > Replace JSON file storage with PostgreSQL
 
-- [ ] Add `pg` dependency, create connection pool (`server/db/pool.ts`)
-- [ ] Create database schema (`docs/schema.sql`)
-- [ ] Add PostgreSQL to `docker-compose.prod.yml`
-- [ ] Create query modules (`server/db/queries/*.ts`)
-- [ ] Migrate each route from JSON to PostgreSQL:
-  - [ ] Foods
-  - [ ] Profiles
-  - [ ] Menus (active + presets)
-  - [ ] Selections
-  - [ ] Meal history + reviews
-  - [ ] Shared menus
-- [ ] Write JSON-to-PostgreSQL migration script for existing data
+- [x] Add `pg` dependency, create connection pool (`server/db/pool.ts`)
+- [x] Create database schema (`docs/schema.sql`)
+- [x] Add PostgreSQL to `docker-compose.prod.yml`
+- [x] Create query modules (`server/db/queries/*.ts`)
+- [x] Migrate each route from JSON to PostgreSQL:
+  - [x] Foods
+  - [x] Profiles
+  - [x] Menus (active + presets)
+  - [x] Selections
+  - [x] Meal history + reviews
+  - [x] Shared menus
+- [x] Write JSON-to-PostgreSQL migration script for existing data
 - [ ] Test locally with Docker Compose
 
 ### Phase 3: Authentication & Multi-Tenancy
