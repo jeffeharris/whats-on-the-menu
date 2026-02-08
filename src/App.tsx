@@ -25,6 +25,7 @@ import { SharedMenuResponses } from './views/parent/SharedMenuResponses';
 import { KidModeHome } from './views/kid/KidModeHome';
 import { MenuSelection } from './views/kid/MenuSelection';
 import { PlateConfirmation } from './views/kid/PlateConfirmation';
+import { FamilyStars } from './views/kid/FamilyStars';
 
 // Public views
 import { SharedMenuView } from './views/public/SharedMenuView';
@@ -171,7 +172,12 @@ function KidModeHomeRoute() {
     navigate('/meal-review');
   };
 
-  return <KidModeHome onSelectKid={handleSelectKid} onConfirmSelections={handleConfirmSelections} />;
+  return <KidModeHome onSelectKid={handleSelectKid} onConfirmSelections={handleConfirmSelections} onNavigateToStars={() => navigate('/kid/stars')} />;
+}
+
+function FamilyStarsRoute() {
+  const navigate = useNavigate();
+  return <FamilyStars onBack={() => navigate('/')} />;
 }
 
 function MenuSelectionRoute() {
@@ -261,6 +267,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<KidModeHomeRoute />} />
+      <Route path="/kid/stars" element={<FamilyStarsRoute />} />
       <Route path="/kid/select/:kidId" element={<MenuSelectionRoute />} />
       <Route path="/kid/confirm/:kidId" element={<PlateConfirmationRoute />} />
       <Route path="/meal-review" element={<MealReviewRoute />} />

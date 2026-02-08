@@ -9,6 +9,8 @@ interface MealHistoryContextType {
   addMeal: (menuId: string, selections: KidSelection[], reviews: KidMealReview[]) => Promise<MealRecord>;
   getMeal: (id: string) => MealRecord | undefined;
   deleteMeal: (id: string) => Promise<void>;
+  getStarCountForKid: (kidId: string) => number;
+  getTotalFamilyStars: () => number;
 }
 
 const MealHistoryContext = createContext<MealHistoryContextType | null>(null);
@@ -39,6 +41,19 @@ export function MealHistoryProvider({ children }: { children: ReactNode }) {
     setMeals((prev) => prev.filter((m) => m.id !== id));
   }, []);
 
+  const getStarCountForKid = useCallback((kidId: string): number => {
+    return meals.reduce((count, meal) => {
+      const review = meal.reviews.find((r) => r.kidId === kidId);
+      return count + (review?.earnedStar ? 1 : 0);
+    }, 0);
+  }, [meals]);
+
+  const getTotalFamilyStars = useCallback((): number => {
+    return meals.reduce((count, meal) => {
+      return count + meal.reviews.filter((r) => r.earnedStar).length;
+    }, 0);
+  }, [meals]);
+
   return (
     <MealHistoryContext.Provider
       value={{
@@ -47,6 +62,8 @@ export function MealHistoryProvider({ children }: { children: ReactNode }) {
         addMeal,
         getMeal,
         deleteMeal,
+        getStarCountForKid,
+        getTotalFamilyStars,
       }}
     >
       {children}

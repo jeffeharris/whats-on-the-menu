@@ -48,20 +48,47 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
           acc[foodId] = null;
           return acc;
         }, {} as { [foodId: string]: CompletionStatus }),
+        earnedStar: false,
       };
     });
     return initial;
   });
 
+  // Track which kids have had their star manually overridden
+  const [manualStarOverride, setManualStarOverride] = useState<{ [kidId: string]: boolean }>({});
+
   const updateCompletion = (kidId: string, foodId: string, status: CompletionStatus) => {
+    setReviews((prev) => {
+      const updatedCompletions = {
+        ...prev[kidId].completions,
+        [foodId]: status,
+      };
+
+      // Auto-calculate star if not manually overridden
+      let earnedStar = prev[kidId].earnedStar;
+      if (!manualStarOverride[kidId]) {
+        const allEaten = Object.values(updatedCompletions).every((s) => s === 'all');
+        earnedStar = allEaten;
+      }
+
+      return {
+        ...prev,
+        [kidId]: {
+          ...prev[kidId],
+          completions: updatedCompletions,
+          earnedStar,
+        },
+      };
+    });
+  };
+
+  const toggleStar = (kidId: string) => {
+    setManualStarOverride((prev) => ({ ...prev, [kidId]: true }));
     setReviews((prev) => ({
       ...prev,
       [kidId]: {
         ...prev[kidId],
-        completions: {
-          ...prev[kidId].completions,
-          [foodId]: status,
-        },
+        earnedStar: !prev[kidId].earnedStar,
       },
     }));
   };
@@ -164,6 +191,29 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
                   />
                 </div>
               ))}
+
+              {/* Star toggle */}
+              <button
+                onClick={() => toggleStar(selection.kidId)}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                  review?.earnedStar
+                    ? 'bg-yellow-50 border-2 border-yellow-300'
+                    : 'bg-gray-50 border-2 border-transparent'
+                }`}
+              >
+                <svg
+                  className={`w-8 h-8 ${review?.earnedStar ? 'text-yellow-400' : 'text-gray-300'}`}
+                  fill={review?.earnedStar ? 'currentColor' : 'none'}
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={review?.earnedStar ? 0 : 1.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                </svg>
+                <span className={`text-lg font-semibold ${review?.earnedStar ? 'text-yellow-700' : 'text-gray-400'}`}>
+                  Happy Plate!
+                </span>
+              </button>
             </Card>
           );
         })}

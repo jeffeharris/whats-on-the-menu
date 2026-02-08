@@ -14,6 +14,7 @@ interface KidMealReview {
   kidId: string;
   mainCompletion: CompletionStatus;
   sideCompletions: { [sideId: string]: CompletionStatus };
+  earnedStar?: boolean;
 }
 
 interface MealRecord {

@@ -113,6 +113,7 @@ export type CompletionStatus = 'all' | 'some' | 'none' | null;
 export interface KidMealReview {
   kidId: string;
   completions: { [foodId: string]: CompletionStatus };
+  earnedStar?: boolean;
   // Legacy fields for migration
   mainCompletion?: CompletionStatus;
   sideCompletions?: { [sideId: string]: CompletionStatus };
