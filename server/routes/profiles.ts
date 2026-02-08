@@ -1,78 +1,69 @@
 import { Router } from 'express';
-import { readJsonFile, writeJsonFile, generateId } from '../storage.js';
-
-type AvatarColor = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink';
-type AvatarAnimal = 'cat' | 'dog' | 'bear' | 'bunny' | 'penguin' | 'owl' | 'fox' | 'panda' | 'lion' | 'elephant' | 'frog';
-
-interface KidProfile {
-  id: string;
-  name: string;
-  avatarColor: AvatarColor;
-  avatarAnimal?: AvatarAnimal;
-}
-
-interface ProfilesData {
-  profiles: KidProfile[];
-}
+import { getAllProfiles, createProfile, updateProfile, deleteProfile } from '../db/queries/profiles.js';
 
 const router = Router();
-const FILENAME = 'profiles.json';
-const DEFAULT_DATA: ProfilesData = { profiles: [] };
+
+// TODO: Phase 3 — get from auth middleware
+const DEFAULT_HOUSEHOLD_ID = '00000000-0000-0000-0000-000000000000';
 
 // GET /api/profiles - Get all profiles
-router.get('/', (_req, res) => {
-  const data = readJsonFile<ProfilesData>(FILENAME, DEFAULT_DATA);
-  res.json(data);
+router.get('/', async (_req, res) => {
+  try {
+    const data = await getAllProfiles(DEFAULT_HOUSEHOLD_ID);
+    res.json(data);
+  } catch (err) {
+    console.error('Failed to fetch profiles:', err);
+    res.status(500).json({ error: 'Failed to fetch profiles' });
+  }
 });
 
 // POST /api/profiles - Create a new profile
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, avatarColor, avatarAnimal } = req.body;
   if (!name || !avatarColor) {
     return res.status(400).json({ error: 'Name and avatarColor are required' });
   }
 
-  const data = readJsonFile<ProfilesData>(FILENAME, DEFAULT_DATA);
-  const newProfile: KidProfile = {
-    id: generateId(),
-    name,
-    avatarColor,
-    ...(avatarAnimal && { avatarAnimal }),
-  };
-  data.profiles.push(newProfile);
-  writeJsonFile(FILENAME, data);
-  res.status(201).json(newProfile);
+  try {
+    const profile = await createProfile(DEFAULT_HOUSEHOLD_ID, name, avatarColor, avatarAnimal);
+    res.status(201).json(profile);
+  } catch (err) {
+    console.error('Failed to create profile:', err);
+    res.status(500).json({ error: 'Failed to create profile' });
+  }
 });
 
 // PUT /api/profiles/:id - Update a profile
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
-  const data = readJsonFile<ProfilesData>(FILENAME, DEFAULT_DATA);
-  const index = data.profiles.findIndex((profile) => profile.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Profile not found' });
+  try {
+    const profile = await updateProfile(DEFAULT_HOUSEHOLD_ID, id, updates);
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+    res.json(profile);
+  } catch (err) {
+    console.error('Failed to update profile:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
   }
-
-  data.profiles[index] = { ...data.profiles[index], ...updates, id };
-  writeJsonFile(FILENAME, data);
-  res.json(data.profiles[index]);
 });
 
 // DELETE /api/profiles/:id - Delete a profile
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
-  const data = readJsonFile<ProfilesData>(FILENAME, DEFAULT_DATA);
-  const index = data.profiles.findIndex((profile) => profile.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Profile not found' });
+  try {
+    const deleted = await deleteProfile(DEFAULT_HOUSEHOLD_ID, id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('Failed to delete profile:', err);
+    res.status(500).json({ error: 'Failed to delete profile' });
   }
-
-  data.profiles.splice(index, 1);
-  writeJsonFile(FILENAME, data);
-  res.status(204).send();
 });
 
 export default router;
