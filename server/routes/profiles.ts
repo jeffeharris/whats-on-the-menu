@@ -3,13 +3,10 @@ import { getAllProfiles, createProfile, updateProfile, deleteProfile } from '../
 
 const router = Router();
 
-// TODO: Phase 3 — get from auth middleware
-const DEFAULT_HOUSEHOLD_ID = '00000000-0000-0000-0000-000000000000';
-
 // GET /api/profiles - Get all profiles
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const data = await getAllProfiles(DEFAULT_HOUSEHOLD_ID);
+    const data = await getAllProfiles(req.householdId!);
     res.json(data);
   } catch (err) {
     console.error('Failed to fetch profiles:', err);
@@ -25,7 +22,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const profile = await createProfile(DEFAULT_HOUSEHOLD_ID, name, avatarColor, avatarAnimal);
+    const profile = await createProfile(req.householdId!, name, avatarColor, avatarAnimal);
     res.status(201).json(profile);
   } catch (err) {
     console.error('Failed to create profile:', err);
@@ -39,7 +36,7 @@ router.put('/:id', async (req, res) => {
   const updates = req.body;
 
   try {
-    const profile = await updateProfile(DEFAULT_HOUSEHOLD_ID, id, updates);
+    const profile = await updateProfile(req.householdId!, id, updates);
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
     }
@@ -55,7 +52,7 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const deleted = await deleteProfile(DEFAULT_HOUSEHOLD_ID, id);
+    const deleted = await deleteProfile(req.householdId!, id);
     if (!deleted) {
       return res.status(404).json({ error: 'Profile not found' });
     }

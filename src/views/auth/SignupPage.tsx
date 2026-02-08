@@ -1,0 +1,116 @@
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Mail, Home, UtensilsCrossed } from 'lucide-react';
+
+export function SignupPage() {
+  const [email, setEmail] = useState('');
+  const [householdName, setHouseholdName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, householdName: householdName || undefined }),
+        credentials: 'include',
+      });
+
+      if (res.ok) {
+        navigate('/auth/check-email', { state: { email } });
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Something went wrong');
+      }
+    } catch {
+      setError('Unable to connect. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-dvh bg-[var(--color-parent-bg)] flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        {/* Branding */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--color-parent-primary)] mb-4">
+            <UtensilsCrossed className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-gray-900">
+            What's On The Menu
+          </h1>
+          <p className="text-gray-500 mt-1">Create your family account</p>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email address
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-parent-primary)] focus:border-transparent text-gray-900 placeholder-gray-400"
+                autoComplete="email"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="householdName" className="block text-sm font-medium text-gray-700 mb-1">
+              Household name <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <div className="relative">
+              <Home className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                id="householdName"
+                type="text"
+                value={householdName}
+                onChange={(e) => setHouseholdName(e.target.value)}
+                placeholder="My Household"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-parent-primary)] focus:border-transparent text-gray-900 placeholder-gray-400"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !email}
+            className="w-full py-3 px-4 rounded-xl font-semibold text-white bg-[var(--color-parent-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+          >
+            {isSubmitting ? 'Creating account...' : 'Create account'}
+          </button>
+        </form>
+
+        <p className="text-center text-sm text-gray-500 mt-6">
+          Already have an account?{' '}
+          <Link to="/login" className="text-[var(--color-parent-primary)] font-medium hover:underline">
+            Log in
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}

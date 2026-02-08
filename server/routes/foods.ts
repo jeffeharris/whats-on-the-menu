@@ -2,9 +2,6 @@ import { Router } from 'express';
 import { deleteUploadedFile } from './uploads.js';
 import { getAllFoods, createFood, updateFood, deleteFood } from '../db/queries/foods.js';
 
-// TODO: Phase 3 — get from auth middleware
-const DEFAULT_HOUSEHOLD_ID = '00000000-0000-0000-0000-000000000000';
-
 // Helper to extract filename from uploaded image URL
 function getUploadedFilename(imageUrl: string | null): string | null {
   if (!imageUrl || !imageUrl.startsWith('/uploads/')) {
@@ -21,9 +18,9 @@ function getUploadedFilename(imageUrl: string | null): string | null {
 const router = Router();
 
 // GET /api/foods - Get all food items
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const data = await getAllFoods(DEFAULT_HOUSEHOLD_ID);
+    const data = await getAllFoods(req.householdId!);
     res.json(data);
   } catch (error) {
     console.error('Error fetching foods:', error);
@@ -40,7 +37,7 @@ router.post('/', async (req, res) => {
     }
 
     const newItem = await createFood(
-      DEFAULT_HOUSEHOLD_ID,
+      req.householdId!,
       name,
       tags || [],
       imageUrl || null
@@ -60,7 +57,7 @@ router.put('/:id', async (req, res) => {
 
     // If imageUrl is being changed, we need the current item for cleanup
     if ('imageUrl' in updates) {
-      const current = await getAllFoods(DEFAULT_HOUSEHOLD_ID);
+      const current = await getAllFoods(req.householdId!);
       const existingItem = current.items.find((item) => item.id === id);
       if (existingItem) {
         const oldFilename = getUploadedFilename(existingItem.imageUrl);
@@ -71,7 +68,7 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    const updated = await updateFood(DEFAULT_HOUSEHOLD_ID, id, updates);
+    const updated = await updateFood(req.householdId!, id, updates);
     if (!updated) {
       return res.status(404).json({ error: 'Food item not found' });
     }
@@ -87,7 +84,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleted = await deleteFood(DEFAULT_HOUSEHOLD_ID, id);
+    const deleted = await deleteFood(req.householdId!, id);
     if (!deleted) {
       return res.status(404).json({ error: 'Food item not found' });
     }

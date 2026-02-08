@@ -64,8 +64,8 @@ Express
 - [x] Update `server/index.ts` to serve SPA in production
 - [x] Create `.dockerignore`
 - [x] Create `deploy.sh` script
-- [ ] DNS: Point whatsonthemenu.app to Hetzner VPS
-- [ ] Deploy and verify HTTPS works
+- [x] DNS: Point whatsonthemenu.app to Hetzner VPS
+- [x] Deploy and verify HTTPS works
 
 ### Phase 2: PostgreSQL & Data Layer ✓
 > Replace JSON file storage with PostgreSQL

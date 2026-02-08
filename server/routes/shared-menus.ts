@@ -19,41 +19,13 @@ const SELECTION_PRESET_CONFIG: Record<SelectionPreset, { min: number; max: numbe
   'pick-2-3': { min: 2, max: 3 },
 };
 
-// TODO: Phase 3 — get from auth middleware
-const DEFAULT_HOUSEHOLD_ID = '00000000-0000-0000-0000-000000000000';
-
-const router = Router();
-
-// POST /api/shared-menus - Create shared menu
-router.post('/', async (req, res) => {
-  const { title, description, groups } = req.body;
-
-  if (!title || !groups || !Array.isArray(groups)) {
-    return res.status(400).json({ error: 'title and groups are required' });
-  }
-
-  try {
-    const menu = await createSharedMenu(DEFAULT_HOUSEHOLD_ID, title, description, groups);
-    res.status(201).json(menu);
-  } catch (error) {
-    console.error('Error creating shared menu:', error);
-    res.status(500).json({ error: 'Failed to create shared menu' });
-  }
-});
-
-// GET /api/shared-menus - List all shared menus
-router.get('/', async (_req, res) => {
-  try {
-    const data = await getAllSharedMenus(DEFAULT_HOUSEHOLD_ID);
-    res.json(data);
-  } catch (error) {
-    console.error('Error fetching shared menus:', error);
-    res.status(500).json({ error: 'Failed to fetch shared menus' });
-  }
-});
+// ============================================================
+// Public routes (mounted before auth middleware in index.ts)
+// ============================================================
+export const publicSharedMenusRouter = Router();
 
 // GET /api/shared-menus/view/:token - Public view by token
-router.get('/view/:token', async (req, res) => {
+publicSharedMenusRouter.get('/view/:token', async (req, res) => {
   const { token } = req.params;
 
   try {
@@ -69,7 +41,7 @@ router.get('/view/:token', async (req, res) => {
 });
 
 // POST /api/shared-menus/respond/:token - Submit response (public)
-router.post('/respond/:token', async (req, res) => {
+publicSharedMenusRouter.post('/respond/:token', async (req, res) => {
   const { token } = req.params;
   const { respondentName, selections } = req.body;
 
@@ -124,12 +96,45 @@ router.post('/respond/:token', async (req, res) => {
   }
 });
 
+// ============================================================
+// Protected routes (mounted after auth middleware in index.ts)
+// ============================================================
+const router = Router();
+
+// POST /api/shared-menus - Create shared menu
+router.post('/', async (req, res) => {
+  const { title, description, groups } = req.body;
+
+  if (!title || !groups || !Array.isArray(groups)) {
+    return res.status(400).json({ error: 'title and groups are required' });
+  }
+
+  try {
+    const menu = await createSharedMenu(req.householdId!, title, description, groups);
+    res.status(201).json(menu);
+  } catch (error) {
+    console.error('Error creating shared menu:', error);
+    res.status(500).json({ error: 'Failed to create shared menu' });
+  }
+});
+
+// GET /api/shared-menus - List all shared menus
+router.get('/', async (req, res) => {
+  try {
+    const data = await getAllSharedMenus(req.householdId!);
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching shared menus:', error);
+    res.status(500).json({ error: 'Failed to fetch shared menus' });
+  }
+});
+
 // GET /api/shared-menus/:id - Get specific shared menu by ID
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const menu = await getSharedMenuById(DEFAULT_HOUSEHOLD_ID, id);
+    const menu = await getSharedMenuById(req.householdId!, id);
     if (!menu) {
       return res.status(404).json({ error: 'Menu not found' });
     }
@@ -165,7 +170,7 @@ router.put('/:id', async (req, res) => {
   if (isActive !== undefined) updates.isActive = isActive;
 
   try {
-    const menu = await updateSharedMenu(DEFAULT_HOUSEHOLD_ID, id, updates);
+    const menu = await updateSharedMenu(req.householdId!, id, updates);
     if (!menu) {
       return res.status(404).json({ error: 'Menu not found' });
     }
@@ -181,7 +186,7 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const deleted = await deleteSharedMenu(DEFAULT_HOUSEHOLD_ID, id);
+    const deleted = await deleteSharedMenu(req.householdId!, id);
     if (!deleted) {
       return res.status(404).json({ error: 'Menu not found' });
     }

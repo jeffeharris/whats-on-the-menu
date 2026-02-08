@@ -15,15 +15,12 @@ import {
   isValidPresetSlot,
 } from '../db/queries/menus.js';
 
-// TODO: Phase 3 — get from auth middleware
-const DEFAULT_HOUSEHOLD_ID = '00000000-0000-0000-0000-000000000000';
-
 const router = Router();
 
 // GET /api/menus - Get all menus
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const data = await getAllMenus(DEFAULT_HOUSEHOLD_ID);
+    const data = await getAllMenus(req.householdId!);
     res.json(data);
   } catch (error) {
     console.error('Error fetching menus:', error);
@@ -40,7 +37,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'At least one group is required' });
     }
 
-    const menu = await createMenu(DEFAULT_HOUSEHOLD_ID, name || 'Menu', groups);
+    const menu = await createMenu(req.householdId!, name || 'Menu', groups);
     res.status(201).json(menu);
   } catch (error) {
     console.error('Error creating menu:', error);
@@ -49,9 +46,9 @@ router.post('/', async (req, res) => {
 });
 
 // GET /api/menus/active - Get active menu with selections
-router.get('/active', async (_req, res) => {
+router.get('/active', async (req, res) => {
   try {
-    const data = await getActiveMenu(DEFAULT_HOUSEHOLD_ID);
+    const data = await getActiveMenu(req.householdId!);
     res.json(data);
   } catch (error) {
     console.error('Error fetching active menu:', error);
@@ -66,14 +63,14 @@ router.put('/active', async (req, res) => {
 
     if (menuId !== null) {
       // Verify the menu exists
-      const { menus } = await getAllMenus(DEFAULT_HOUSEHOLD_ID);
+      const { menus } = await getAllMenus(req.householdId!);
       const menu = menus.find((m) => m.id === menuId);
       if (!menu) {
         return res.status(404).json({ error: 'Menu not found' });
       }
     }
 
-    await setActiveMenu(DEFAULT_HOUSEHOLD_ID, menuId);
+    await setActiveMenu(req.householdId!, menuId);
     res.json({ activeMenuId: menuId });
   } catch (error) {
     console.error('Error setting active menu:', error);
@@ -89,7 +86,7 @@ router.post('/selections', async (req, res) => {
       return res.status(400).json({ error: 'kidId is required' });
     }
 
-    const selection = await addSelection(DEFAULT_HOUSEHOLD_ID, kidId, selections || {});
+    const selection = await addSelection(req.householdId!, kidId, selections || {});
     res.status(201).json(selection);
   } catch (error) {
     console.error('Error adding selection:', error);
@@ -98,9 +95,9 @@ router.post('/selections', async (req, res) => {
 });
 
 // DELETE /api/menus/selections - Clear all selections
-router.delete('/selections', async (_req, res) => {
+router.delete('/selections', async (req, res) => {
   try {
-    await clearSelections(DEFAULT_HOUSEHOLD_ID);
+    await clearSelections(req.householdId!);
     res.status(204).send();
   } catch (error) {
     console.error('Error clearing selections:', error);
@@ -109,9 +106,9 @@ router.delete('/selections', async (_req, res) => {
 });
 
 // GET /api/menus/presets - Get all 4 presets
-router.get('/presets', async (_req, res) => {
+router.get('/presets', async (req, res) => {
   try {
-    const data = await getPresets(DEFAULT_HOUSEHOLD_ID);
+    const data = await getPresets(req.householdId!);
     res.json(data);
   } catch (error) {
     console.error('Error fetching presets:', error);
@@ -134,7 +131,7 @@ router.put('/presets/:slot', async (req, res) => {
     }
 
     const menu = await updatePreset(
-      DEFAULT_HOUSEHOLD_ID,
+      req.householdId!,
       slot,
       name || slot.charAt(0).toUpperCase() + slot.slice(1),
       groups
@@ -155,7 +152,7 @@ router.delete('/presets/:slot', async (req, res) => {
       return res.status(400).json({ error: 'Invalid preset slot' });
     }
 
-    const deleted = await deletePreset(DEFAULT_HOUSEHOLD_ID, slot);
+    const deleted = await deletePreset(req.householdId!, slot);
     if (!deleted) {
       return res.status(404).json({ error: 'Preset not found' });
     }
@@ -179,7 +176,7 @@ router.post('/presets/:fromSlot/copy/:toSlot', async (req, res) => {
       return res.status(400).json({ error: 'Invalid target preset slot' });
     }
 
-    const menu = await copyPreset(DEFAULT_HOUSEHOLD_ID, fromSlot, toSlot);
+    const menu = await copyPreset(req.householdId!, fromSlot, toSlot);
     if (!menu) {
       return res.status(404).json({ error: 'Source preset not found' });
     }
@@ -197,7 +194,7 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { name, groups } = req.body;
 
-    const updated = await updateMenu(DEFAULT_HOUSEHOLD_ID, id, { name, groups });
+    const updated = await updateMenu(req.householdId!, id, { name, groups });
     if (!updated) {
       return res.status(404).json({ error: 'Menu not found' });
     }
@@ -214,7 +211,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleted = await deleteMenu(DEFAULT_HOUSEHOLD_ID, id);
+    const deleted = await deleteMenu(req.householdId!, id);
     if (!deleted) {
       return res.status(404).json({ error: 'Menu not found' });
     }

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppStateProvider, useAppState } from './contexts/AppStateContext';
 import { FoodLibraryProvider } from './contexts/FoodLibraryContext';
 import { KidProfilesProvider } from './contexts/KidProfilesContext';
@@ -8,6 +9,12 @@ import { MealHistoryProvider } from './contexts/MealHistoryContext';
 import { SharedMenuProvider } from './contexts/SharedMenuContext';
 
 const FEATURE_SHARED_MENUS = import.meta.env.VITE_FEATURE_SHARED_MENUS === 'true';
+
+// Auth views
+import { LoginPage } from './views/auth/LoginPage';
+import { SignupPage } from './views/auth/SignupPage';
+import { VerifyPage } from './views/auth/VerifyPage';
+import { CheckEmailPage } from './views/auth/CheckEmailPage';
 
 // Parent views
 import { ParentDashboard } from './views/parent/ParentDashboard';
@@ -239,45 +246,74 @@ function PlateConfirmationRoute() {
   );
 }
 
+// Loading screen for auth state resolution
+function LoadingScreen() {
+  return (
+    <div className="min-h-dvh bg-[var(--color-parent-bg)] flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-8 h-8 border-4 border-[var(--color-parent-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    </div>
+  );
+}
+
 // Main routing component that checks auth state
 function AppRoutes() {
+  const { isAuthenticated, isLoading } = useAuth();
   const { mode, isParentAuthenticated } = useAppState();
 
-  // Parent mode routes (when authenticated)
-  if (mode === 'parent' && isParentAuthenticated) {
-    return (
-      <Routes>
-        <Route path="/" element={<ParentDashboardRoute />} />
-        <Route path="/food-library" element={<FoodLibraryRoute />} />
-        <Route path="/kid-profiles" element={<KidProfilesRoute />} />
-        <Route path="/menu-builder" element={<MenuBuilderRoute />} />
-        <Route path="/settings" element={<SettingsRoute />} />
-        <Route path="/meal-review" element={<MealReviewRoute />} />
-        <Route path="/meal-history" element={<MealHistoryListRoute />} />
-        <Route path="/meal-history/:mealId" element={<MealHistoryDetailRoute />} />
-        {FEATURE_SHARED_MENUS && (
-          <>
-            <Route path="/shared-menus" element={<SharedMenusListRoute />} />
-            <Route path="/shared-menus/new" element={<SharedMenuBuilderRoute />} />
-            <Route path="/shared-menus/:menuId/responses" element={<SharedMenuResponsesRoute />} />
-          </>
-        )}
-        <Route path="/share/:token" element={<SharedMenuViewRoute />} />
-        <Route path="*" element={<ParentDashboardRoute />} />
-      </Routes>
-    );
+  if (isLoading) {
+    return <LoadingScreen />;
   }
 
-  // Kid mode routes (default)
   return (
     <Routes>
-      <Route path="/" element={<KidModeHomeRoute />} />
-      <Route path="/kid/stars" element={<FamilyStarsRoute />} />
-      <Route path="/kid/select/:kidId" element={<MenuSelectionRoute />} />
-      <Route path="/kid/confirm/:kidId" element={<PlateConfirmationRoute />} />
-      <Route path="/meal-review" element={<MealReviewRoute />} />
+      {/* Public routes — always accessible */}
+      <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/signup" element={isAuthenticated ? <Navigate to="/" replace /> : <SignupPage />} />
+      <Route path="/auth/verify" element={<VerifyPage />} />
+      <Route path="/auth/check-email" element={<CheckEmailPage />} />
       <Route path="/share/:token" element={<SharedMenuViewRoute />} />
-      <Route path="*" element={<KidModeHomeRoute />} />
+
+      {/* Protected routes — require authentication */}
+      {isAuthenticated ? (
+        <>
+          {mode === 'parent' && isParentAuthenticated ? (
+            <>
+              {/* All existing parent routes */}
+              <Route path="/" element={<ParentDashboardRoute />} />
+              <Route path="/food-library" element={<FoodLibraryRoute />} />
+              <Route path="/kid-profiles" element={<KidProfilesRoute />} />
+              <Route path="/menu-builder" element={<MenuBuilderRoute />} />
+              <Route path="/settings" element={<SettingsRoute />} />
+              <Route path="/meal-review" element={<MealReviewRoute />} />
+              <Route path="/meal-history" element={<MealHistoryListRoute />} />
+              <Route path="/meal-history/:mealId" element={<MealHistoryDetailRoute />} />
+              {FEATURE_SHARED_MENUS && (
+                <>
+                  <Route path="/shared-menus" element={<SharedMenusListRoute />} />
+                  <Route path="/shared-menus/new" element={<SharedMenuBuilderRoute />} />
+                  <Route path="/shared-menus/:menuId/responses" element={<SharedMenuResponsesRoute />} />
+                </>
+              )}
+              <Route path="*" element={<ParentDashboardRoute />} />
+            </>
+          ) : (
+            <>
+              {/* All existing kid routes */}
+              <Route path="/" element={<KidModeHomeRoute />} />
+              <Route path="/kid/stars" element={<FamilyStarsRoute />} />
+              <Route path="/kid/select/:kidId" element={<MenuSelectionRoute />} />
+              <Route path="/kid/confirm/:kidId" element={<PlateConfirmationRoute />} />
+              <Route path="/meal-review" element={<MealReviewRoute />} />
+              <Route path="*" element={<KidModeHomeRoute />} />
+            </>
+          )}
+        </>
+      ) : (
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      )}
     </Routes>
   );
 }
@@ -285,17 +321,19 @@ function AppRoutes() {
 function App() {
   const content = (
     <BrowserRouter>
-      <AppStateProvider>
-        <FoodLibraryProvider>
-          <KidProfilesProvider>
-            <MenuProvider>
-              <MealHistoryProvider>
-                <AppRoutes />
-              </MealHistoryProvider>
-            </MenuProvider>
-          </KidProfilesProvider>
-        </FoodLibraryProvider>
-      </AppStateProvider>
+      <AuthProvider>
+        <AppStateProvider>
+          <FoodLibraryProvider>
+            <KidProfilesProvider>
+              <MenuProvider>
+                <MealHistoryProvider>
+                  <AppRoutes />
+                </MealHistoryProvider>
+              </MenuProvider>
+            </KidProfilesProvider>
+          </FoodLibraryProvider>
+        </AppStateProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 

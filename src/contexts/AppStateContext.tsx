@@ -3,19 +3,20 @@ import type { ReactNode } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../utils/storage';
 import type { AppState, AppMode } from '../types';
+import { authApi } from '../api/client';
 
 const DEFAULT_STATE: AppState = {
   mode: 'kid',
   isParentAuthenticated: false,
-  parentPin: '1234', // Default PIN
+  parentPin: '1234', // Legacy — now stored in DB, kept for localStorage compat
   selectedKidId: null,
 };
 
 interface AppStateContextType extends AppState {
   setMode: (mode: AppMode) => void;
-  authenticateParent: (pin: string) => boolean;
+  authenticateParent: (pin: string) => Promise<boolean>;
   logoutParent: () => void;
-  setParentPin: (pin: string) => void;
+  setParentPin: (currentPin: string, newPin: string) => Promise<boolean>;
   selectKid: (kidId: string | null) => void;
 }
 
@@ -33,17 +34,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }));
   }, [setState]);
 
-  const authenticateParent = useCallback((pin: string): boolean => {
-    if (pin === state.parentPin) {
-      setState((prev) => ({
-        ...prev,
-        isParentAuthenticated: true,
-        mode: 'parent',
-      }));
-      return true;
+  const authenticateParent = useCallback(async (pin: string): Promise<boolean> => {
+    try {
+      const result = await authApi.verifyPin(pin);
+      if (result.valid) {
+        setState((prev) => ({
+          ...prev,
+          isParentAuthenticated: true,
+          mode: 'parent',
+        }));
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
-    return false;
-  }, [state.parentPin, setState]);
+  }, [setState]);
 
   const logoutParent = useCallback(() => {
     setState((prev) => ({
@@ -53,12 +59,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }));
   }, [setState]);
 
-  const setParentPin = useCallback((pin: string) => {
-    setState((prev) => ({
-      ...prev,
-      parentPin: pin,
-    }));
-  }, [setState]);
+  const setParentPin = useCallback(async (currentPin: string, newPin: string): Promise<boolean> => {
+    try {
+      await authApi.updatePin(currentPin, newPin);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const selectKid = useCallback((kidId: string | null) => {
     setState((prev) => ({
