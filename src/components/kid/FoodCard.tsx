@@ -9,6 +9,7 @@ interface FoodCardProps {
   onClick?: () => void;
   size?: 'md' | 'lg';
   responsive?: boolean;
+  className?: string;
 }
 
 export function FoodCard({
@@ -19,6 +20,7 @@ export function FoodCard({
   onClick,
   size = 'lg',
   responsive = false,
+  className = '',
 }: FoodCardProps) {
   const [imageError, setImageError] = useState(false);
   const isClickable = !!onClick && !disabled;
@@ -43,7 +45,7 @@ export function FoodCard({
   return (
     <div
       className={`
-        ${sizeStyles[size]}
+        ${className || sizeStyles[size]}
         relative
         bg-white rounded-2xl shadow-lg overflow-hidden
         flex flex-col
