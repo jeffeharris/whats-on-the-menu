@@ -126,7 +126,6 @@ body {
 
 .selection-celebrate {
   animation: selection-celebrate 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  ring-width: 4px;
 }
 
 /* Celebration text fade */

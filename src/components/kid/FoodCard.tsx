@@ -45,7 +45,7 @@ export function FoodCard({
   return (
     <div
       className={`
-        ${className || sizeStyles[size]}
+        ${sizeStyles[size]} ${className}
         relative
         bg-white rounded-2xl shadow-lg overflow-hidden
         flex flex-col

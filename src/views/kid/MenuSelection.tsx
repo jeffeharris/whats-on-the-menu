@@ -11,6 +11,8 @@ import { SELECTION_PRESET_CONFIG } from '../../types';
 
 const AUTO_ADVANCE_DELAY_MS = 1500;
 const TRANSITION_DURATION = 500;
+const CARD_STAGGER_DELAY_MS = 60;
+const CELEBRATION_WORDS = ['Yum!', 'Great pick!', 'Tasty!', 'Nice!', 'Delicious!'];
 
 interface MenuSelectionProps {
   kidId: string;
@@ -46,6 +48,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   const [celebrateText, setCelebrateText] = useState<string | null>(null);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Sort groups by order (safe even if currentMenu is null)
@@ -92,17 +95,12 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     [sortedGroups, selections, getItem]
   );
 
-  // Celebration words
-  const celebrationWords = useMemo(
-    () => ['Yum!', 'Great pick!', 'Tasty!', 'Nice!', 'Delicious!'],
-    []
-  );
-
   const showCelebration = useCallback(() => {
-    const word = celebrationWords[Math.floor(Math.random() * celebrationWords.length)];
+    const word = CELEBRATION_WORDS[Math.floor(Math.random() * CELEBRATION_WORDS.length)];
     setCelebrateText(word);
-    setTimeout(() => setCelebrateText(null), 1000);
-  }, [celebrationWords]);
+    if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+    celebrateTimer.current = setTimeout(() => setCelebrateText(null), 1000);
+  }, []);
 
   // Navigation
   const goToStep = useCallback(
@@ -114,7 +112,10 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
       setIsTransitioning(true);
       setCurrentStep(targetStep);
       if (contentRef.current) {
-        contentRef.current.scrollTop = 0;
+        const scrollContainer = contentRef.current.querySelector('.overflow-y-auto') as HTMLElement | null;
+        if (scrollContainer) {
+          scrollContainer.scrollTop = 0;
+        }
       }
       if (transitionTimer.current) clearTimeout(transitionTimer.current);
       transitionTimer.current = setTimeout(() => {
@@ -157,7 +158,16 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
         }
       };
     }
-  }, [currentGroupSelections.length, currentStep, presetConfig, currentGroup, totalSteps, goToNextStep]);
+  }, [currentGroupSelections, currentStep, presetConfig, currentGroup, totalSteps, goToNextStep]);
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
+      if (transitionTimer.current) clearTimeout(transitionTimer.current);
+      if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+    };
+  }, []);
 
   // Early return AFTER all hooks
   if (!currentMenu || !kid) {
@@ -170,18 +180,20 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     if (!group) return;
 
     const groupPreset = SELECTION_PRESET_CONFIG[group.selectionPreset];
-    const currentGroupSels = selections[groupId] || [];
 
     if (autoAdvanceTimer.current) {
       clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
 
+    const isDeselecting = (selections[groupId] || []).includes(foodId);
+
     setSelections((prev) => {
       const newSelections = { ...prev };
+      const prevGroupSels = prev[groupId] || [];
 
-      if (currentGroupSels.includes(foodId)) {
-        newSelections[groupId] = currentGroupSels.filter((id) => id !== foodId);
+      if (prevGroupSels.includes(foodId)) {
+        newSelections[groupId] = prevGroupSels.filter((id) => id !== foodId);
         return newSelections;
       }
 
@@ -191,20 +203,22 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
         }
       }
 
-      if (currentGroupSels.length >= groupPreset.max) {
+      if (prevGroupSels.length >= groupPreset.max) {
         if (groupPreset.max === 1) {
           newSelections[groupId] = [foodId];
         } else {
-          newSelections[groupId] = [...currentGroupSels.slice(1), foodId];
+          newSelections[groupId] = [...prevGroupSels.slice(1), foodId];
         }
       } else {
-        newSelections[groupId] = [...currentGroupSels, foodId];
+        newSelections[groupId] = [...prevGroupSels, foodId];
       }
 
       return newSelections;
     });
 
-    showCelebration();
+    if (!isDeselecting) {
+      showCelebration();
+    }
   };
 
   const handleConfirm = async () => {
@@ -213,6 +227,18 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   };
 
   const isLastStep = currentStep === totalSteps - 1;
+
+  const getRequirementsMessage = () => {
+    for (const group of sortedGroups) {
+      const config = SELECTION_PRESET_CONFIG[group.selectionPreset];
+      const groupSels = selections[group.id] || [];
+      if (groupSels.length < config.min) {
+        const needed = config.min - groupSels.length;
+        return `Pick ${needed} more ${group.label}!`;
+      }
+    }
+    return "All done!";
+  };
 
   const getStepTitle = (stepIndex: number) => {
     const group = sortedGroups[stepIndex];
@@ -263,7 +289,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
               <div
                 key={item.id}
                 className={`w-full ${stepIndex === currentStep && slideDirection ? 'card-pop-in' : ''}`}
-                style={stepIndex === currentStep && slideDirection ? { animationDelay: `${idx * 60}ms` } : undefined}
+                style={stepIndex === currentStep && slideDirection ? { animationDelay: `${idx * CARD_STAGGER_DELAY_MS}ms` } : undefined}
               >
                 <FoodCard
                   name={item.name}
@@ -344,7 +370,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
               onClick={handleConfirm}
               disabled={!canConfirm}
             >
-              {canConfirm ? "All done!" : `Pick ${presetConfig ? presetConfig.min - currentGroupSelections.length : 0} more!`}
+              {canConfirm ? "All done!" : getRequirementsMessage()}
             </Button>
           ) : (
             <Button
