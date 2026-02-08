@@ -1,12 +1,12 @@
 import { createContext, useContext, useCallback, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { profilesApi } from '../api/client';
-import type { KidProfile, AvatarColor } from '../types';
+import type { KidProfile, AvatarColor, AvatarAnimal } from '../types';
 
 interface KidProfilesContextType {
   profiles: KidProfile[];
   loading: boolean;
-  addProfile: (name: string, avatarColor: AvatarColor) => Promise<KidProfile>;
+  addProfile: (name: string, avatarColor: AvatarColor, avatarAnimal?: AvatarAnimal) => Promise<KidProfile>;
   updateProfile: (id: string, updates: Partial<Omit<KidProfile, 'id'>>) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
   getProfile: (id: string) => KidProfile | undefined;
@@ -25,8 +25,8 @@ export function KidProfilesProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const addProfile = useCallback(async (name: string, avatarColor: AvatarColor): Promise<KidProfile> => {
-    const newProfile = await profilesApi.create(name, avatarColor);
+  const addProfile = useCallback(async (name: string, avatarColor: AvatarColor, avatarAnimal?: AvatarAnimal): Promise<KidProfile> => {
+    const newProfile = await profilesApi.create(name, avatarColor, avatarAnimal);
     setProfiles((prev) => [...prev, newProfile]);
     return newProfile;
   }, []);

@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { readJsonFile, writeJsonFile, generateId } from '../storage.js';
 
-type AvatarColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
+type AvatarColor = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink';
+type AvatarAnimal = 'cat' | 'dog' | 'bear' | 'bunny' | 'penguin' | 'owl' | 'fox' | 'panda' | 'lion' | 'elephant' | 'frog';
 
 interface KidProfile {
   id: string;
   name: string;
   avatarColor: AvatarColor;
+  avatarAnimal?: AvatarAnimal;
 }
 
 interface ProfilesData {
@@ -25,7 +27,7 @@ router.get('/', (_req, res) => {
 
 // POST /api/profiles - Create a new profile
 router.post('/', (req, res) => {
-  const { name, avatarColor } = req.body;
+  const { name, avatarColor, avatarAnimal } = req.body;
   if (!name || !avatarColor) {
     return res.status(400).json({ error: 'Name and avatarColor are required' });
   }
@@ -35,6 +37,7 @@ router.post('/', (req, res) => {
     id: generateId(),
     name,
     avatarColor,
+    ...(avatarAnimal && { avatarAnimal }),
   };
   data.profiles.push(newProfile);
   writeJsonFile(FILENAME, data);

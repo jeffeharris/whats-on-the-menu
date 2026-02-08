@@ -58,7 +58,7 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
       <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col overflow-y-auto">
         {/* Header */}
         <div className="text-center mb-6 md:mb-8">
-          <KidAvatar name={kid.name} color={kid.avatarColor} size="lg" />
+          <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="lg" />
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mt-4">
             {kid.name}'s Plate
           </h1>

@@ -171,7 +171,8 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
                   <KidAvatar
                     name={profile.name}
                     color={profile.avatarColor}
-                    size="xl"
+                    avatarAnimal={profile.avatarAnimal}
+                    size="2xl"
                     onClick={() => onSelectKid(profile.id)}
                   />
                   {hasSelected && (

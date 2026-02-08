@@ -160,7 +160,7 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
             <Card key={selection.kidId} className="p-4">
               {/* Kid header */}
               <div className="flex items-center gap-3 mb-4">
-                <KidAvatar name={kid.name} color={kid.avatarColor} size="md" />
+                <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="md" />
                 <h2 className="text-xl font-semibold text-gray-800">{kid.name}'s Meal</h2>
               </div>
 

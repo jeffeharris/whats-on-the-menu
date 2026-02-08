@@ -1,4 +1,4 @@
-import type { FoodItem, KidProfile, AvatarColor, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup } from '../types';
+import type { FoodItem, KidProfile, AvatarColor, AvatarAnimal, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup } from '../types';
 
 const API_BASE = '/api';
 
@@ -44,11 +44,11 @@ export const profilesApi = {
     return res.json();
   },
 
-  async create(name: string, avatarColor: AvatarColor): Promise<KidProfile> {
+  async create(name: string, avatarColor: AvatarColor, avatarAnimal?: AvatarAnimal): Promise<KidProfile> {
     const res = await fetch(`${API_BASE}/profiles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, avatarColor }),
+      body: JSON.stringify({ name, avatarColor, avatarAnimal }),
     });
     if (!res.ok) throw new Error('Failed to create profile');
     return res.json();

@@ -21,7 +21,9 @@ export const PRESET_CONFIG: Record<PresetSlot, { label: string; icon: string; or
 // Predefined tags for food items
 export const PREDEFINED_TAGS = ['Protein', 'Veggie', 'Grain', 'Fruit', 'Dairy', 'Breakfast'] as const;
 
-export type AvatarColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink';
+export type AvatarColor = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink';
+
+export { type AvatarAnimal, AVATAR_ANIMALS, getAvatarImagePath } from './avatars';
 
 // Legacy type for backwards compatibility during migration
 export type FoodCategory = 'main' | 'side';
@@ -39,6 +41,7 @@ export interface KidProfile {
   id: string;
   name: string;
   avatarColor: AvatarColor;
+  avatarAnimal?: import('./avatars').AvatarAnimal;
 }
 
 export interface MenuGroup {

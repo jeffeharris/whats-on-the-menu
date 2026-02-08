@@ -133,7 +133,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
           </svg>
         </button>
         <div className="flex items-center gap-3 flex-1">
-          <KidAvatar name={kid.name} color={kid.avatarColor} size="md" />
+          <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="md" />
           <div>
             <p className="text-gray-500 text-sm">Picking for</p>
             <h1 className="text-2xl font-bold text-gray-800">{kid.name}</h1>

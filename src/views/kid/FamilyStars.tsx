@@ -80,7 +80,7 @@ export function FamilyStars({ onBack }: FamilyStarsProps) {
               const starCount = getStarCountForKid(profile.id);
               return (
                 <div key={profile.id} className="flex flex-col items-center bg-white/10 rounded-2xl p-4">
-                  <KidAvatar name={profile.name} color={profile.avatarColor} size="lg" />
+                  <KidAvatar name={profile.name} color={profile.avatarColor} avatarAnimal={profile.avatarAnimal} size="lg" />
                   <span className="mt-2 text-lg font-semibold text-white">{profile.name}</span>
                   <div className="flex items-center justify-center flex-wrap gap-0.5 mt-1">
                     {starCount > 0 ? (

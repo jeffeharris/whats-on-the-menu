@@ -5,7 +5,7 @@ import { Modal } from '../../components/common/Modal';
 import { KidProfileForm } from '../../components/parent/KidProfileForm';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
-import type { KidProfile, AvatarColor } from '../../types';
+import type { KidProfile, AvatarColor, AvatarAnimal } from '../../types';
 
 interface KidProfilesProps {
   onBack: () => void;
@@ -16,11 +16,11 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<KidProfile | null>(null);
 
-  const handleSubmit = async (name: string, avatarColor: AvatarColor) => {
+  const handleSubmit = async (name: string, avatarColor: AvatarColor, avatarAnimal?: AvatarAnimal) => {
     if (editingProfile) {
-      await updateProfile(editingProfile.id, { name, avatarColor });
+      await updateProfile(editingProfile.id, { name, avatarColor, avatarAnimal });
     } else {
-      await addProfile(name, avatarColor);
+      await addProfile(name, avatarColor, avatarAnimal);
     }
     setIsFormOpen(false);
     setEditingProfile(null);
@@ -68,7 +68,7 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
           <div className="grid gap-3">
             {profiles.map((profile) => (
               <Card key={profile.id} padding="sm" className="flex items-center gap-4">
-                <KidAvatar name={profile.name} color={profile.avatarColor} size="md" />
+                <KidAvatar name={profile.name} color={profile.avatarColor} avatarAnimal={profile.avatarAnimal} size="md" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-800 text-lg">{profile.name}</h3>
                 </div>
@@ -118,6 +118,7 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
               ? {
                   name: editingProfile.name,
                   avatarColor: editingProfile.avatarColor,
+                  avatarAnimal: editingProfile.avatarAnimal,
                 }
               : undefined
           }
