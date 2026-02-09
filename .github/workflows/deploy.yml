@@ -79,19 +79,19 @@ jobs:
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
       - name: Sync compose file and schema to server
         run: |
           rsync -avz --relative -e "ssh -i ~/.ssh/deploy_key" \
             docker-compose.prod.yml docs/schema.sql \
-            root@${{ secrets.SERVER_HOST }}:/opt/menu/
+            root@${{ secrets.DEPLOY_HOST }}:/opt/menu/
 
       - name: Pull and restart containers
         run: |
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} << 'DEPLOY_EOF'
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} << 'DEPLOY_EOF'
             cd /opt/menu
             docker network inspect web >/dev/null 2>&1 || docker network create web
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -109,11 +109,11 @@ jobs:
           echo "Waiting for service to start..."
           sleep 10
           for i in $(seq 1 6); do
-            if ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} \
+            if ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
               "curl -sf http://localhost:3001/api/health"; then
               echo ""
               echo "Health check passed! Deployment complete."
-              ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} \
+              ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
                 "docker rmi ghcr.io/jeffeharris/whats-on-the-menu:rollback 2>/dev/null || true"
               exit 0
             fi
@@ -121,7 +121,7 @@ jobs:
             sleep 10
           done
           echo "Health check failed after 60s! Rolling back..."
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} << 'ROLLBACK_EOF'
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} << 'ROLLBACK_EOF'
             cd /opt/menu
             ROLLBACK_EXISTS=$(docker images -q ghcr.io/jeffeharris/whats-on-the-menu:rollback 2>/dev/null || true)
             if [ -n "$ROLLBACK_EXISTS" ]; then
@@ -132,7 +132,7 @@ jobs:
               echo "No rollback image available."
             fi
           ROLLBACK_EOF
-          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} \
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DEPLOY_HOST }} \
             "cd /opt/menu && docker compose -f docker-compose.prod.yml logs --tail=50 menu-app"
           exit 1
 
