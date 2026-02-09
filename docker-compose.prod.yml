@@ -18,6 +18,7 @@ services:
       - internal
 
   menu-app:
+    image: ghcr.io/jeffeharris/whats-on-the-menu:latest
     build:
       context: .
       dockerfile: Dockerfile.prod

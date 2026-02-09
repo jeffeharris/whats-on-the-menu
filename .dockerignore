@@ -35,5 +35,14 @@ docker-compose.yml
 # Dev environment script
 dev-env
 
+# CI/CD
+.github
+Dockerfile.prod
+docker-compose.prod.yml
+deploy.sh
+
+# Scripts (not needed at runtime)
+scripts
+
 # Documentation
 README.md
