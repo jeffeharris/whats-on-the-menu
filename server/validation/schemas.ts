@@ -7,7 +7,6 @@ import { z } from 'zod';
 export const signupSchema = z.object({
   email: z.string().email('A valid email is required'),
   householdName: z.string().optional(),
-  inviteToken: z.string().optional(),
 });
 
 export const loginSchema = z.object({
@@ -29,10 +28,6 @@ export const updatePinSchema = z.object({
 
 export const invitePartnerSchema = z.object({
   email: z.string().email('A valid email is required'),
-});
-
-export const acceptInvitationSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
 });
 
 // ============================================================

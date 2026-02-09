@@ -7,13 +7,22 @@ import {
   revokeInvitation,
   getInvitationToken,
   acceptInvitation,
+  acceptInvitationForNewUser,
   getHouseholdMembers,
   getUserRole,
   removeHouseholdMember,
   leaveHousehold,
   getInvitationByToken,
 } from '../db/queries/household.js';
-import { invitePartnerSchema, acceptInvitationSchema } from '../validation/schemas.js';
+import {
+  findUserByEmail,
+  createUser,
+  createHousehold,
+  createSession,
+} from '../db/queries/auth.js';
+import { initializeHouseholdFoods } from '../db/queries/foods.js';
+import pool from '../db/pool.js';
+import { invitePartnerSchema } from '../validation/schemas.js';
 import { resend, APP_URL, EMAIL_FROM, emailTemplate } from '../email.js';
 
 // ============================================================
@@ -39,6 +48,79 @@ publicHouseholdRouter.get('/invite-info', async (req: Request, res: Response) =>
   } catch (error) {
     console.error('Invite info error:', error);
     res.status(500).json({ error: 'Failed to fetch invitation info' });
+  }
+});
+
+// GET /api/household/accept-invite?token=xxx
+// One-click invite acceptance: validates token, creates account if needed, accepts invite, creates session, redirects home
+publicHouseholdRouter.get('/accept-invite', async (req: Request, res: Response) => {
+  const { token } = req.query;
+  const errorRedirect = (error: string) =>
+    res.redirect(`${APP_URL}/invite/accept?token=${token || ''}&error=${error}`);
+
+  try {
+    if (!token || typeof token !== 'string') {
+      return errorRedirect('invalid');
+    }
+
+    // 1. Validate invitation
+    const invite = await getInvitationByToken(token);
+    if (!invite) {
+      return errorRedirect('invalid');
+    }
+    if (invite.status !== 'pending') {
+      return errorRedirect('already-accepted');
+    }
+    if (invite.expiresAt < new Date()) {
+      return errorRedirect('expired');
+    }
+
+    // 2. Find or create user
+    let user = await findUserByEmail(invite.email);
+    let orphanHouseholdId: string | null = null;
+
+    if (!user) {
+      // New user: create a temporary household + user, then we'll move them
+      const household = await createHousehold('My Household', '1234');
+      orphanHouseholdId = household.id;
+      user = await createUser(invite.email, household.id, undefined, 'owner');
+      await initializeHouseholdFoods(household.id);
+    }
+
+    // 3. Accept invitation
+    let accepted: { householdId: string } | null;
+    if (orphanHouseholdId) {
+      // New user path
+      accepted = await acceptInvitationForNewUser(token, user.id, invite.email);
+      if (accepted) {
+        // Clean up the orphan household
+        await pool.query('DELETE FROM households WHERE id = $1', [orphanHouseholdId]);
+      }
+    } else {
+      // Existing user path — moves them to the new household, deletes old sessions
+      accepted = await acceptInvitation(token, user.id);
+    }
+
+    if (!accepted) {
+      return errorRedirect('invalid');
+    }
+
+    // 4. Create session and set cookie
+    const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+    const sessionToken = await createSession(user.id);
+    res.cookie('session', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: SESSION_DURATION_MS,
+      path: '/',
+    });
+
+    // 5. Redirect home
+    res.redirect(`${APP_URL}/`);
+  } catch (error) {
+    console.error('Accept invite error:', error);
+    errorRedirect('invalid');
   }
 });
 
@@ -69,7 +151,7 @@ router.post('/invite', async (req: Request, res: Response) => {
 
     // Get token for the email link
     const token = await getInvitationToken(invitation.id);
-    const inviteUrl = `${APP_URL}/invite/accept?token=${token}`;
+    const inviteUrl = `${APP_URL}/api/household/accept-invite?token=${token}`;
 
     if (resend) {
       await resend.emails.send({
@@ -81,7 +163,7 @@ router.post('/invite', async (req: Request, res: Response) => {
           heading: "You're invited!",
           body: `<p style="margin:0 0 8px 0;"><strong>${invitation.inviterEmail}</strong> has invited you to join their household on What's On The Menu.</p>
                  <p style="margin:0;">Tap the button below to view the invitation and join their family account.</p>`,
-          buttonText: 'View invitation',
+          buttonText: 'Join household',
           buttonUrl: inviteUrl,
           footnote: 'This invitation expires in 7 days.',
         }),
@@ -179,50 +261,6 @@ router.post('/leave', async (req: Request, res: Response) => {
     }
     console.error('Leave household error:', error);
     res.status(500).json({ error: 'Failed to leave household' });
-  }
-});
-
-// POST /api/household/accept
-router.post('/accept', async (req: Request, res: Response) => {
-  try {
-    const result = acceptInvitationSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error.issues[0].message });
-    }
-
-    const { token } = result.data;
-
-    // Validate invitation
-    const invite = await getInvitationByToken(token);
-    if (!invite) {
-      return res.status(404).json({ error: 'Invitation not found' });
-    }
-
-    if (invite.status !== 'pending') {
-      return res.status(400).json({ error: 'This invitation has already been used or revoked' });
-    }
-
-    if (invite.expiresAt < new Date()) {
-      return res.status(400).json({ error: 'This invitation has expired. Please ask for a new one.' });
-    }
-
-    // Check if user is already in the target household
-    const members = await getHouseholdMembers(invite.householdId);
-    if (members.some((m) => m.id === req.userId)) {
-      return res.status(400).json({ error: 'You are already a member of this household' });
-    }
-
-    const accepted = await acceptInvitation(token, req.userId!);
-    if (!accepted) {
-      return res.status(400).json({ error: 'Failed to accept invitation' });
-    }
-
-    // Clear session cookie since sessions were deleted during acceptance
-    res.clearCookie('session');
-    res.json({ success: true, householdId: accepted.householdId });
-  } catch (error) {
-    console.error('Accept invitation error:', error);
-    res.status(500).json({ error: 'Failed to accept invitation' });
   }
 });
 

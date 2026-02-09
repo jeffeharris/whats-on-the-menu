@@ -358,19 +358,6 @@ export const householdApi = {
     return res.json();
   },
 
-  async acceptInvitation(token: string): Promise<{ success: boolean; householdId: string }> {
-    const res = await apiFetch(`${API_BASE}/household/accept`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to accept invitation');
-    }
-    return res.json();
-  },
-
   async getInviteInfo(token: string): Promise<InviteInfo> {
     const res = await apiFetch(`${API_BASE}/household/invite-info?token=${encodeURIComponent(token)}`);
     if (!res.ok) {
@@ -396,11 +383,11 @@ export const authApi = {
     return res.json();
   },
 
-  async signup(email: string, householdName?: string, inviteToken?: string): Promise<{ success: boolean }> {
+  async signup(email: string, householdName?: string): Promise<{ success: boolean }> {
     const res = await apiFetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, householdName, inviteToken }),
+      body: JSON.stringify({ email, householdName }),
     });
     if (!res.ok) {
       const data = await res.json();
