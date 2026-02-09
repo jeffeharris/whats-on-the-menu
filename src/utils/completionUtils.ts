@@ -1,4 +1,4 @@
-import type { CompletionStatus } from '../../types';
+import type { CompletionStatus } from '../types';
 
 /** Get the card background color for a given completion status */
 export function getCompletionCardColor(status: CompletionStatus): string {
