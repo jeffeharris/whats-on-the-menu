@@ -93,20 +93,20 @@ jobs:
 
       - name: Health check
         run: |
+          cd /opt/menu
           echo "Waiting for service to start..."
           sleep 10
           for i in $(seq 1 6); do
-            if curl -sf http://localhost:3001/api/health; then
-              echo ""
+            HEALTH=$(docker inspect --format='{{.State.Health.Status}}' menu-menu-app-1 2>/dev/null || echo "unknown")
+            if [ "$HEALTH" = "healthy" ]; then
               echo "Health check passed! Deployment complete."
               docker rmi ghcr.io/jeffeharris/whats-on-the-menu:rollback 2>/dev/null || true
               exit 0
             fi
-            echo "Attempt $i/6 failed, retrying in 10s..."
+            echo "Attempt $i/6: status=$HEALTH, retrying in 10s..."
             sleep 10
           done
           echo "Health check failed after 60s! Rolling back..."
-          cd /opt/menu
           ROLLBACK_EXISTS=$(docker images -q ghcr.io/jeffeharris/whats-on-the-menu:rollback 2>/dev/null || true)
           if [ -n "$ROLLBACK_EXISTS" ]; then
             docker tag ghcr.io/jeffeharris/whats-on-the-menu:rollback ghcr.io/jeffeharris/whats-on-the-menu:latest
