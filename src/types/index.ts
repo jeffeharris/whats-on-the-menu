@@ -170,3 +170,29 @@ export interface SharedMenuResponse {
   };
   timestamp: number;
 }
+
+// Household member/invitation types
+export interface HouseholdMember {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: string;
+}
+
+export interface HouseholdInvitation {
+  id: string;
+  householdId: string;
+  invitedBy: string;
+  inviterEmail: string;
+  email: string;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface InviteInfo {
+  householdName: string;
+  inviterEmail: string;
+  status: string;
+  expired: boolean;
+}

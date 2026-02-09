@@ -18,6 +18,7 @@ import mealsRouter from './routes/meals.js';
 import uploadsRouter from './routes/uploads.js';
 import sharedMenusRouter, { publicSharedMenusRouter } from './routes/shared-menus.js';
 import imageGenerationRouter from './routes/image-generation.js';
+import householdRouter, { publicHouseholdRouter } from './routes/household.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -76,6 +77,9 @@ app.use('/api/auth', authLimiter, authRouter);
 // Public shared menu routes — unprotected (view/respond by token)
 app.use('/api/shared-menus', publicSharedMenuLimiter, publicSharedMenusRouter);
 
+// Public household routes — unprotected (invite info)
+app.use('/api/household', publicHouseholdRouter);
+
 // === Auth wall: everything below requires a valid session ===
 app.use('/api', apiLimiter);
 app.use('/api', requireAuth);
@@ -88,6 +92,7 @@ app.use('/api/meals', mealsRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/shared-menus', sharedMenusRouter);
 app.use('/api/image-generation', imageGenerationRouter);
+app.use('/api/household', householdRouter);
 
 // Catch-all for unknown API routes
 app.all('/api/*', notFoundHandler);
@@ -105,14 +110,18 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(errorHandler);
 
-// Clean up expired sessions every 24 hours
+// Clean up expired sessions and invitations every 24 hours
 import { deleteExpiredSessions } from './db/queries/auth.js';
+import { expirePendingInvitations } from './db/queries/household.js';
 const sessionCleanupInterval = setInterval(async () => {
   try {
-    const count = await deleteExpiredSessions();
-    if (count > 0) logger.info(`Cleaned up ${count} expired sessions`);
+    const sessionCount = await deleteExpiredSessions();
+    if (sessionCount > 0) logger.info(`Cleaned up ${sessionCount} expired sessions`);
+
+    const inviteCount = await expirePendingInvitations();
+    if (inviteCount > 0) logger.info(`Expired ${inviteCount} pending invitations`);
   } catch (err) {
-    logger.error({ err }, 'Session cleanup error');
+    logger.error({ err }, 'Cleanup error');
   }
 }, 24 * 60 * 60 * 1000);
 sessionCleanupInterval.unref();

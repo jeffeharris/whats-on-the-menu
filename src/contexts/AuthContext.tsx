@@ -5,6 +5,7 @@ interface User {
   id: string;
   email: string;
   displayName: string | null;
+  role: string;
 }
 
 interface Household {
@@ -35,6 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         setUser(data.user);
         setHousehold(data.household);
+
+        // Check for pending invite token and redirect if needed
+        const pendingToken = sessionStorage.getItem('pendingInviteToken');
+        if (pendingToken && !window.location.pathname.startsWith('/invite/accept')) {
+          window.location.href = `/invite/accept?token=${pendingToken}`;
+        }
       } else {
         setUser(null);
         setHousehold(null);

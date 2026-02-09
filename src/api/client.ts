@@ -1,4 +1,4 @@
-import type { FoodItem, KidProfile, AvatarColor, AvatarAnimal, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup } from '../types';
+import type { FoodItem, KidProfile, AvatarColor, AvatarAnimal, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup, HouseholdMember, HouseholdInvitation, InviteInfo } from '../types';
 
 const API_BASE = '/api';
 
@@ -307,6 +307,80 @@ export const sharedMenusApi = {
   },
 };
 
+// Household API
+export const householdApi = {
+  async getMembers(): Promise<{ members: HouseholdMember[] }> {
+    const res = await apiFetch(`${API_BASE}/household/members`);
+    if (!res.ok) throw new Error('Failed to fetch members');
+    return res.json();
+  },
+
+  async invite(email: string): Promise<{ success: boolean; invitation: HouseholdInvitation }> {
+    const res = await apiFetch(`${API_BASE}/household/invite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to send invitation');
+    }
+    return res.json();
+  },
+
+  async getInvitations(): Promise<{ invitations: HouseholdInvitation[] }> {
+    const res = await apiFetch(`${API_BASE}/household/invitations`);
+    if (!res.ok) throw new Error('Failed to fetch invitations');
+    return res.json();
+  },
+
+  async revokeInvitation(id: string): Promise<{ success: boolean }> {
+    const res = await apiFetch(`${API_BASE}/household/invitations/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to revoke invitation');
+    return res.json();
+  },
+
+  async removeMember(userId: string): Promise<{ success: boolean }> {
+    const res = await apiFetch(`${API_BASE}/household/members/${userId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to remove member');
+    }
+    return res.json();
+  },
+
+  async leaveHousehold(): Promise<{ success: boolean }> {
+    const res = await apiFetch(`${API_BASE}/household/leave`, { method: 'POST' });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to leave household');
+    }
+    return res.json();
+  },
+
+  async acceptInvitation(token: string): Promise<{ success: boolean; householdId: string }> {
+    const res = await apiFetch(`${API_BASE}/household/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to accept invitation');
+    }
+    return res.json();
+  },
+
+  async getInviteInfo(token: string): Promise<InviteInfo> {
+    const res = await apiFetch(`${API_BASE}/household/invite-info?token=${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to fetch invitation info');
+    }
+    return res.json();
+  },
+};
+
 // Auth API
 export const authApi = {
   async login(email: string): Promise<{ success: boolean }> {
@@ -322,11 +396,11 @@ export const authApi = {
     return res.json();
   },
 
-  async signup(email: string, householdName?: string): Promise<{ success: boolean }> {
+  async signup(email: string, householdName?: string, inviteToken?: string): Promise<{ success: boolean }> {
     const res = await apiFetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, householdName }),
+      body: JSON.stringify({ email, householdName, inviteToken }),
     });
     if (!res.ok) {
       const data = await res.json();
@@ -339,7 +413,7 @@ export const authApi = {
     await apiFetch(`${API_BASE}/auth/logout`, { method: 'POST' });
   },
 
-  async me(): Promise<{ user: { id: string; email: string; displayName: string | null }; household: { id: string; name: string } } | null> {
+  async me(): Promise<{ user: { id: string; email: string; displayName: string | null; role: string }; household: { id: string; name: string } } | null> {
     const res = await apiFetch(`${API_BASE}/auth/me`);
     if (!res.ok) return null;
     return res.json();

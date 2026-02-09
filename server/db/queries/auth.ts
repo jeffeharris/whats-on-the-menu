@@ -18,13 +18,14 @@ export async function findUserByEmail(
 export async function createUser(
   email: string,
   householdId: string,
-  displayName?: string
-): Promise<{ id: string; email: string; household_id: string; display_name: string | null }> {
+  displayName?: string,
+  role: string = 'owner',
+): Promise<{ id: string; email: string; household_id: string; display_name: string | null; role: string }> {
   const { rows } = await pool.query(
-    `INSERT INTO users (email, household_id, display_name)
-     VALUES ($1, $2, $3)
-     RETURNING id, email, household_id, display_name`,
-    [email.toLowerCase().trim(), householdId, displayName ?? null]
+    `INSERT INTO users (email, household_id, display_name, role)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, email, household_id, display_name, role`,
+    [email.toLowerCase().trim(), householdId, displayName ?? null, role]
   );
   return rows[0];
 }
@@ -58,9 +59,9 @@ export async function createSession(userId: string): Promise<string> {
 
 export async function getSessionByToken(
   token: string
-): Promise<{ userId: string; householdId: string; email: string } | null> {
+): Promise<{ userId: string; householdId: string; email: string; role: string } | null> {
   const { rows } = await pool.query(
-    `SELECT s.user_id, u.household_id, u.email
+    `SELECT s.user_id, u.household_id, u.email, u.role
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token = $1 AND s.expires_at > now()`,
@@ -71,6 +72,7 @@ export async function getSessionByToken(
     userId: rows[0].user_id,
     householdId: rows[0].household_id,
     email: rows[0].email,
+    role: rows[0].role,
   };
 }
 

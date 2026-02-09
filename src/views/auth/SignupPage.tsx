@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Home, UtensilsCrossed, Loader2 } from 'lucide-react';
+import { Mail, Home, UtensilsCrossed, Loader2, Users } from 'lucide-react';
 
 export function SignupPage() {
   const [email, setEmail] = useState('');
@@ -8,6 +8,8 @@ export function SignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const pendingInviteToken = sessionStorage.getItem('pendingInviteToken');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +20,11 @@ export function SignupPage() {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, householdName: householdName || undefined }),
+        body: JSON.stringify({
+          email,
+          householdName: householdName || undefined,
+          inviteToken: pendingInviteToken || undefined,
+        }),
         credentials: 'include',
       });
 
@@ -48,6 +54,14 @@ export function SignupPage() {
           </h1>
           <p className="text-gray-500 mt-1">Create your family account</p>
         </div>
+
+        {/* Invite banner */}
+        {pendingInviteToken && (
+          <div className="mb-4 p-3 rounded-lg bg-purple-50 text-purple-700 text-sm flex items-center gap-2">
+            <Users className="w-4 h-4 flex-shrink-0" />
+            <span>You have a pending household invitation. Create an account to accept it.</span>
+          </div>
+        )}
 
         {/* Error */}
         {error && (

@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { Resend } from 'resend';
 import {
   findUserByEmail,
   createUser,
@@ -17,23 +16,30 @@ import {
 import { requireAuth } from '../middleware/auth.js';
 import { initializeHouseholdFoods } from '../db/queries/foods.js';
 import { signupSchema, loginSchema, verifyPinSchema, updatePinSchema } from '../validation/schemas.js';
+import { acceptInvitationForNewUser } from '../db/queries/household.js';
+import pool from '../db/pool.js';
+import { resend, APP_URL, EMAIL_FROM, emailTemplate } from '../email.js';
 
 // ============================================================
 // Email sending helper
 // ============================================================
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
 async function sendMagicLinkEmail(email: string, token: string): Promise<void> {
   const url = `${APP_URL}/auth/verify?token=${token}`;
 
   if (resend) {
     await resend.emails.send({
-      from: "What's On The Menu <noreply@whatsonthemenu.app>",
+      from: EMAIL_FROM,
       to: email,
       subject: 'Your login link',
-      html: `<p>Click <a href="${url}">here</a> to log in to What's On The Menu.</p><p>This link expires in 15 minutes.</p><p>If you didn't request this, you can safely ignore this email.</p>`,
+      html: emailTemplate({
+        preheader: 'Click to log in to your family account',
+        heading: 'Log in to your account',
+        body: '<p style="margin:0;">Tap the button below to sign in to your What\'s On The Menu account.</p>',
+        buttonText: 'Log in',
+        buttonUrl: url,
+        footnote: 'This link expires in 15 minutes.',
+      }),
     });
   } else {
     console.log(`\n  Magic link for ${email}: ${url}\n`);
@@ -69,16 +75,32 @@ router.post('/signup', async (req: Request, res: Response) => {
     if (!result.success) {
       return res.status(400).json({ error: result.error.issues[0].message });
     }
-    const { email, householdName } = result.data;
+    const { email, householdName, inviteToken } = result.data;
 
     const existing = await findUserByEmail(email);
     if (existing) {
       return res.status(400).json({ error: 'An account with that email already exists' });
     }
 
+    // Create household + user
     const household = await createHousehold(householdName || 'My Household', '1234');
-    await createUser(email, household.id);
+    const user = await createUser(email, household.id, undefined, 'owner');
     await initializeHouseholdFoods(household.id);
+
+    // If signup was triggered from an invite link, accept the invitation
+    // This moves the user to the inviter's household
+    if (inviteToken) {
+      try {
+        const result = await acceptInvitationForNewUser(inviteToken, user.id, email);
+        if (result) {
+          // Clean up the empty household we just created (user moved to inviter's household)
+          await pool.query('DELETE FROM households WHERE id = $1', [household.id]);
+        }
+      } catch (err) {
+        // Non-fatal: user still has their own household if invite fails
+        console.error('Failed to accept invite during signup:', err);
+      }
+    }
 
     const token = await createMagicLinkToken(email);
     await sendMagicLinkEmail(email, token);
@@ -168,6 +190,7 @@ router.get('/me', async (req: Request, res: Response) => {
         id: session.userId,
         email: session.email,
         displayName: null, // Could be fetched from users table if needed
+        role: session.role,
       },
       household: household
         ? { id: household.id, name: household.name }

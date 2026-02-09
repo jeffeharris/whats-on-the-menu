@@ -44,6 +44,7 @@ CREATE TABLE users (
   email         TEXT NOT NULL UNIQUE,
   household_id  UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   display_name  TEXT,
+  role          TEXT NOT NULL DEFAULT 'member',  -- 'owner' or 'member'
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -83,6 +84,35 @@ CREATE TABLE magic_link_tokens (
 );
 
 CREATE INDEX idx_magic_link_tokens_token ON magic_link_tokens(token);
+
+-- ============================================================
+-- household_invitations (invite partner/co-parent)
+-- ============================================================
+CREATE TABLE household_invitations (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  invited_by  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email       TEXT NOT NULL,
+  token       TEXT NOT NULL UNIQUE,
+  status      TEXT NOT NULL DEFAULT 'pending',  -- pending, accepted, revoked, expired
+  expires_at  TIMESTAMPTZ NOT NULL,
+  accepted_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_household_invitations_token ON household_invitations(token);
+CREATE INDEX idx_household_invitations_household ON household_invitations(household_id);
+CREATE INDEX idx_household_invitations_email ON household_invitations(email);
+
+-- Prevent duplicate pending invites for same email in same household
+CREATE UNIQUE INDEX idx_household_invitations_pending
+  ON household_invitations(household_id, email)
+  WHERE status = 'pending';
+
+CREATE TRIGGER household_invitations_updated_at
+  BEFORE UPDATE ON household_invitations
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================
 -- food_items (per-household food library)

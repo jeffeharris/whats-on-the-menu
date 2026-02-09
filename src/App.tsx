@@ -15,6 +15,7 @@ import { LoginPage } from './views/auth/LoginPage';
 import { SignupPage } from './views/auth/SignupPage';
 import { VerifyPage } from './views/auth/VerifyPage';
 import { CheckEmailPage } from './views/auth/CheckEmailPage';
+import { AcceptInvitePage } from './views/auth/AcceptInvitePage';
 
 // Parent views
 import { ParentDashboard } from './views/parent/ParentDashboard';
@@ -278,6 +279,7 @@ function AppRoutes() {
       <Route path="/auth/verify" element={<VerifyPage />} />
       <Route path="/auth/check-email" element={<CheckEmailPage />} />
       <Route path="/share/:token" element={<SharedMenuViewRoute />} />
+      <Route path="/invite/accept" element={<AcceptInvitePage />} />
 
       {/* Protected routes — require authentication */}
       {isAuthenticated ? (

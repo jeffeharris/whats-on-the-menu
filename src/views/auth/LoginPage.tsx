@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Mail, UtensilsCrossed, Loader2 } from 'lucide-react';
+import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
+import { Mail, UtensilsCrossed, Loader2, Users } from 'lucide-react';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -8,6 +8,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const locationMessage = (location.state as { message?: string })?.message;
+
+  const pendingInviteToken = sessionStorage.getItem('pendingInviteToken');
 
   useEffect(() => {
     const urlError = searchParams.get('error');
@@ -55,6 +59,21 @@ export function LoginPage() {
           </h1>
           <p className="text-gray-500 mt-1">Sign in to your family account</p>
         </div>
+
+        {/* Location message (e.g., after accepting invite) */}
+        {locationMessage && (
+          <div className="mb-4 p-3 rounded-lg bg-green-50 text-green-700 text-sm">
+            {locationMessage}
+          </div>
+        )}
+
+        {/* Invite banner */}
+        {pendingInviteToken && !locationMessage && (
+          <div className="mb-4 p-3 rounded-lg bg-purple-50 text-purple-700 text-sm flex items-center gap-2">
+            <Users className="w-4 h-4 flex-shrink-0" />
+            <span>You have a pending household invitation. Log in to accept it.</span>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
