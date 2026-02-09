@@ -12,19 +12,17 @@ export function AcceptInvitePage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(!!token);
+  const [error, setError] = useState<string | null>(token ? null : 'No invitation token provided');
   const [isAccepting, setIsAccepting] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setError('No invitation token provided');
-      setIsLoading(false);
-      return;
-    }
+    if (!token) return;
 
+    let cancelled = false;
     householdApi.getInviteInfo(token)
       .then((info) => {
+        if (cancelled) return;
         if (info.status !== 'pending') {
           setError('This invitation has already been used or revoked.');
         } else if (info.expired) {
@@ -34,9 +32,11 @@ export function AcceptInvitePage() {
         }
       })
       .catch(() => {
-        setError('Invitation not found.');
+        if (!cancelled) setError('Invitation not found.');
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+
+    return () => { cancelled = true; };
   }, [token]);
 
   const handleAccept = async () => {
