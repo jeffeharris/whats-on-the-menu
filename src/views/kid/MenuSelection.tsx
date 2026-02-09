@@ -61,7 +61,10 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   const totalSteps = sortedGroups.length;
   const currentGroup = sortedGroups[currentStep] ?? null;
   const presetConfig = currentGroup ? SELECTION_PRESET_CONFIG[currentGroup.selectionPreset] : null;
-  const currentGroupSelections = currentGroup ? (selections[currentGroup.id] || []) : [];
+  const currentGroupSelections = useMemo(
+    () => currentGroup ? (selections[currentGroup.id] || []) : [],
+    [currentGroup, selections]
+  );
 
   // Get all food IDs selected across all groups (for cross-group exclusion)
   const allSelectedFoodIds = useMemo(() => {
