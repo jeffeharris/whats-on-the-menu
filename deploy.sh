@@ -6,7 +6,7 @@ APP_DIR="/opt/menu"
 COMPOSE="docker compose -f docker-compose.prod.yml"
 
 echo "==> Syncing menu app files to server..."
-rsync -avz --exclude '.git' --exclude 'node_modules' --exclude 'dist' --exclude 'data/' \
+rsync -avz --exclude '.git' --exclude 'node_modules' --exclude 'dist' --exclude 'data/' --exclude '.env' \
   -e ssh ./ ${SERVER}:${APP_DIR}/
 
 echo "==> Ensuring shared Docker network exists..."
