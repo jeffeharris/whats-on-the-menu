@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getAllProfiles, createProfile, updateProfile, deleteProfile } from '../db/queries/profiles.js';
+import { createProfileSchema, updateProfileSchema } from '../validation/schemas.js';
 
 const router = Router();
 
@@ -16,10 +17,11 @@ router.get('/', async (req, res) => {
 
 // POST /api/profiles - Create a new profile
 router.post('/', async (req, res) => {
-  const { name, avatarColor, avatarAnimal } = req.body;
-  if (!name || !avatarColor) {
-    return res.status(400).json({ error: 'Name and avatarColor are required' });
+  const result = createProfileSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
   }
+  const { name, avatarColor, avatarAnimal } = result.data;
 
   try {
     const profile = await createProfile(req.householdId!, name, avatarColor, avatarAnimal);
@@ -33,7 +35,11 @@ router.post('/', async (req, res) => {
 // PUT /api/profiles/:id - Update a profile
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const updates = req.body;
+  const parseResult = updateProfileSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: parseResult.error.issues[0].message });
+  }
+  const updates = parseResult.data;
 
   try {
     const profile = await updateProfile(req.householdId!, id, updates);

@@ -109,18 +109,18 @@ Express
 - [x] Build `initialize_household_foods()` function
 - [x] Test signup → verify seed foods appear in library
 
-### Phase 5: Polish & Launch Prep
+### Phase 5: Polish & Launch Prep ✓
 > Harden for public use
 
-- [ ] Rate limiting (Express middleware)
-- [ ] Input validation (zod on API routes)
-- [ ] Error handling improvements (structured error responses)
-- [ ] Loading states for auth flows
-- [ ] Landing page / marketing page (optional)
-- [ ] Terms of service / privacy policy page
-- [ ] Automated backups (PostgreSQL + uploads)
-- [ ] Uptime monitoring (UptimeRobot or similar)
-- [ ] Log aggregation
+- [x] Rate limiting (Express middleware)
+- [x] Input validation (zod on API routes)
+- [x] Error handling improvements (structured error responses)
+- [x] Loading states for auth flows
+- [x] Landing page / marketing page
+- [x] Terms of service / privacy policy page
+- [x] Automated backups (PostgreSQL + uploads)
+- [x] Uptime monitoring (UptimeRobot setup documented)
+- [x] Log aggregation (pino structured logging)
 
 ### Phase 6: Future Enhancements
 > Post-launch improvements

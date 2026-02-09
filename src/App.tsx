@@ -37,6 +37,9 @@ import { FamilyStars } from './views/kid/FamilyStars';
 
 // Public views
 import { SharedMenuView } from './views/public/SharedMenuView';
+import { LandingPage } from './views/LandingPage';
+import { TermsPage } from './views/legal/TermsPage';
+import { PrivacyPage } from './views/legal/PrivacyPage';
 
 // Route wrapper components for parent views
 function ParentDashboardRoute() {
@@ -270,8 +273,8 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public routes — always accessible */}
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
-      <Route path="/signup" element={isAuthenticated ? <Navigate to="/" replace /> : <SignupPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/auth/verify" element={<VerifyPage />} />
       <Route path="/auth/check-email" element={<CheckEmailPage />} />
       <Route path="/share/:token" element={<SharedMenuViewRoute />} />
@@ -279,6 +282,8 @@ function AppRoutes() {
       {/* Protected routes — require authentication */}
       {isAuthenticated ? (
         <>
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/signup" element={<Navigate to="/" replace />} />
           {mode === 'parent' && isParentAuthenticated ? (
             <>
               {/* All existing parent routes */}
@@ -312,7 +317,12 @@ function AppRoutes() {
           )}
         </>
       ) : (
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </>
       )}
     </Routes>
   );

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { deleteUploadedFile } from './uploads.js';
 import { getAllFoods, createFood, updateFood, deleteFood } from '../db/queries/foods.js';
+import { createFoodSchema, updateFoodSchema } from '../validation/schemas.js';
 
 // Helper to extract filename from uploaded image URL
 function getUploadedFilename(imageUrl: string | null): string | null {
@@ -31,10 +32,11 @@ router.get('/', async (req, res) => {
 // POST /api/foods - Create a new food item
 router.post('/', async (req, res) => {
   try {
-    const { name, tags, imageUrl } = req.body;
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required' });
+    const result = createFoodSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
+    const { name, tags, imageUrl } = result.data;
 
     const newItem = await createFood(
       req.householdId!,
@@ -53,7 +55,11 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const parseResult = updateFoodSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: parseResult.error.issues[0].message });
+    }
+    const updates = parseResult.data;
 
     // If imageUrl is being changed, we need the current item for cleanup
     if ('imageUrl' in updates) {

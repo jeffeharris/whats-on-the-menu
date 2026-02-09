@@ -14,6 +14,13 @@ import {
   copyPreset,
   isValidPresetSlot,
 } from '../db/queries/menus.js';
+import {
+  createMenuSchema,
+  updateMenuSchema,
+  setActiveMenuSchema,
+  addSelectionSchema,
+  updatePresetSchema,
+} from '../validation/schemas.js';
 
 const router = Router();
 
@@ -31,11 +38,11 @@ router.get('/', async (req, res) => {
 // POST /api/menus - Create a new menu
 router.post('/', async (req, res) => {
   try {
-    const { name, groups } = req.body;
-
-    if (!groups || !Array.isArray(groups) || groups.length === 0) {
-      return res.status(400).json({ error: 'At least one group is required' });
+    const result = createMenuSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
+    const { name, groups } = result.data;
 
     const menu = await createMenu(req.householdId!, name || 'Menu', groups);
     res.status(201).json(menu);
@@ -59,7 +66,11 @@ router.get('/active', async (req, res) => {
 // PUT /api/menus/active - Set active menu
 router.put('/active', async (req, res) => {
   try {
-    const { menuId } = req.body;
+    const result = setActiveMenuSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { menuId } = result.data;
 
     if (menuId !== null) {
       // Verify the menu exists
@@ -81,10 +92,11 @@ router.put('/active', async (req, res) => {
 // POST /api/menus/selections - Add a kid selection
 router.post('/selections', async (req, res) => {
   try {
-    const { kidId, selections } = req.body;
-    if (!kidId) {
-      return res.status(400).json({ error: 'kidId is required' });
+    const result = addSelectionSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
+    const { kidId, selections } = result.data;
 
     const selection = await addSelection(req.householdId!, kidId, selections || {});
     res.status(201).json(selection);
@@ -120,15 +132,16 @@ router.get('/presets', async (req, res) => {
 router.put('/presets/:slot', async (req, res) => {
   try {
     const { slot } = req.params;
-    const { name, groups } = req.body;
 
     if (!isValidPresetSlot(slot)) {
       return res.status(400).json({ error: 'Invalid preset slot' });
     }
 
-    if (!groups || !Array.isArray(groups)) {
-      return res.status(400).json({ error: 'groups is required' });
+    const result = updatePresetSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
+    const { name, groups } = result.data;
 
     const menu = await updatePreset(
       req.householdId!,
@@ -192,7 +205,11 @@ router.post('/presets/:fromSlot/copy/:toSlot', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, groups } = req.body;
+    const result = updateMenuSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { name, groups } = result.data;
 
     const updated = await updateMenu(req.householdId!, id, { name, groups });
     if (!updated) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Mail, UtensilsCrossed } from 'lucide-react';
+import { Mail, UtensilsCrossed, Loader2 } from 'lucide-react';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -88,8 +88,9 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={isSubmitting || !email}
-            className="w-full py-3 px-4 rounded-xl font-semibold text-white bg-[var(--color-parent-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            className="w-full py-3 px-4 rounded-xl font-semibold text-white bg-[var(--color-parent-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
           >
+            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
             {isSubmitting ? 'Sending...' : 'Send login link'}
           </button>
         </form>

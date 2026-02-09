@@ -9,6 +9,11 @@ import {
   getResponses,
   submitResponse,
 } from '../db/queries/shared-menus.js';
+import {
+  createSharedMenuSchema,
+  updateSharedMenuSchema,
+  submitResponseSchema,
+} from '../validation/schemas.js';
 
 type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3';
 
@@ -43,15 +48,12 @@ publicSharedMenusRouter.get('/view/:token', async (req, res) => {
 // POST /api/shared-menus/respond/:token - Submit response (public)
 publicSharedMenusRouter.post('/respond/:token', async (req, res) => {
   const { token } = req.params;
-  const { respondentName, selections } = req.body;
 
-  if (!respondentName || typeof respondentName !== 'string' || !respondentName.trim()) {
-    return res.status(400).json({ error: 'respondentName is required' });
+  const result = submitResponseSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
   }
-
-  if (!selections || typeof selections !== 'object') {
-    return res.status(400).json({ error: 'selections are required' });
-  }
+  const { respondentName, selections } = result.data;
 
   try {
     // Fetch menu and validate selections against its structure
@@ -103,11 +105,11 @@ const router = Router();
 
 // POST /api/shared-menus - Create shared menu
 router.post('/', async (req, res) => {
-  const { title, description, groups } = req.body;
-
-  if (!title || !groups || !Array.isArray(groups)) {
-    return res.status(400).json({ error: 'title and groups are required' });
+  const result = createSharedMenuSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
   }
+  const { title, description, groups } = result.data;
 
   try {
     const menu = await createSharedMenu(req.householdId!, title, description, groups);
@@ -161,7 +163,11 @@ router.get('/:id/responses', async (req, res) => {
 // PUT /api/shared-menus/:id - Update shared menu
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, groups, isActive } = req.body;
+  const parseResult = updateSharedMenuSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: parseResult.error.issues[0].message });
+  }
+  const { title, description, groups, isActive } = parseResult.data;
 
   const updates: Record<string, unknown> = {};
   if (title !== undefined) updates.title = title;

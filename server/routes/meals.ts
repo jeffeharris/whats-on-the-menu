@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getAllMeals, getMeal, createMeal, deleteMeal } from '../db/queries/meals.js';
+import { createMealSchema } from '../validation/schemas.js';
 
 const router = Router();
 
@@ -32,10 +33,11 @@ router.get('/:id', async (req, res) => {
 // POST /api/meals - Create a new meal record
 router.post('/', async (req, res) => {
   try {
-    const { menuId, selections, reviews } = req.body;
-    if (!menuId || !selections || !reviews) {
-      return res.status(400).json({ error: 'menuId, selections, and reviews are required' });
+    const result = createMealSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
+    const { menuId, selections, reviews } = result.data;
 
     const newMeal = await createMeal(req.householdId!, menuId, selections, reviews);
     res.status(201).json(newMeal);

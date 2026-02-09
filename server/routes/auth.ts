@@ -16,6 +16,7 @@ import {
 } from '../db/queries/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { initializeHouseholdFoods } from '../db/queries/foods.js';
+import { signupSchema, loginSchema, verifyPinSchema, updatePinSchema } from '../validation/schemas.js';
 
 // ============================================================
 // Email sending helper
@@ -56,14 +57,6 @@ function setSessionCookie(res: Response, token: string) {
 }
 
 // ============================================================
-// Basic email validation
-// ============================================================
-
-function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-// ============================================================
 // Router
 // ============================================================
 
@@ -72,11 +65,11 @@ const router = Router();
 // POST /api/auth/signup
 router.post('/signup', async (req: Request, res: Response) => {
   try {
-    const { email, householdName } = req.body;
-
-    if (!email || !isValidEmail(email)) {
-      return res.status(400).json({ error: 'A valid email is required' });
+    const result = signupSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
+    const { email, householdName } = result.data;
 
     const existing = await findUserByEmail(email);
     if (existing) {
@@ -100,11 +93,11 @@ router.post('/signup', async (req: Request, res: Response) => {
 // POST /api/auth/login
 router.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
-
-    if (!email || !isValidEmail(email)) {
-      return res.status(400).json({ error: 'A valid email is required' });
+    const result = loginSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
+    const { email } = result.data;
 
     const user = await findUserByEmail(email);
     if (!user) {
@@ -203,7 +196,11 @@ router.post('/logout', requireAuth, async (req: Request, res: Response) => {
 // POST /api/auth/verify-pin (protected)
 router.post('/verify-pin', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { pin } = req.body;
+    const result = verifyPinSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { pin } = result.data;
     const householdPin = await getHouseholdPin(req.householdId!);
     res.json({ valid: pin === householdPin });
   } catch (error) {
@@ -215,15 +212,15 @@ router.post('/verify-pin', requireAuth, async (req: Request, res: Response) => {
 // POST /api/auth/update-pin (protected)
 router.post('/update-pin', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { currentPin, newPin } = req.body;
+    const result = updatePinSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { currentPin, newPin } = result.data;
 
     const householdPin = await getHouseholdPin(req.householdId!);
     if (currentPin !== householdPin) {
       return res.status(403).json({ error: 'Current PIN is incorrect' });
-    }
-
-    if (!/^\d{4}$/.test(newPin)) {
-      return res.status(400).json({ error: 'New PIN must be exactly 4 digits' });
     }
 
     await updateHouseholdPin(req.householdId!, newPin);

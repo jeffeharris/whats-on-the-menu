@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Home, UtensilsCrossed } from 'lucide-react';
+import { Mail, Home, UtensilsCrossed, Loader2 } from 'lucide-react';
 
 export function SignupPage() {
   const [email, setEmail] = useState('');
@@ -98,8 +98,9 @@ export function SignupPage() {
           <button
             type="submit"
             disabled={isSubmitting || !email}
-            className="w-full py-3 px-4 rounded-xl font-semibold text-white bg-[var(--color-parent-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            className="w-full py-3 px-4 rounded-xl font-semibold text-white bg-[var(--color-parent-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
           >
+            {isSubmitting && <Loader2 className="w-5 h-5 animate-spin" />}
             {isSubmitting ? 'Creating account...' : 'Create account'}
           </button>
         </form>
