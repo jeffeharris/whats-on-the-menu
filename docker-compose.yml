@@ -1,4 +1,22 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: whatsonthemenu
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d whatsonthemenu"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   app:
     build: .
     env_file: .env
@@ -14,7 +32,14 @@ services:
       - app-data:/app/data
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/whatsonthemenu
+      - SESSION_SECRET=dev-secret-not-for-production
+      - APP_URL=http://localhost:${PORT:-5173}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
+  pgdata:
   app-data:

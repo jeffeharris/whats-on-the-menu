@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { generateId } from '../storage.js';
 import { UPLOADS_DIR, MAX_DIMENSION, JPEG_QUALITY } from './uploads.js';
 
 const router = Router();
@@ -38,7 +37,7 @@ async function downloadAndSaveImage(url: string, timeoutMs = 30000): Promise<str
     .jpeg({ quality: JPEG_QUALITY })
     .toBuffer();
 
-  const filename = `${generateId()}.jpg`;
+  const filename = `${randomUUID()}.jpg`;
   const filepath = join(UPLOADS_DIR, filename);
   writeFileSync(filepath, processedImage);
 

@@ -38,6 +38,7 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
 
     // Not enough characters
     if (trimmed.length < MIN_CHARS) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setImageUrl(null);
       setIsLoading(false);
       return;

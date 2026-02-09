@@ -54,73 +54,73 @@ Express
 
 ## 4. Implementation Phases
 
-### Phase 1: Production Infrastructure
+### Phase 1: Production Infrastructure ✓
 > Get the current app deployed as-is (single-tenant, JSON storage)
 
-- [ ] Create `Dockerfile.prod` (multi-stage build)
-- [ ] Create `docker-compose.prod.yml` (app + caddy)
-- [ ] Create `Caddyfile` for whatsonthemenu.app
-- [ ] Add `/api/health` endpoint
-- [ ] Update `server/index.ts` to serve SPA in production
-- [ ] Create `.dockerignore`
-- [ ] Create `deploy.sh` script
-- [ ] DNS: Point whatsonthemenu.app to Hetzner VPS
-- [ ] Deploy and verify HTTPS works
+- [x] Create `Dockerfile.prod` (multi-stage build)
+- [x] Create `docker-compose.prod.yml` (app + caddy)
+- [x] Create `Caddyfile` for whatsonthemenu.app
+- [x] Add `/api/health` endpoint
+- [x] Update `server/index.ts` to serve SPA in production
+- [x] Create `.dockerignore`
+- [x] Create `deploy.sh` script
+- [x] DNS: Point whatsonthemenu.app to Hetzner VPS
+- [x] Deploy and verify HTTPS works
 
-### Phase 2: PostgreSQL & Data Layer
+### Phase 2: PostgreSQL & Data Layer ✓
 > Replace JSON file storage with PostgreSQL
 
-- [ ] Add `pg` dependency, create connection pool (`server/db/pool.ts`)
-- [ ] Create database schema (`docs/schema.sql`)
-- [ ] Add PostgreSQL to `docker-compose.prod.yml`
-- [ ] Create query modules (`server/db/queries/*.ts`)
-- [ ] Migrate each route from JSON to PostgreSQL:
-  - [ ] Foods
-  - [ ] Profiles
-  - [ ] Menus (active + presets)
-  - [ ] Selections
-  - [ ] Meal history + reviews
-  - [ ] Shared menus
-- [ ] Write JSON-to-PostgreSQL migration script for existing data
+- [x] Add `pg` dependency, create connection pool (`server/db/pool.ts`)
+- [x] Create database schema (`docs/schema.sql`)
+- [x] Add PostgreSQL to `docker-compose.prod.yml`
+- [x] Create query modules (`server/db/queries/*.ts`)
+- [x] Migrate each route from JSON to PostgreSQL:
+  - [x] Foods
+  - [x] Profiles
+  - [x] Menus (active + presets)
+  - [x] Selections
+  - [x] Meal history + reviews
+  - [x] Shared menus
+- [x] Write JSON-to-PostgreSQL migration script for existing data
 - [ ] Test locally with Docker Compose
 
-### Phase 3: Authentication & Multi-Tenancy
+### Phase 3: Authentication & Multi-Tenancy ✓
 > Add user accounts, households, and tenant isolation
 
-- [ ] Create auth tables (users, households, sessions, magic_link_tokens)
-- [ ] Build magic link flow:
-  - [ ] `POST /api/auth/login` — send magic link email
-  - [ ] `GET /api/auth/verify?token=...` — verify token, create session
-  - [ ] `POST /api/auth/logout` — destroy session
-  - [ ] `GET /api/auth/me` — get current user
-- [ ] Add auth middleware (session cookie → household_id)
-- [ ] Scope ALL API routes to `household_id`
-- [ ] Create signup flow (new household + seed foods)
-- [ ] Move kid PIN from localStorage to DB (per household)
-- [ ] Build login/signup UI screens
-- [ ] Email service integration (Resend, Postmark, or SES)
+- [x] Create auth tables (users, households, sessions, magic_link_tokens)
+- [x] Build magic link flow:
+  - [x] `POST /api/auth/login` — send magic link email
+  - [x] `GET /api/auth/verify?token=...` — verify token, create session
+  - [x] `POST /api/auth/logout` — destroy session
+  - [x] `GET /api/auth/me` — get current user
+- [x] Add auth middleware (session cookie → household_id)
+- [x] Scope ALL API routes to `household_id`
+- [x] Create signup flow (new household + seed foods)
+- [x] Move kid PIN from localStorage to DB (per household)
+- [x] Build login/signup UI screens
+- [x] Email service integration (Resend, Postmark, or SES)
 
-### Phase 4: Seed Food Library
+### Phase 4: Seed Food Library ✓
 > Curate starter foods with images for new signups
 
-- [ ] Curate ~50 kid-friendly foods across categories
-- [ ] Create/source common food images (or use AI generation)
-- [ ] Create `seed_food_templates` table + seed data SQL
-- [ ] Build `initialize_household_foods()` function
-- [ ] Test signup → verify seed foods appear in library
+- [x] Curate ~50 kid-friendly foods across categories
+- [x] Create/source common food images (or use AI generation)
+- [x] Create `seed_food_templates` table + seed data SQL
+- [x] Build `initialize_household_foods()` function
+- [x] Test signup → verify seed foods appear in library
 
-### Phase 5: Polish & Launch Prep
+### Phase 5: Polish & Launch Prep ✓
 > Harden for public use
 
-- [ ] Rate limiting (Express middleware)
-- [ ] Input validation (zod on API routes)
-- [ ] Error handling improvements (structured error responses)
-- [ ] Loading states for auth flows
-- [ ] Landing page / marketing page (optional)
-- [ ] Terms of service / privacy policy page
-- [ ] Automated backups (PostgreSQL + uploads)
-- [ ] Uptime monitoring (UptimeRobot or similar)
-- [ ] Log aggregation
+- [x] Rate limiting (Express middleware)
+- [x] Input validation (zod on API routes)
+- [x] Error handling improvements (structured error responses)
+- [x] Loading states for auth flows
+- [x] Landing page / marketing page
+- [x] Terms of service / privacy policy page
+- [x] Automated backups (PostgreSQL + uploads)
+- [x] Uptime monitoring (UptimeRobot setup documented)
+- [x] Log aggregation (pino structured logging)
 
 ### Phase 6: Future Enhancements
 > Post-launch improvements

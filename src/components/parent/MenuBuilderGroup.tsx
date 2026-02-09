@@ -40,6 +40,7 @@ export function MenuBuilderGroup({
   useEffect(() => {
     // If group ID changed, this is a new group - fully sync
     if (prevGroupIdRef.current !== group.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllSelectedIds(new Set(group.foodIds));
       prevGroupIdRef.current = group.id;
     } else {

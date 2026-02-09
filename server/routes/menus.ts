@@ -1,510 +1,243 @@
 import { Router } from 'express';
-import { readJsonFile, writeJsonFile, generateId } from '../storage.js';
-
-type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3';
-type PresetSlot = 'breakfast' | 'snack' | 'dinner' | 'custom';
-
-const VALID_PRESET_SLOTS: PresetSlot[] = ['breakfast', 'snack', 'dinner', 'custom'];
-
-interface MenuGroup {
-  id: string;
-  label: string;
-  foodIds: string[];
-  selectionPreset: SelectionPreset;
-  order: number;
-}
-
-interface SavedMenu {
-  id: string;
-  name: string;
-  groups: MenuGroup[];
-  createdAt: number;
-  updatedAt: number;
-  presetSlot?: PresetSlot;
-  // Legacy fields for migration
-  mains?: string[];
-  sides?: string[];
-}
-
-interface GroupSelections {
-  [groupId: string]: string[];
-}
-
-interface KidSelection {
-  kidId: string;
-  selections: GroupSelections;
-  timestamp: number;
-  // Legacy fields for migration
-  mainId?: string | null;
-  sideIds?: string[];
-}
-
-interface MenusData {
-  menus: SavedMenu[];
-  activeMenuId: string | null;
-  selections: KidSelection[];
-}
+import {
+  getAllMenus,
+  createMenu,
+  updateMenu,
+  deleteMenu,
+  getActiveMenu,
+  setActiveMenu,
+  addSelection,
+  clearSelections,
+  getPresets,
+  updatePreset,
+  deletePreset,
+  copyPreset,
+  isValidPresetSlot,
+} from '../db/queries/menus.js';
+import {
+  createMenuSchema,
+  updateMenuSchema,
+  setActiveMenuSchema,
+  addSelectionSchema,
+  updatePresetSchema,
+} from '../validation/schemas.js';
 
 const router = Router();
-const FILENAME = 'menus.json';
-const DEFAULT_DATA: MenusData = { menus: [], activeMenuId: null, selections: [] };
-
-// Migration: Convert old mains/sides to groups
-function migrateMenu(menu: SavedMenu): SavedMenu {
-  // If menu already has groups array, no migration needed
-  if (menu.groups && Array.isArray(menu.groups) && menu.groups.length > 0) {
-    // Remove legacy fields
-    const { mains, sides, ...rest } = menu;
-    return rest as SavedMenu;
-  }
-
-  // Migrate mains/sides to groups
-  const groups: MenuGroup[] = [];
-
-  if (menu.mains && menu.mains.length > 0) {
-    groups.push({
-      id: 'main-group',
-      label: 'Main Dishes',
-      foodIds: menu.mains,
-      selectionPreset: 'pick-1',
-      order: 0,
-    });
-  }
-
-  if (menu.sides && menu.sides.length > 0) {
-    groups.push({
-      id: 'side-group',
-      label: 'Side Dishes',
-      foodIds: menu.sides,
-      selectionPreset: 'pick-1-2',
-      order: 1,
-    });
-  }
-
-  // Remove legacy fields
-  const { mains, sides, ...rest } = menu;
-  return { ...rest, groups } as SavedMenu;
-}
-
-// Migration: Convert old mainId/sideIds to selections
-function migrateSelection(selection: KidSelection): KidSelection {
-  // If selection already has selections object, no migration needed
-  if (selection.selections && typeof selection.selections === 'object' && Object.keys(selection.selections).length > 0) {
-    // Remove legacy fields
-    const { mainId, sideIds, ...rest } = selection;
-    return rest as KidSelection;
-  }
-
-  // Migrate mainId/sideIds to selections
-  const selections: GroupSelections = {};
-
-  if (selection.mainId !== undefined) {
-    selections['main-group'] = selection.mainId ? [selection.mainId] : [];
-  }
-
-  if (selection.sideIds !== undefined) {
-    selections['side-group'] = selection.sideIds || [];
-  }
-
-  // Remove legacy fields
-  const { mainId, sideIds, ...rest } = selection;
-  return { ...rest, selections } as KidSelection;
-}
-
-// Migrate all data and save if changes were made
-function migrateAndGetData(): MenusData {
-  const data = readJsonFile<MenusData>(FILENAME, DEFAULT_DATA);
-  let needsSave = false;
-
-  // Migrate menus
-  const migratedMenus = data.menus.map((menu) => {
-    if (!menu.groups || !Array.isArray(menu.groups) || menu.groups.length === 0 || menu.mains || menu.sides) {
-      needsSave = true;
-      return migrateMenu(menu);
-    }
-    return menu;
-  });
-
-  // Migrate selections
-  const migratedSelections = data.selections.map((selection) => {
-    if (!selection.selections || typeof selection.selections !== 'object' || Object.keys(selection.selections).length === 0 || selection.mainId !== undefined || selection.sideIds !== undefined) {
-      needsSave = true;
-      return migrateSelection(selection);
-    }
-    return selection;
-  });
-
-  if (needsSave) {
-    const newData = { ...data, menus: migratedMenus, selections: migratedSelections };
-    writeJsonFile(FILENAME, newData);
-    return newData;
-  }
-
-  return data;
-}
 
 // GET /api/menus - Get all menus
-router.get('/', (_req, res) => {
-  const data = migrateAndGetData();
-  res.json({ menus: data.menus });
+router.get('/', async (req, res) => {
+  try {
+    const data = await getAllMenus(req.householdId!);
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching menus:', error);
+    res.status(500).json({ error: 'Failed to fetch menus' });
+  }
 });
 
 // POST /api/menus - Create a new menu
-router.post('/', (req, res) => {
-  const { name, groups, mains, sides } = req.body;
-
-  const data = migrateAndGetData();
-  const now = Date.now();
-
-  // Support both new groups and legacy mains/sides
-  let menuGroups: MenuGroup[] = groups || [];
-  if ((!groups || groups.length === 0) && (mains || sides)) {
-    // Legacy support: convert mains/sides to groups
-    menuGroups = [];
-    if (mains && mains.length > 0) {
-      menuGroups.push({
-        id: 'main-group',
-        label: 'Main Dishes',
-        foodIds: mains,
-        selectionPreset: 'pick-1',
-        order: 0,
-      });
+router.post('/', async (req, res) => {
+  try {
+    const result = createMenuSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
-    if (sides && sides.length > 0) {
-      menuGroups.push({
-        id: 'side-group',
-        label: 'Side Dishes',
-        foodIds: sides,
-        selectionPreset: 'pick-1-2',
-        order: 1,
-      });
-    }
+    const { name, groups } = result.data;
+
+    const menu = await createMenu(req.householdId!, name || 'Menu', groups);
+    res.status(201).json(menu);
+  } catch (error) {
+    console.error('Error creating menu:', error);
+    res.status(500).json({ error: 'Failed to create menu' });
   }
-
-  if (menuGroups.length === 0) {
-    return res.status(400).json({ error: 'At least one group is required' });
-  }
-
-  const newMenu: SavedMenu = {
-    id: generateId(),
-    name: name || 'Menu',
-    groups: menuGroups,
-    createdAt: now,
-    updatedAt: now,
-  };
-  data.menus.push(newMenu);
-
-  // Set as active menu and clear selections
-  data.activeMenuId = newMenu.id;
-  data.selections = [];
-
-  writeJsonFile(FILENAME, data);
-  res.status(201).json(newMenu);
 });
 
 // GET /api/menus/active - Get active menu with selections
-// NOTE: This route must be defined BEFORE /:id routes to avoid "active" being treated as an ID
-router.get('/active', (_req, res) => {
-  const data = migrateAndGetData();
-
-  if (!data.activeMenuId) {
-    return res.json({ menu: null, selections: [] });
+router.get('/active', async (req, res) => {
+  try {
+    const data = await getActiveMenu(req.householdId!);
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching active menu:', error);
+    res.status(500).json({ error: 'Failed to fetch active menu' });
   }
-
-  const activeMenu = data.menus.find((menu) => menu.id === data.activeMenuId);
-  res.json({
-    menu: activeMenu || null,
-    selections: data.selections
-  });
 });
 
 // PUT /api/menus/active - Set active menu
-router.put('/active', (req, res) => {
-  const { menuId } = req.body;
-
-  const data = migrateAndGetData();
-
-  if (menuId !== null) {
-    const menu = data.menus.find((m) => m.id === menuId);
-    if (!menu) {
-      return res.status(404).json({ error: 'Menu not found' });
+router.put('/active', async (req, res) => {
+  try {
+    const result = setActiveMenuSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
     }
-  }
+    const { menuId } = result.data;
 
-  data.activeMenuId = menuId;
-  data.selections = []; // Clear selections when changing active menu
-  writeJsonFile(FILENAME, data);
-  res.json({ activeMenuId: data.activeMenuId });
+    if (menuId !== null) {
+      // Verify the menu exists
+      const { menus } = await getAllMenus(req.householdId!);
+      const menu = menus.find((m) => m.id === menuId);
+      if (!menu) {
+        return res.status(404).json({ error: 'Menu not found' });
+      }
+    }
+
+    await setActiveMenu(req.householdId!, menuId);
+    res.json({ activeMenuId: menuId });
+  } catch (error) {
+    console.error('Error setting active menu:', error);
+    res.status(500).json({ error: 'Failed to set active menu' });
+  }
 });
 
 // POST /api/menus/selections - Add a kid selection
-// NOTE: This route must be defined BEFORE /:id routes to avoid "selections" being treated as an ID
-router.post('/selections', (req, res) => {
-  const { kidId, selections, mainId, sideIds } = req.body;
-  if (!kidId) {
-    return res.status(400).json({ error: 'kidId is required' });
+router.post('/selections', async (req, res) => {
+  try {
+    const result = addSelectionSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { kidId, selections } = result.data;
+
+    const selection = await addSelection(req.householdId!, kidId, selections || {});
+    res.status(201).json(selection);
+  } catch (error) {
+    console.error('Error adding selection:', error);
+    res.status(500).json({ error: 'Failed to add selection' });
   }
-
-  const data = migrateAndGetData();
-
-  // Remove existing selection for this kid
-  data.selections = data.selections.filter((s) => s.kidId !== kidId);
-
-  // Support both new selections format and legacy mainId/sideIds
-  let groupSelections: GroupSelections = selections || {};
-  if ((!selections || Object.keys(selections).length === 0) && (mainId !== undefined || sideIds !== undefined)) {
-    // Legacy support
-    groupSelections = {
-      'main-group': mainId ? [mainId] : [],
-      'side-group': sideIds || [],
-    };
-  }
-
-  // Add new selection
-  const newSelection: KidSelection = {
-    kidId,
-    selections: groupSelections,
-    timestamp: Date.now(),
-  };
-  data.selections.push(newSelection);
-
-  writeJsonFile(FILENAME, data);
-  res.status(201).json(newSelection);
 });
 
 // DELETE /api/menus/selections - Clear all selections
-router.delete('/selections', (_req, res) => {
-  const data = migrateAndGetData();
-  data.selections = [];
-  writeJsonFile(FILENAME, data);
-  res.status(204).send();
+router.delete('/selections', async (req, res) => {
+  try {
+    await clearSelections(req.householdId!);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error clearing selections:', error);
+    res.status(500).json({ error: 'Failed to clear selections' });
+  }
 });
 
 // GET /api/menus/presets - Get all 4 presets
-router.get('/presets', (_req, res) => {
-  const data = migrateAndGetData();
-  const presets: Record<PresetSlot, SavedMenu | null> = {
-    breakfast: null,
-    snack: null,
-    dinner: null,
-    custom: null,
-  };
-
-  for (const menu of data.menus) {
-    if (menu.presetSlot && VALID_PRESET_SLOTS.includes(menu.presetSlot)) {
-      presets[menu.presetSlot] = menu;
-    }
+router.get('/presets', async (req, res) => {
+  try {
+    const data = await getPresets(req.householdId!);
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching presets:', error);
+    res.status(500).json({ error: 'Failed to fetch presets' });
   }
-
-  res.json({ presets });
 });
 
 // PUT /api/menus/presets/:slot - Create/update a preset slot
-router.put('/presets/:slot', (req, res) => {
-  const { slot } = req.params;
-  const { name, groups } = req.body;
+router.put('/presets/:slot', async (req, res) => {
+  try {
+    const { slot } = req.params;
 
-  if (!VALID_PRESET_SLOTS.includes(slot as PresetSlot)) {
-    return res.status(400).json({ error: 'Invalid preset slot' });
-  }
+    if (!isValidPresetSlot(slot)) {
+      return res.status(400).json({ error: 'Invalid preset slot' });
+    }
 
-  if (!groups || !Array.isArray(groups)) {
-    return res.status(400).json({ error: 'groups is required' });
-  }
+    const result = updatePresetSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { name, groups } = result.data;
 
-  const data = migrateAndGetData();
-  const now = Date.now();
-
-  // Find existing preset for this slot
-  const existingIndex = data.menus.findIndex((m) => m.presetSlot === slot);
-
-  if (existingIndex !== -1) {
-    // Update existing preset
-    data.menus[existingIndex] = {
-      ...data.menus[existingIndex],
-      name: name || data.menus[existingIndex].name,
-      groups,
-      updatedAt: now,
-    };
-    writeJsonFile(FILENAME, data);
-    res.json(data.menus[existingIndex]);
-  } else {
-    // Create new preset
-    const newMenu: SavedMenu = {
-      id: generateId(),
-      name: name || slot.charAt(0).toUpperCase() + slot.slice(1),
-      groups,
-      presetSlot: slot as PresetSlot,
-      createdAt: now,
-      updatedAt: now,
-    };
-    data.menus.push(newMenu);
-    writeJsonFile(FILENAME, data);
-    res.status(201).json(newMenu);
+    const menu = await updatePreset(
+      req.householdId!,
+      slot,
+      name || slot.charAt(0).toUpperCase() + slot.slice(1),
+      groups
+    );
+    res.json(menu);
+  } catch (error) {
+    console.error('Error updating preset:', error);
+    res.status(500).json({ error: 'Failed to update preset' });
   }
 });
 
 // DELETE /api/menus/presets/:slot - Clear a preset slot
-router.delete('/presets/:slot', (req, res) => {
-  const { slot } = req.params;
+router.delete('/presets/:slot', async (req, res) => {
+  try {
+    const { slot } = req.params;
 
-  if (!VALID_PRESET_SLOTS.includes(slot as PresetSlot)) {
-    return res.status(400).json({ error: 'Invalid preset slot' });
+    if (!isValidPresetSlot(slot)) {
+      return res.status(400).json({ error: 'Invalid preset slot' });
+    }
+
+    const deleted = await deletePreset(req.householdId!, slot);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Preset not found' });
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting preset:', error);
+    res.status(500).json({ error: 'Failed to delete preset' });
   }
-
-  const data = migrateAndGetData();
-  const index = data.menus.findIndex((m) => m.presetSlot === slot);
-
-  if (index === -1) {
-    return res.status(404).json({ error: 'Preset not found' });
-  }
-
-  const deletedId = data.menus[index].id;
-  data.menus.splice(index, 1);
-
-  // If deleted preset was active, clear active menu and selections
-  if (data.activeMenuId === deletedId) {
-    data.activeMenuId = null;
-    data.selections = [];
-  }
-
-  writeJsonFile(FILENAME, data);
-  res.status(204).send();
 });
 
 // POST /api/menus/presets/:fromSlot/copy/:toSlot - Copy preset between slots
-router.post('/presets/:fromSlot/copy/:toSlot', (req, res) => {
-  const { fromSlot, toSlot } = req.params;
+router.post('/presets/:fromSlot/copy/:toSlot', async (req, res) => {
+  try {
+    const { fromSlot, toSlot } = req.params;
 
-  if (!VALID_PRESET_SLOTS.includes(fromSlot as PresetSlot)) {
-    return res.status(400).json({ error: 'Invalid source preset slot' });
-  }
-  if (!VALID_PRESET_SLOTS.includes(toSlot as PresetSlot)) {
-    return res.status(400).json({ error: 'Invalid target preset slot' });
-  }
+    if (!isValidPresetSlot(fromSlot)) {
+      return res.status(400).json({ error: 'Invalid source preset slot' });
+    }
+    if (!isValidPresetSlot(toSlot)) {
+      return res.status(400).json({ error: 'Invalid target preset slot' });
+    }
 
-  const data = migrateAndGetData();
-  const sourceIndex = data.menus.findIndex((m) => m.presetSlot === fromSlot);
+    const menu = await copyPreset(req.householdId!, fromSlot, toSlot);
+    if (!menu) {
+      return res.status(404).json({ error: 'Source preset not found' });
+    }
 
-  if (sourceIndex === -1) {
-    return res.status(404).json({ error: 'Source preset not found' });
-  }
-
-  const sourceMenu = data.menus[sourceIndex];
-  const now = Date.now();
-
-  // Check if target slot already has a preset
-  const targetIndex = data.menus.findIndex((m) => m.presetSlot === toSlot);
-
-  if (targetIndex !== -1) {
-    // Update existing target preset
-    data.menus[targetIndex] = {
-      ...data.menus[targetIndex],
-      name: sourceMenu.name,
-      groups: JSON.parse(JSON.stringify(sourceMenu.groups)), // Deep clone
-      updatedAt: now,
-    };
-    writeJsonFile(FILENAME, data);
-    res.json(data.menus[targetIndex]);
-  } else {
-    // Create new preset in target slot
-    const newMenu: SavedMenu = {
-      id: generateId(),
-      name: sourceMenu.name,
-      groups: JSON.parse(JSON.stringify(sourceMenu.groups)), // Deep clone
-      presetSlot: toSlot as PresetSlot,
-      createdAt: now,
-      updatedAt: now,
-    };
-    data.menus.push(newMenu);
-    writeJsonFile(FILENAME, data);
-    res.status(201).json(newMenu);
+    res.json(menu);
+  } catch (error) {
+    console.error('Error copying preset:', error);
+    res.status(500).json({ error: 'Failed to copy preset' });
   }
 });
 
 // PUT /api/menus/:id - Update a menu
-router.put('/:id', (req, res) => {
-  const { id } = req.params;
-  const updates = req.body;
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = updateMenuSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const { name, groups } = result.data;
 
-  const data = migrateAndGetData();
-  const index = data.menus.findIndex((menu) => menu.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Menu not found' });
-  }
-
-  // Handle legacy mains/sides updates by converting to groups
-  if (('mains' in updates || 'sides' in updates) && !('groups' in updates)) {
-    const existingGroups = data.menus[index].groups || [];
-    const newGroups: MenuGroup[] = [];
-
-    if (updates.mains) {
-      const existingMainGroup = existingGroups.find(g => g.id === 'main-group');
-      newGroups.push({
-        id: 'main-group',
-        label: existingMainGroup?.label || 'Main Dishes',
-        foodIds: updates.mains,
-        selectionPreset: existingMainGroup?.selectionPreset || 'pick-1',
-        order: 0,
-      });
-    } else {
-      const existingMainGroup = existingGroups.find(g => g.id === 'main-group');
-      if (existingMainGroup) {
-        newGroups.push(existingMainGroup);
-      }
+    const updated = await updateMenu(req.householdId!, id, { name, groups });
+    if (!updated) {
+      return res.status(404).json({ error: 'Menu not found' });
     }
 
-    if (updates.sides) {
-      const existingSideGroup = existingGroups.find(g => g.id === 'side-group');
-      newGroups.push({
-        id: 'side-group',
-        label: existingSideGroup?.label || 'Side Dishes',
-        foodIds: updates.sides,
-        selectionPreset: existingSideGroup?.selectionPreset || 'pick-1-2',
-        order: 1,
-      });
-    } else {
-      const existingSideGroup = existingGroups.find(g => g.id === 'side-group');
-      if (existingSideGroup) {
-        newGroups.push(existingSideGroup);
-      }
-    }
-
-    updates.groups = newGroups;
-    delete updates.mains;
-    delete updates.sides;
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating menu:', error);
+    res.status(500).json({ error: 'Failed to update menu' });
   }
-
-  data.menus[index] = {
-    ...data.menus[index],
-    ...updates,
-    id,
-    updatedAt: Date.now(),
-  };
-  writeJsonFile(FILENAME, data);
-  res.json(data.menus[index]);
 });
 
 // DELETE /api/menus/:id - Delete a menu
-router.delete('/:id', (req, res) => {
-  const { id } = req.params;
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
 
-  const data = migrateAndGetData();
-  const index = data.menus.findIndex((menu) => menu.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Menu not found' });
+    const deleted = await deleteMenu(req.householdId!, id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting menu:', error);
+    res.status(500).json({ error: 'Failed to delete menu' });
   }
-
-  data.menus.splice(index, 1);
-
-  // If deleted menu was active, clear active menu and selections
-  if (data.activeMenuId === id) {
-    data.activeMenuId = null;
-    data.selections = [];
-  }
-
-  writeJsonFile(FILENAME, data);
-  res.status(204).send();
 });
 
 export default router;

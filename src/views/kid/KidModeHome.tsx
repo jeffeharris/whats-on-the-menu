@@ -28,8 +28,8 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
 
   const hasAnySelections = selections.length > 0;
 
-  const handlePinSubmit = (pin: string) => {
-    const success = authenticateParent(pin);
+  const handlePinSubmit = async (pin: string) => {
+    const success = await authenticateParent(pin);
     if (!success) {
       setPinError('Wrong PIN!');
     } else {
@@ -38,8 +38,8 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
     }
   };
 
-  const handleConfirmPinSubmit = (pin: string) => {
-    const success = authenticateParent(pin);
+  const handleConfirmPinSubmit = async (pin: string) => {
+    const success = await authenticateParent(pin);
     if (!success) {
       setPinError('Wrong PIN!');
     } else {

@@ -1,6 +1,19 @@
 import { Router } from 'express';
-import { randomBytes } from 'crypto';
-import { readJsonFile, writeJsonFile, generateId } from '../storage.js';
+import {
+  createSharedMenu,
+  getAllSharedMenus,
+  getSharedMenuById,
+  getSharedMenuByToken,
+  updateSharedMenu,
+  deleteSharedMenu,
+  getResponses,
+  submitResponse,
+} from '../db/queries/shared-menus.js';
+import {
+  createSharedMenuSchema,
+  updateSharedMenuSchema,
+  submitResponseSchema,
+} from '../validation/schemas.js';
 
 type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3';
 
@@ -11,226 +24,187 @@ const SELECTION_PRESET_CONFIG: Record<SelectionPreset, { min: number; max: numbe
   'pick-2-3': { min: 2, max: 3 },
 };
 
-interface SharedMenuOption {
-  id: string;
-  text: string;
-  imageUrl: string | null;
-  order: number;
-}
-
-interface SharedMenuGroup {
-  id: string;
-  label: string;
-  options: SharedMenuOption[];
-  selectionPreset: SelectionPreset;
-  order: number;
-}
-
-interface SharedMenu {
-  id: string;
-  token: string;
-  title: string;
-  description?: string;
-  groups: SharedMenuGroup[];
-  createdAt: number;
-  isActive: boolean;
-}
-
-interface SharedMenuResponse {
-  id: string;
-  menuId: string;
-  respondentName: string;
-  selections: {
-    [groupId: string]: string[];
-  };
-  timestamp: number;
-}
-
-interface SharedMenusData {
-  menus: SharedMenu[];
-  responses: SharedMenuResponse[];
-}
-
-const router = Router();
-const FILENAME = 'shared-menus.json';
-const DEFAULT_DATA: SharedMenusData = { menus: [], responses: [] };
-
-// Generate unique token with collision detection
-function generateUniqueToken(existingTokens: Set<string>): string {
-  let attempts = 0;
-  while (attempts < 100) {
-    const token = randomBytes(6).toString('base64url').substring(0, 8);
-    if (!existingTokens.has(token)) {
-      return token;
-    }
-    attempts++;
-  }
-  throw new Error('Failed to generate unique token');
-}
-
-// POST /api/shared-menus - Create shared menu
-router.post('/', (req, res) => {
-  const { title, description, groups } = req.body;
-
-  if (!title || !groups || !Array.isArray(groups)) {
-    return res.status(400).json({ error: 'title and groups are required' });
-  }
-
-  const data = readJsonFile<SharedMenusData>(FILENAME, DEFAULT_DATA);
-  const existingTokens = new Set(data.menus.map((m) => m.token));
-
-  const newMenu: SharedMenu = {
-    id: `sm_${generateId()}`,
-    token: generateUniqueToken(existingTokens),
-    title,
-    description,
-    groups,
-    createdAt: Date.now(),
-    isActive: true,
-  };
-
-  data.menus.push(newMenu);
-  writeJsonFile(FILENAME, data);
-  res.status(201).json(newMenu);
-});
-
-// GET /api/shared-menus - List all shared menus
-router.get('/', (_req, res) => {
-  const data = readJsonFile<SharedMenusData>(FILENAME, DEFAULT_DATA);
-  res.json({ menus: data.menus });
-});
+// ============================================================
+// Public routes (mounted before auth middleware in index.ts)
+// ============================================================
+export const publicSharedMenusRouter = Router();
 
 // GET /api/shared-menus/view/:token - Public view by token
-router.get('/view/:token', (req, res) => {
+publicSharedMenusRouter.get('/view/:token', async (req, res) => {
   const { token } = req.params;
-  const data = readJsonFile<SharedMenusData>(FILENAME, DEFAULT_DATA);
-  const menu = data.menus.find((m) => m.token === token && m.isActive);
 
-  if (!menu) {
-    return res.status(404).json({ error: 'Menu not found' });
+  try {
+    const menu = await getSharedMenuByToken(token);
+    if (!menu) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+    res.json({ menu });
+  } catch (error) {
+    console.error('Error fetching shared menu by token:', error);
+    res.status(500).json({ error: 'Failed to fetch shared menu' });
   }
-
-  res.json({ menu });
 });
 
 // POST /api/shared-menus/respond/:token - Submit response (public)
-router.post('/respond/:token', (req, res) => {
+publicSharedMenusRouter.post('/respond/:token', async (req, res) => {
   const { token } = req.params;
-  const { respondentName, selections } = req.body;
 
-  if (!respondentName || typeof respondentName !== 'string' || !respondentName.trim()) {
-    return res.status(400).json({ error: 'respondentName is required' });
+  const result = submitResponseSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
   }
+  const { respondentName, selections } = result.data;
 
-  if (!selections || typeof selections !== 'object') {
-    return res.status(400).json({ error: 'selections are required' });
-  }
-
-  const data = readJsonFile<SharedMenusData>(FILENAME, DEFAULT_DATA);
-  const menu = data.menus.find((m) => m.token === token && m.isActive);
-
-  if (!menu) {
-    return res.status(404).json({ error: 'Menu not found' });
-  }
-
-  // Validate selections against menu structure
-  for (const group of menu.groups) {
-    const selected = selections[group.id];
-
-    if (!selected || !Array.isArray(selected)) {
-      return res.status(400).json({ error: `Missing selections for group: ${group.label}` });
+  try {
+    // Fetch menu and validate selections against its structure
+    const menu = await getSharedMenuByToken(token);
+    if (!menu) {
+      return res.status(404).json({ error: 'Menu not found' });
     }
 
-    // Validate option IDs exist in menu
-    const validOptionIds = new Set(group.options.map((o) => o.id));
-    const invalidIds = selected.filter((id: string) => !validOptionIds.has(id));
-    if (invalidIds.length > 0) {
-      return res.status(400).json({ error: `Invalid option IDs in group: ${group.label}` });
+    // Validate selections against menu structure
+    for (const group of menu.groups) {
+      const selected = selections[group.id];
+
+      if (!selected || !Array.isArray(selected)) {
+        return res.status(400).json({ error: `Missing selections for group: ${group.label}` });
+      }
+
+      // Validate option IDs exist in menu
+      const validOptionIds = new Set(group.options.map((o) => o.id));
+      const invalidIds = selected.filter((id: string) => !validOptionIds.has(id));
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ error: `Invalid option IDs in group: ${group.label}` });
+      }
+
+      // Validate selection count meets preset requirements
+      const preset = SELECTION_PRESET_CONFIG[group.selectionPreset as SelectionPreset];
+      if (selected.length < preset.min || selected.length > preset.max) {
+        return res.status(400).json({
+          error: `Group "${group.label}" requires ${preset.min}-${preset.max} selections`,
+        });
+      }
     }
 
-    // Validate selection count meets preset requirements
-    const preset = SELECTION_PRESET_CONFIG[group.selectionPreset];
-    if (selected.length < preset.min || selected.length > preset.max) {
-      return res.status(400).json({
-        error: `Group "${group.label}" requires ${preset.min}-${preset.max} selections`,
-      });
+    const { response } = await submitResponse(token, respondentName.trim(), selections);
+    res.status(201).json(response);
+  } catch (error: unknown) {
+    const err = error as { statusCode?: number; message?: string };
+    if (err.statusCode === 404) {
+      return res.status(404).json({ error: 'Menu not found' });
     }
+    console.error('Error submitting response:', error);
+    res.status(500).json({ error: 'Failed to submit response' });
   }
+});
 
-  const response: SharedMenuResponse = {
-    id: `sr_${generateId()}`,
-    menuId: menu.id,
-    respondentName: respondentName.trim(),
-    selections,
-    timestamp: Date.now(),
-  };
+// ============================================================
+// Protected routes (mounted after auth middleware in index.ts)
+// ============================================================
+const router = Router();
 
-  data.responses.push(response);
-  writeJsonFile(FILENAME, data);
-  res.status(201).json(response);
+// POST /api/shared-menus - Create shared menu
+router.post('/', async (req, res) => {
+  const result = createSharedMenuSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
+  }
+  const { title, description, groups } = result.data;
+
+  try {
+    const menu = await createSharedMenu(req.householdId!, title, description, groups);
+    res.status(201).json(menu);
+  } catch (error) {
+    console.error('Error creating shared menu:', error);
+    res.status(500).json({ error: 'Failed to create shared menu' });
+  }
+});
+
+// GET /api/shared-menus - List all shared menus
+router.get('/', async (req, res) => {
+  try {
+    const data = await getAllSharedMenus(req.householdId!);
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching shared menus:', error);
+    res.status(500).json({ error: 'Failed to fetch shared menus' });
+  }
 });
 
 // GET /api/shared-menus/:id - Get specific shared menu by ID
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   const { id } = req.params;
-  const data = readJsonFile<SharedMenusData>(FILENAME, DEFAULT_DATA);
-  const menu = data.menus.find((m) => m.id === id);
 
-  if (!menu) {
-    return res.status(404).json({ error: 'Menu not found' });
+  try {
+    const menu = await getSharedMenuById(req.householdId!, id);
+    if (!menu) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+    res.json({ menu });
+  } catch (error) {
+    console.error('Error fetching shared menu:', error);
+    res.status(500).json({ error: 'Failed to fetch shared menu' });
   }
-
-  res.json({ menu });
 });
 
 // GET /api/shared-menus/:id/responses - Get responses for a menu
-router.get('/:id/responses', (req, res) => {
+router.get('/:id/responses', async (req, res) => {
   const { id } = req.params;
-  const data = readJsonFile<SharedMenusData>(FILENAME, DEFAULT_DATA);
-  const responses = data.responses.filter((r) => r.menuId === id);
-  res.json({ responses });
+
+  try {
+    const menu = await getSharedMenuById(req.householdId!, id);
+    if (!menu) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+    const data = await getResponses(id);
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching responses:', error);
+    res.status(500).json({ error: 'Failed to fetch responses' });
+  }
 });
 
 // PUT /api/shared-menus/:id - Update shared menu
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, groups, isActive } = req.body;
-
-  const data = readJsonFile<SharedMenusData>(FILENAME, DEFAULT_DATA);
-  const index = data.menus.findIndex((m) => m.id === id);
-
-  if (index === -1) {
-    return res.status(404).json({ error: 'Menu not found' });
+  const parseResult = updateSharedMenuSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: parseResult.error.issues[0].message });
   }
+  const { title, description, groups, isActive } = parseResult.data;
 
-  // Only allow specific fields to be updated (not id, token, createdAt)
-  const allowedUpdates: Partial<SharedMenu> = {};
-  if (title !== undefined) allowedUpdates.title = title;
-  if (description !== undefined) allowedUpdates.description = description;
-  if (groups !== undefined) allowedUpdates.groups = groups;
-  if (isActive !== undefined) allowedUpdates.isActive = isActive;
+  const updates: Record<string, unknown> = {};
+  if (title !== undefined) updates.title = title;
+  if (description !== undefined) updates.description = description;
+  if (groups !== undefined) updates.groups = groups;
+  if (isActive !== undefined) updates.isActive = isActive;
 
-  data.menus[index] = { ...data.menus[index], ...allowedUpdates };
-  writeJsonFile(FILENAME, data);
-  res.json(data.menus[index]);
+  try {
+    const menu = await updateSharedMenu(req.householdId!, id, updates);
+    if (!menu) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+    res.json(menu);
+  } catch (error) {
+    console.error('Error updating shared menu:', error);
+    res.status(500).json({ error: 'Failed to update shared menu' });
+  }
 });
 
 // DELETE /api/shared-menus/:id - Delete shared menu
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
-  const data = readJsonFile<SharedMenusData>(FILENAME, DEFAULT_DATA);
 
-  const index = data.menus.findIndex((m) => m.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Menu not found' });
+  try {
+    const deleted = await deleteSharedMenu(req.householdId!, id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting shared menu:', error);
+    res.status(500).json({ error: 'Failed to delete shared menu' });
   }
-
-  data.menus.splice(index, 1);
-  // Also delete associated responses
-  data.responses = data.responses.filter((r) => r.menuId !== id);
-
-  writeJsonFile(FILENAME, data);
-  res.status(204).send();
 });
 
 export default router;

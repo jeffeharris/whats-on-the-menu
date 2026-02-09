@@ -1,0 +1,141 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: jeffeharris/whats-on-the-menu
+
+jobs:
+  check:
+    name: Lint, Typecheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npx tsc -b
+
+      - run: npm run build
+
+  build-and-push:
+    name: Build & Push Docker Image
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    name: Deploy to Production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            docker-compose.prod.yml
+            docs/schema.sql
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync compose file and schema to server
+        run: |
+          rsync -avz --relative -e "ssh -i ~/.ssh/deploy_key" \
+            docker-compose.prod.yml docs/schema.sql \
+            root@${{ secrets.SERVER_HOST }}:/opt/menu/
+
+      - name: Pull and restart containers
+        run: |
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} << 'DEPLOY_EOF'
+            cd /opt/menu
+            docker network inspect web >/dev/null 2>&1 || docker network create web
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Tag current image for rollback before pulling new one
+            CURRENT_IMAGE=$(docker compose -f docker-compose.prod.yml images -q menu-app 2>/dev/null || true)
+            if [ -n "$CURRENT_IMAGE" ]; then
+              docker tag "$CURRENT_IMAGE" ghcr.io/jeffeharris/whats-on-the-menu:rollback || true
+            fi
+            docker compose -f docker-compose.prod.yml pull menu-app
+            docker compose -f docker-compose.prod.yml up -d
+          DEPLOY_EOF
+
+      - name: Health check
+        run: |
+          echo "Waiting for service to start..."
+          sleep 10
+          for i in $(seq 1 6); do
+            if ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} \
+              "curl -sf http://localhost:3001/api/health"; then
+              echo ""
+              echo "Health check passed! Deployment complete."
+              ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} \
+                "docker rmi ghcr.io/jeffeharris/whats-on-the-menu:rollback 2>/dev/null || true"
+              exit 0
+            fi
+            echo "Attempt $i/6 failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 60s! Rolling back..."
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} << 'ROLLBACK_EOF'
+            cd /opt/menu
+            ROLLBACK_EXISTS=$(docker images -q ghcr.io/jeffeharris/whats-on-the-menu:rollback 2>/dev/null || true)
+            if [ -n "$ROLLBACK_EXISTS" ]; then
+              docker tag ghcr.io/jeffeharris/whats-on-the-menu:rollback ghcr.io/jeffeharris/whats-on-the-menu:latest
+              docker compose -f docker-compose.prod.yml up -d
+              echo "Rolled back to previous image."
+            else
+              echo "No rollback image available."
+            fi
+          ROLLBACK_EOF
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} \
+            "cd /opt/menu && docker compose -f docker-compose.prod.yml logs --tail=50 menu-app"
+          exit 1
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

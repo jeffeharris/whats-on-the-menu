@@ -4,10 +4,10 @@ import sharp from 'sharp';
 import { existsSync, mkdirSync, unlinkSync, readdirSync, statSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { generateId } from '../storage.js';
+import { randomUUID } from 'crypto';
 
-// UUID-like filename format validation (matches generateId output + .jpg)
-const VALID_FILENAME_PATTERN = /^[a-z0-9]{20,30}\.jpg$/;
+// Filename format validation (UUID + .jpg)
+const VALID_FILENAME_PATTERN = /^[a-z0-9-]{20,40}\.jpg$/;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const UPLOADS_DIR = join(__dirname, '..', '..', 'data', 'uploads');
@@ -137,7 +137,7 @@ router.post('/', upload.single('image'), async (req, res) => {
     }
 
     // Generate unique filename and save
-    const filename = `${generateId()}.jpg`;
+    const filename = `${randomUUID()}.jpg`;
     const filepath = join(UPLOADS_DIR, filename);
 
     // Write the processed buffer directly (avoid double Sharp processing)

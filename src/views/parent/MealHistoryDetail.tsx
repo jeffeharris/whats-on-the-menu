@@ -2,7 +2,7 @@ import { ArrowLeft, Star, ClipboardCheck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { KidAvatar } from '../../components/kid/KidAvatar';
-import { getCompletionCardColor } from '../../components/parent/CompletionStatusSelector';
+import { getCompletionCardColor } from '../../utils/completionUtils';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMealHistory } from '../../contexts/MealHistoryContext';

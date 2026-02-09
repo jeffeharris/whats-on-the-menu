@@ -120,6 +120,7 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
 
   // Memoized updaters to prevent infinite loops in child useEffect
   // Each group gets a stable callback reference that only changes when groups array changes
+  const groupIdKey = groups.map((g) => g.id).join(',');
   const groupUpdaters = useMemo(() => {
     const updaters: Record<string, (updates: Partial<MenuGroup>) => void> = {};
     groups.forEach((g) => {
@@ -130,7 +131,8 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
       };
     });
     return updaters;
-  }, [groups.map((g) => g.id).join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupIdKey]);
 
   const handleRemoveGroup = (groupId: string) => {
     setGroups((prev) => {

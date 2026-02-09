@@ -1,78 +1,72 @@
 import { Router } from 'express';
-import { readJsonFile, writeJsonFile, generateId } from '../storage.js';
-
-type AvatarColor = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink';
-type AvatarAnimal = 'cat' | 'dog' | 'bear' | 'bunny' | 'penguin' | 'owl' | 'fox' | 'panda' | 'lion' | 'elephant' | 'frog';
-
-interface KidProfile {
-  id: string;
-  name: string;
-  avatarColor: AvatarColor;
-  avatarAnimal?: AvatarAnimal;
-}
-
-interface ProfilesData {
-  profiles: KidProfile[];
-}
+import { getAllProfiles, createProfile, updateProfile, deleteProfile } from '../db/queries/profiles.js';
+import { createProfileSchema, updateProfileSchema } from '../validation/schemas.js';
 
 const router = Router();
-const FILENAME = 'profiles.json';
-const DEFAULT_DATA: ProfilesData = { profiles: [] };
 
 // GET /api/profiles - Get all profiles
-router.get('/', (_req, res) => {
-  const data = readJsonFile<ProfilesData>(FILENAME, DEFAULT_DATA);
-  res.json(data);
+router.get('/', async (req, res) => {
+  try {
+    const data = await getAllProfiles(req.householdId!);
+    res.json(data);
+  } catch (err) {
+    console.error('Failed to fetch profiles:', err);
+    res.status(500).json({ error: 'Failed to fetch profiles' });
+  }
 });
 
 // POST /api/profiles - Create a new profile
-router.post('/', (req, res) => {
-  const { name, avatarColor, avatarAnimal } = req.body;
-  if (!name || !avatarColor) {
-    return res.status(400).json({ error: 'Name and avatarColor are required' });
+router.post('/', async (req, res) => {
+  const result = createProfileSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
   }
+  const { name, avatarColor, avatarAnimal } = result.data;
 
-  const data = readJsonFile<ProfilesData>(FILENAME, DEFAULT_DATA);
-  const newProfile: KidProfile = {
-    id: generateId(),
-    name,
-    avatarColor,
-    ...(avatarAnimal && { avatarAnimal }),
-  };
-  data.profiles.push(newProfile);
-  writeJsonFile(FILENAME, data);
-  res.status(201).json(newProfile);
+  try {
+    const profile = await createProfile(req.householdId!, name, avatarColor, avatarAnimal);
+    res.status(201).json(profile);
+  } catch (err) {
+    console.error('Failed to create profile:', err);
+    res.status(500).json({ error: 'Failed to create profile' });
+  }
 });
 
 // PUT /api/profiles/:id - Update a profile
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const updates = req.body;
-
-  const data = readJsonFile<ProfilesData>(FILENAME, DEFAULT_DATA);
-  const index = data.profiles.findIndex((profile) => profile.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Profile not found' });
+  const parseResult = updateProfileSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: parseResult.error.issues[0].message });
   }
+  const updates = parseResult.data;
 
-  data.profiles[index] = { ...data.profiles[index], ...updates, id };
-  writeJsonFile(FILENAME, data);
-  res.json(data.profiles[index]);
+  try {
+    const profile = await updateProfile(req.householdId!, id, updates);
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+    res.json(profile);
+  } catch (err) {
+    console.error('Failed to update profile:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
 });
 
 // DELETE /api/profiles/:id - Delete a profile
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
-  const data = readJsonFile<ProfilesData>(FILENAME, DEFAULT_DATA);
-  const index = data.profiles.findIndex((profile) => profile.id === id);
-  if (index === -1) {
-    return res.status(404).json({ error: 'Profile not found' });
+  try {
+    const deleted = await deleteProfile(req.householdId!, id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error('Failed to delete profile:', err);
+    res.status(500).json({ error: 'Failed to delete profile' });
   }
-
-  data.profiles.splice(index, 1);
-  writeJsonFile(FILENAME, data);
-  res.status(204).send();
 });
 
 export default router;

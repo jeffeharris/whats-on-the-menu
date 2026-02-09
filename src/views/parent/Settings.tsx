@@ -6,6 +6,7 @@ import { Modal } from '../../components/common/Modal';
 import { PinPad } from '../../components/common/PinPad';
 import { useAppState } from '../../contexts/AppStateContext';
 import { useImageGenerationContext } from '../../contexts/ImageGenerationContext';
+import { authApi } from '../../api/client';
 import type { ImageProvider } from '../../services/imageGeneration';
 
 interface SettingsProps {
@@ -13,30 +14,42 @@ interface SettingsProps {
 }
 
 export function Settings({ onBack }: SettingsProps) {
-  const { setParentPin, parentPin } = useAppState();
+  const { setParentPin } = useAppState();
   const { provider, setProvider } = useImageGenerationContext();
   const [showPinModal, setShowPinModal] = useState(false);
   const [step, setStep] = useState<'verify' | 'new'>('verify');
   const [error, setError] = useState('');
+  const [verifiedPin, setVerifiedPin] = useState('');
 
   const handleProviderChange = (newProvider: ImageProvider) => {
     setProvider(newProvider);
   };
 
-  const handleVerifyPin = (pin: string) => {
-    if (pin === parentPin) {
-      setStep('new');
-      setError('');
-    } else {
-      setError('Incorrect PIN');
+  const handleVerifyPin = async (pin: string) => {
+    try {
+      const result = await authApi.verifyPin(pin);
+      if (result.valid) {
+        setVerifiedPin(pin);
+        setStep('new');
+        setError('');
+      } else {
+        setError('Incorrect PIN');
+      }
+    } catch {
+      setError('Failed to verify PIN');
     }
   };
 
-  const handleNewPin = (pin: string) => {
-    setParentPin(pin);
-    setShowPinModal(false);
-    setStep('verify');
-    setError('');
+  const handleNewPin = async (pin: string) => {
+    const success = await setParentPin(verifiedPin, pin);
+    if (success) {
+      setShowPinModal(false);
+      setStep('verify');
+      setVerifiedPin('');
+      setError('');
+    } else {
+      setError('Failed to update PIN');
+    }
   };
 
   const handleClose = () => {

@@ -1,5 +1,24 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: whatsonthemenu
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d whatsonthemenu"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
   menu-app:
+    image: ghcr.io/jeffeharris/whats-on-the-menu:latest
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -9,8 +28,15 @@ services:
     environment:
       - NODE_ENV=production
       - SERVER_PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/whatsonthemenu
+      - SESSION_SECRET=${SESSION_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - APP_URL=https://whatsonthemenu.app
     env_file:
       - .env
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
       interval: 30s
@@ -19,7 +45,13 @@ services:
       start_period: 30s
     networks:
       - web
+      - internal
+
+volumes:
+  pgdata:
 
 networks:
   web:
     external: true
+  internal:
+    driver: bridge
