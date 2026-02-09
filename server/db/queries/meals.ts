@@ -1,4 +1,5 @@
 import pool from '../pool.js';
+import { logger } from '../../logger.js';
 
 interface KidSelection {
   kidId: string;
@@ -216,6 +217,7 @@ export async function createMeal(
     };
   } catch (err) {
     await client.query('ROLLBACK');
+    logger.error({ err, householdId, menuId }, 'Transaction failed in createMeal');
     throw err;
   } finally {
     client.release();

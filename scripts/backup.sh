@@ -34,6 +34,16 @@ pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
   --file="$BACKUP_DIR/db_backup_$DATE.dump"
 echo "[$(date)] Database backup complete: db_backup_$DATE.dump"
 
+# Verify backup integrity
+echo "[$(date)] Verifying database backup integrity..."
+if pg_restore --list "$BACKUP_DIR/db_backup_$DATE.dump" > /dev/null 2>&1; then
+  echo "[$(date)] Backup verification passed"
+else
+  echo "[$(date)] ERROR: Backup verification FAILED for db_backup_$DATE.dump"
+  rm -f "$BACKUP_DIR/db_backup_$DATE.dump"
+  exit 1
+fi
+
 # 2. Backup uploads directory
 echo "[$(date)] Backing up uploads directory..."
 if [ -d "$APP_DIR/data/uploads" ]; then

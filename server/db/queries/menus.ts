@@ -1,4 +1,5 @@
 import pool from '../pool.js';
+import { logger } from '../../logger.js';
 
 // ============================================================
 // Types
@@ -125,6 +126,7 @@ export async function createMenu(
     return menu;
   } catch (err) {
     await client.query('ROLLBACK');
+    logger.error({ err, householdId }, 'Transaction failed in createMenu');
     throw err;
   } finally {
     client.release();
@@ -213,6 +215,7 @@ export async function deleteMenu(
     return true;
   } catch (err) {
     await client.query('ROLLBACK');
+    logger.error({ err, householdId, menuId: id }, 'Transaction failed in deleteMenu');
     throw err;
   } finally {
     client.release();
@@ -413,6 +416,7 @@ export async function deletePreset(
     return true;
   } catch (err) {
     await client.query('ROLLBACK');
+    logger.error({ err, householdId, slot }, 'Transaction failed in deletePreset');
     throw err;
   } finally {
     client.release();

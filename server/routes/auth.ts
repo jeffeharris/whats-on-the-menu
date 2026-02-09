@@ -50,7 +50,7 @@ function setSessionCookie(res: Response, token: string) {
   res.cookie('session', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'strict',
     maxAge: SESSION_DURATION_MS,
     path: '/',
   });
@@ -101,8 +101,9 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const user = await findUserByEmail(email);
     if (!user) {
-      // Don't reveal whether the email exists — just log a warning
-      console.warn(`Login attempt for unknown email: ${email}`);
+      // Don't reveal whether the email exists — add delay to prevent timing attacks
+      const delay = 100 + Math.floor(Math.random() * 50);
+      await new Promise((resolve) => setTimeout(resolve, delay));
       return res.json({ success: true });
     }
 

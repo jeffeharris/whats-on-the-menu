@@ -152,6 +152,10 @@ router.get('/:id/responses', async (req, res) => {
   const { id } = req.params;
 
   try {
+    const menu = await getSharedMenuById(req.householdId!, id);
+    if (!menu) {
+      return res.status(404).json({ error: 'Menu not found' });
+    }
     const data = await getResponses(id);
     res.json(data);
   } catch (error) {

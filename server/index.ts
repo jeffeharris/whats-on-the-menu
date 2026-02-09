@@ -6,6 +6,7 @@ import pinoHttp from 'pino-http';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from './logger.js';
+import pool from './db/pool.js';
 import { requireAuth } from './middleware/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import authRouter from './routes/auth.js';
@@ -22,7 +23,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = parseInt(process.env.SERVER_PORT || '3001', 10);
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? 'https://whatsonthemenu.app'
+    : ['http://localhost:5173', 'http://localhost:3001'],
+  credentials: true,
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
@@ -43,19 +49,32 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
 });
 
+const publicSharedMenuLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
 // Static uploads (no auth — filenames are unguessable UUIDs)
 app.use('/uploads', express.static(join(__dirname, '..', 'data', 'uploads')));
 
 // Health check — unprotected
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok' });
+  } catch {
+    res.status(503).json({ status: 'error', message: 'Database connection failed' });
+  }
 });
 
 // Auth routes — unprotected (login, signup, verify handle their own auth)
 app.use('/api/auth', authLimiter, authRouter);
 
 // Public shared menu routes — unprotected (view/respond by token)
-app.use('/api/shared-menus', publicSharedMenusRouter);
+app.use('/api/shared-menus', publicSharedMenuLimiter, publicSharedMenusRouter);
 
 // === Auth wall: everything below requires a valid session ===
 app.use('/api', apiLimiter);
@@ -88,7 +107,7 @@ app.use(errorHandler);
 
 // Clean up expired sessions every 24 hours
 import { deleteExpiredSessions } from './db/queries/auth.js';
-setInterval(async () => {
+const sessionCleanupInterval = setInterval(async () => {
   try {
     const count = await deleteExpiredSessions();
     if (count > 0) logger.info(`Cleaned up ${count} expired sessions`);
@@ -96,6 +115,7 @@ setInterval(async () => {
     logger.error({ err }, 'Session cleanup error');
   }
 }, 24 * 60 * 60 * 1000);
+sessionCleanupInterval.unref();
 
 app.listen(PORT, () => {
   logger.info(`Server running on http://localhost:${PORT}`);

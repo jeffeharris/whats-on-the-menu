@@ -95,6 +95,11 @@ jobs:
             cd /opt/menu
             docker network inspect web >/dev/null 2>&1 || docker network create web
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Tag current image for rollback before pulling new one
+            CURRENT_IMAGE=$(docker compose -f docker-compose.prod.yml images -q menu-app 2>/dev/null || true)
+            if [ -n "$CURRENT_IMAGE" ]; then
+              docker tag "$CURRENT_IMAGE" ghcr.io/jeffeharris/whats-on-the-menu:rollback || true
+            fi
             docker compose -f docker-compose.prod.yml pull menu-app
             docker compose -f docker-compose.prod.yml up -d
           DEPLOY_EOF
@@ -108,12 +113,25 @@ jobs:
               "curl -sf http://localhost:3001/api/health"; then
               echo ""
               echo "Health check passed! Deployment complete."
+              ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} \
+                "docker rmi ghcr.io/jeffeharris/whats-on-the-menu:rollback 2>/dev/null || true"
               exit 0
             fi
             echo "Attempt $i/6 failed, retrying in 10s..."
             sleep 10
           done
-          echo "Health check failed after 60s!"
+          echo "Health check failed after 60s! Rolling back..."
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} << 'ROLLBACK_EOF'
+            cd /opt/menu
+            ROLLBACK_EXISTS=$(docker images -q ghcr.io/jeffeharris/whats-on-the-menu:rollback 2>/dev/null || true)
+            if [ -n "$ROLLBACK_EXISTS" ]; then
+              docker tag ghcr.io/jeffeharris/whats-on-the-menu:rollback ghcr.io/jeffeharris/whats-on-the-menu:latest
+              docker compose -f docker-compose.prod.yml up -d
+              echo "Rolled back to previous image."
+            else
+              echo "No rollback image available."
+            fi
+          ROLLBACK_EOF
           ssh -i ~/.ssh/deploy_key root@${{ secrets.SERVER_HOST }} \
             "cd /opt/menu && docker compose -f docker-compose.prod.yml logs --tail=50 menu-app"
           exit 1

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-SERVER="root@178.156.202.136"
+SERVER="${DEPLOY_SERVER:-root@178.156.202.136}"
 APP_DIR="/opt/menu"
 COMPOSE="docker compose -f docker-compose.prod.yml"
 
