@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, KeyRound, Image, Info, Users, UserPlus, Crown, X, Mail, Loader2, LogOut } from 'lucide-react';
+import { ArrowLeft, KeyRound, Info, Users, UserPlus, Crown, X, Mail, Loader2, LogOut } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
 import { PinPad } from '../../components/common/PinPad';
 import { useAppState } from '../../contexts/AppStateContext';
-import { useImageGenerationContext } from '../../contexts/ImageGenerationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi, householdApi } from '../../api/client';
-import type { ImageProvider } from '../../services/imageGeneration';
 import type { HouseholdMember, HouseholdInvitation } from '../../types';
 
 interface SettingsProps {
@@ -17,7 +15,6 @@ interface SettingsProps {
 
 export function Settings({ onBack }: SettingsProps) {
   const { setParentPin, pinEnabled } = useAppState();
-  const { provider, setProvider } = useImageGenerationContext();
   const { user, logout, refreshAuth } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
   const [showEnablePinModal, setShowEnablePinModal] = useState(false);
@@ -102,10 +99,6 @@ export function Settings({ onBack }: SettingsProps) {
   };
 
   const isOwner = user?.role === 'owner';
-
-  const handleProviderChange = (newProvider: ImageProvider) => {
-    setProvider(newProvider);
-  };
 
   const handleVerifyPin = async (pin: string) => {
     try {
@@ -209,49 +202,8 @@ export function Settings({ onBack }: SettingsProps) {
             </div>
           </Card>
 
-          <Card className="fade-up-in" style={{ animationDelay: '75ms' }}>
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-parent-secondary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Image className="w-5 h-5 text-parent-secondary" />
-              </div>
-              <div className="flex-1">
-                <h2 className="font-semibold text-gray-800 mb-3" style={{ fontFamily: 'var(--font-heading)' }}>Image Generation</h2>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input
-                      type="radio"
-                      name="image-provider"
-                      value="pollinations"
-                      checked={provider === 'pollinations'}
-                      onChange={() => handleProviderChange('pollinations')}
-                      className="w-4 h-4 text-parent-primary focus:ring-parent-primary"
-                    />
-                    <div className="flex-1">
-                      <span className="font-medium text-gray-800 text-sm">Pollinations</span>
-                      <p className="text-xs text-gray-500">Free, no API key required</p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
-                    <input
-                      type="radio"
-                      name="image-provider"
-                      value="runware"
-                      checked={provider === 'runware'}
-                      onChange={() => handleProviderChange('runware')}
-                      className="w-4 h-4 text-parent-primary focus:ring-parent-primary"
-                    />
-                    <div className="flex-1">
-                      <span className="font-medium text-gray-800 text-sm">Runware</span>
-                      <p className="text-xs text-gray-500">Fast, requires API key (server-side)</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </Card>
-
           {/* Household Members */}
-          <Card className="fade-up-in" style={{ animationDelay: '150ms' }}>
+          <Card className="fade-up-in" style={{ animationDelay: '75ms' }}>
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Users className="w-5 h-5 text-blue-500" />
@@ -306,7 +258,7 @@ export function Settings({ onBack }: SettingsProps) {
           </Card>
 
           {/* Invite Partner */}
-          <Card className="fade-up-in" style={{ animationDelay: '225ms' }}>
+          <Card className="fade-up-in" style={{ animationDelay: '150ms' }}>
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
                 <UserPlus className="w-5 h-5 text-purple-500" />
@@ -362,7 +314,7 @@ export function Settings({ onBack }: SettingsProps) {
             </div>
           </Card>
 
-          <Card className="fade-up-in" style={{ animationDelay: '300ms' }}>
+          <Card className="fade-up-in" style={{ animationDelay: '225ms' }}>
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Info className="w-5 h-5 text-gray-500" />
