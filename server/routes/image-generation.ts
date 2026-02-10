@@ -69,6 +69,10 @@ router.get('/pollinations', async (req, res) => {
 });
 
 // POST /api/image-generation/runware - Proxy to Runware API
+// Model tiers (escalated on regenerate):
+//   runware:101@1 — FLUX Schnell (fast, cheap) — default
+//   runware:400@4 — FLUX.2 klein 4B (good quality, still cheap)
+//   runware:400@1 — FLUX.2 dev (highest quality, pricier)
 router.post('/runware', async (req, res) => {
   const apiKey = process.env.RUNWARE_API_KEY;
 
@@ -76,7 +80,7 @@ router.post('/runware', async (req, res) => {
     return res.status(500).json({ error: 'Runware API key not configured' });
   }
 
-  const { prompt, width = 512, height = 512, seed } = req.body;
+  const { prompt, width = 512, height = 512, seed, model = 'runware:101@1' } = req.body;
 
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'Prompt is required' });
@@ -104,7 +108,7 @@ router.post('/runware', async (req, res) => {
           positivePrompt: prompt,
           width: runwareWidth,
           height: runwareHeight,
-          model: 'runware:101@1', // FLUX Schnell - fast, good quality
+          model,
           numberResults: 1,
           ...(seed !== undefined && { seed }),
         },

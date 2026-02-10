@@ -5,6 +5,7 @@ export interface ImageGenerationOptions {
   width?: number;
   height?: number;
   seed?: number;
+  model?: string;
 }
 
 export interface ImageProviderService {

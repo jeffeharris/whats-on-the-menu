@@ -54,9 +54,17 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
 
   const { storageStats, refreshStorageStats, allTags } = useFoodLibrary();
 
-  const { imageUrl: aiImageUrl, isLoading, regenerate } = useImageGeneration(
-    imageSource === 'ai' ? name : ''
-  );
+  const {
+    imageUrl: aiImageUrl,
+    isLoading,
+    regenerate,
+    hasPrev,
+    hasNext,
+    prevImage,
+    nextImage,
+    historyPosition,
+    historyLength,
+  } = useImageGeneration(imageSource === 'ai' ? name : '');
 
   // Resolve the effective image source for UI display (existing behaves like ai visually)
   const effectiveSource = imageSource === 'existing' ? 'ai' : imageSource;
@@ -293,36 +301,84 @@ export function FoodItemForm({ onSubmit, onCancel, initialValues }: FoodItemForm
 
         {/* Image preview */}
         <div className="mt-3 flex items-center gap-4">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-            {isLoading || isUploading ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-parent-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : (
-              <img
-                src={previewUrl || getPlaceholderImageUrl()}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
+          <div className="flex items-center gap-1">
+            {/* Previous image arrow */}
+            {effectiveSource === 'ai' && historyLength > 1 && (
+              <button
+                type="button"
+                onClick={prevImage}
+                disabled={!hasPrev}
+                className={`p-1 rounded-full transition-colors ${
+                  hasPrev
+                    ? 'text-gray-600 hover:text-parent-primary hover:bg-gray-100'
+                    : 'text-gray-300 cursor-not-allowed'
+                }`}
+                aria-label="Previous image"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+
+            <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+              {isLoading || isUploading ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-parent-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <img
+                  src={previewUrl || getPlaceholderImageUrl()}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+
+            {/* Next image arrow */}
+            {effectiveSource === 'ai' && historyLength > 1 && (
+              <button
+                type="button"
+                onClick={nextImage}
+                disabled={!hasNext}
+                className={`p-1 rounded-full transition-colors ${
+                  hasNext
+                    ? 'text-gray-600 hover:text-parent-primary hover:bg-gray-100'
+                    : 'text-gray-300 cursor-not-allowed'
+                }`}
+                aria-label="Next image"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             )}
           </div>
+
           <div className="flex flex-col gap-2">
             {effectiveSource === 'ai' && name && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (imageSource === 'existing') {
-                    setImageSource('ai');
-                  } else {
-                    regenerate();
-                  }
-                }}
-                disabled={isLoading}
-              >
-                Regenerate
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (imageSource === 'existing') {
+                      setImageSource('ai');
+                    } else {
+                      regenerate();
+                    }
+                  }}
+                  disabled={isLoading}
+                >
+                  Regenerate
+                </Button>
+                {historyLength > 1 && (
+                  <span className="text-xs text-gray-400 text-center">
+                    {historyPosition} / {historyLength}
+                  </span>
+                )}
+              </>
             )}
             {effectiveSource === 'upload' && uploadedImageUrl && (
               <span className="text-xs text-green-600">Photo uploaded</span>

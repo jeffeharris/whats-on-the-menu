@@ -6,10 +6,29 @@ interface UseImageGenerationReturn {
   isLoading: boolean;
   error: string | null;
   regenerate: () => void;
+  hasPrev: boolean;
+  hasNext: boolean;
+  prevImage: () => void;
+  nextImage: () => void;
+  historyPosition: number;
+  historyLength: number;
 }
 
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 500;
+
+// Model escalation: generation count → model ID
+const MODEL_SEQUENCE = [
+  'runware:101@1', // Generations 1-2: FLUX Schnell (fast, cheap)
+  'runware:101@1',
+  'runware:400@4', // Generation 3: FLUX.2 klein 4B (good quality, still cheap)
+  'runware:400@1', // Generation 4+: FLUX.2 dev (highest quality)
+];
+
+function getModelForGeneration(generationCount: number): string {
+  const index = Math.min(generationCount, MODEL_SEQUENCE.length - 1);
+  return MODEL_SEQUENCE[index];
+}
 
 function buildFoodPrompt(foodName: string): string {
   return `A friendly cartoon illustration of ${foodName}, simple, colorful, appetizing, white background, for children`;
@@ -17,29 +36,38 @@ function buildFoodPrompt(foodName: string): string {
 
 export function useImageGeneration(foodName: string): UseImageGenerationReturn {
   const { getProviderService } = useImageGenerationContext();
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seed, setSeed] = useState(0);
+  const [generationCount, setGenerationCount] = useState(0);
+  const [imageHistory, setImageHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const debounceRef = useRef<number | null>(null);
   const cancelledRef = useRef(false);
+  const prevFoodNameRef = useRef(foodName);
+
+  // Reset history when food name changes
+  useEffect(() => {
+    if (foodName !== prevFoodNameRef.current) {
+      prevFoodNameRef.current = foodName;
+      setImageHistory([]);
+      setHistoryIndex(-1);
+      setGenerationCount(0);
+      setSeed(0);
+    }
+  }, [foodName]);
 
   useEffect(() => {
     const trimmed = foodName.trim();
 
-    // Clear any pending debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
 
-    // Mark previous request as cancelled
     cancelledRef.current = true;
 
-    // Not enough characters
     if (trimmed.length < MIN_CHARS) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setImageUrl(null);
       setIsLoading(false);
       return;
     }
@@ -47,30 +75,30 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
     setIsLoading(true);
     setError(null);
 
-    // Debounce the image generation
     debounceRef.current = window.setTimeout(async () => {
       cancelledRef.current = false;
       const provider = getProviderService();
       const prompt = buildFoodPrompt(trimmed);
+      const model = getModelForGeneration(generationCount);
       const options = {
         prompt,
         width: 400,
         height: 400,
+        model,
         ...(seed > 0 && { seed }),
       };
 
       try {
-        // Both providers now return promises
         const url = await provider.generateImageUrl(options);
 
         if (cancelledRef.current) return;
 
-        // Preload the image if provider supports it
         if (provider.supportsPreloading()) {
           const img = new Image();
           img.onload = () => {
             if (cancelledRef.current) return;
-            setImageUrl(url);
+            setImageHistory((prev) => [...prev, url]);
+            setHistoryIndex((prev) => prev + 1);
             setIsLoading(false);
           };
           img.onerror = () => {
@@ -80,7 +108,8 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
           };
           img.src = url;
         } else {
-          setImageUrl(url);
+          setImageHistory((prev) => [...prev, url]);
+          setHistoryIndex((prev) => prev + 1);
           setIsLoading(false);
         }
       } catch (err) {
@@ -96,11 +125,35 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
       }
       cancelledRef.current = true;
     };
-  }, [foodName, seed, getProviderService]);
+  }, [foodName, seed, generationCount, getProviderService]);
 
   const regenerate = useCallback(() => {
+    setGenerationCount((prev) => prev + 1);
     setSeed((prev) => prev + 1);
   }, []);
 
-  return { imageUrl, isLoading, error, regenerate };
+  const prevImage = useCallback(() => {
+    setHistoryIndex((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const nextImage = useCallback(() => {
+    setHistoryIndex((prev) => Math.min(imageHistory.length - 1, prev + 1));
+  }, [imageHistory.length]);
+
+  const imageUrl = historyIndex >= 0 && historyIndex < imageHistory.length
+    ? imageHistory[historyIndex]
+    : null;
+
+  return {
+    imageUrl,
+    isLoading,
+    error,
+    regenerate,
+    hasPrev: historyIndex > 0,
+    hasNext: historyIndex < imageHistory.length - 1,
+    prevImage,
+    nextImage,
+    historyPosition: historyIndex + 1,
+    historyLength: imageHistory.length,
+  };
 }
