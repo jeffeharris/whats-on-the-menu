@@ -9,6 +9,7 @@ import { useAppState } from '../../contexts/AppStateContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
 import { useMealHistory } from '../../contexts/MealHistoryContext';
+import { useSound } from '../../hooks/useSound';
 
 interface KidModeHomeProps {
   onSelectKid: (kidId: string) => void;
@@ -25,6 +26,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
   const [showPinModal, setShowPinModal] = useState(false);
   const [showConfirmPinModal, setShowConfirmPinModal] = useState(false);
   const [pinError, setPinError] = useState('');
+  const { playPlaced, playRejected } = useSound();
 
   const hasAnySelections = selections.length > 0;
 
@@ -39,6 +41,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
   const handlePinSubmit = async (pin: string) => {
     const success = await authenticateParent(pin);
     if (!success) {
+      playRejected();
       setPinError('Wrong PIN!');
     } else {
       setShowPinModal(false);
@@ -59,6 +62,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
   const handleConfirmPinSubmit = async (pin: string) => {
     const success = await authenticateParent(pin);
     if (!success) {
+      playRejected();
       setPinError('Wrong PIN!');
     } else {
       setShowConfirmPinModal(false);
@@ -187,7 +191,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
                     color={profile.avatarColor}
                     avatarAnimal={profile.avatarAnimal}
                     size="2xl"
-                    onClick={() => onSelectKid(profile.id)}
+                    onClick={() => { playPlaced(); onSelectKid(profile.id); }}
                   />
                   {hasSelected && (
                     <div className="absolute -top-2 -right-2 w-10 h-10 bg-success rounded-full flex items-center justify-center shadow-lg">

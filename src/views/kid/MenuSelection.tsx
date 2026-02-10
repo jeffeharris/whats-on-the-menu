@@ -7,6 +7,7 @@ import { StepProgress } from '../../components/kid/StepProgress';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
+import { useSound } from '../../hooks/useSound';
 import type { GroupSelections } from '../../types';
 import { SELECTION_PRESET_CONFIG } from '../../types';
 
@@ -28,6 +29,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
 
   const kid = getProfile(kidId);
   const existingSelection = getSelectionForKid(kidId);
+  const { playPlaced } = useSound();
 
   // Initialize selections from existing selection or empty
   const [selections, setSelections] = useState<GroupSelections>(() => {
@@ -133,9 +135,10 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
 
   const goToNextStep = useCallback(() => {
     if (currentStep < totalSteps - 1) {
+      playPlaced();
       goToStep(currentStep + 1);
     }
-  }, [currentStep, totalSteps, goToStep]);
+  }, [currentStep, totalSteps, goToStep, playPlaced]);
 
   const goToPreviousStep = useCallback(() => {
     if (currentStep > 0) {
@@ -221,11 +224,13 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     });
 
     if (!isDeselecting) {
+      playPlaced();
       showCelebration();
     }
   };
 
   const handleConfirm = async () => {
+    playPlaced();
     await addSelection(kidId, selections);
     onComplete();
   };

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Button } from './Button';
+import { useSound } from '../../hooks/useSound';
 
 interface PinPadProps {
   onSubmit: (pin: string) => void;
@@ -22,16 +23,18 @@ export function PinPad({
   const [confirmPinState, setConfirmPinState] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState('');
+  const { playPlaced, playRejected } = useSound();
 
   const currentPin = isConfirming ? confirmPinState : pin;
   const setCurrentPin = isConfirming ? setConfirmPinState : setPin;
 
   const handleDigit = useCallback((digit: string) => {
     if (currentPin.length < 4) {
+      playPlaced();
       setCurrentPin((prev) => prev + digit);
       setConfirmError('');
     }
-  }, [currentPin.length, setCurrentPin]);
+  }, [currentPin.length, setCurrentPin, playPlaced]);
 
   const handleBackspace = useCallback(() => {
     setCurrentPin((prev) => prev.slice(0, -1));
@@ -53,6 +56,7 @@ export function PinPad({
 
     if (confirmMode && isConfirming) {
       if (pin !== confirmPinState) {
+        playRejected();
         setConfirmError('PINs do not match');
         setConfirmPinState('');
         return;
@@ -60,13 +64,14 @@ export function PinPad({
     }
 
     if (confirmPin && pin !== confirmPin) {
+      playRejected();
       setConfirmError('Incorrect PIN');
       setPin('');
       return;
     }
 
     onSubmit(pin);
-  }, [currentPin.length, confirmMode, isConfirming, pin, confirmPinState, confirmPin, onSubmit]);
+  }, [currentPin.length, confirmMode, isConfirming, pin, confirmPinState, confirmPin, onSubmit, playRejected]);
 
   const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', ''];
 

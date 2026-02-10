@@ -4,6 +4,7 @@ import { KidAvatar } from '../../components/kid/KidAvatar';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
+import { useSound } from '../../hooks/useSound';
 
 interface PlateConfirmationProps {
   kidId: string;
@@ -18,6 +19,7 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
 
   const kid = getProfile(kidId);
   const selection = getSelectionForKid(kidId);
+  const { playPlaced } = useSound();
 
   if (!kid || !selection || !currentMenu) {
     return null;
@@ -107,7 +109,7 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
             </button>
           )}
           <button
-            onClick={onDone}
+            onClick={() => { playPlaced(); onDone(); }}
             className="w-20 h-20 rounded-full bg-kid-secondary shadow-xl ring-4 ring-kid-secondary/30 flex items-center justify-center touch-feedback hover:scale-110 transition-transform"
             aria-label="All Done"
           >

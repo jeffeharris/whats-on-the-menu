@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import type { FoodItem } from '../../types';
+import { useSound } from '../../hooks/useSound';
 
 interface StepProgressProps {
   currentStep: number;
@@ -17,6 +18,7 @@ export function StepProgress({
   completedSelections,
   onStepClick,
 }: StepProgressProps) {
+  const { playPlaced } = useSound();
   return (
     <div className="flex items-center justify-center gap-3 py-3 px-4">
       {Array.from({ length: totalSteps }).map((_, idx) => {
@@ -27,7 +29,7 @@ export function StepProgress({
         return (
           <button
             key={idx}
-            onClick={() => onStepClick(idx)}
+            onClick={() => { playPlaced(); onStepClick(idx); }}
             className={`
               relative flex items-center justify-center rounded-full transition-all duration-300
               ${isCurrent
