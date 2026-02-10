@@ -428,4 +428,30 @@ export const authApi = {
     }
     return res.json();
   },
+
+  async enablePin(pin: string): Promise<{ success: boolean; pinEnabled: boolean }> {
+    const res = await apiFetch(`${API_BASE}/auth/enable-pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to enable PIN');
+    }
+    return res.json();
+  },
+
+  async disablePin(pin: string): Promise<{ success: boolean; pinEnabled: boolean }> {
+    const res = await apiFetch(`${API_BASE}/auth/disable-pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to disable PIN');
+    }
+    return res.json();
+  },
 };

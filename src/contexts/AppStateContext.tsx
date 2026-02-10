@@ -4,6 +4,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../utils/storage';
 import type { AppState, AppMode } from '../types';
 import { authApi } from '../api/client';
+import { useAuth } from './AuthContext';
 
 const DEFAULT_STATE: AppState = {
   mode: 'kid',
@@ -13,8 +14,10 @@ const DEFAULT_STATE: AppState = {
 };
 
 interface AppStateContextType extends AppState {
+  pinEnabled: boolean;
   setMode: (mode: AppMode) => void;
   authenticateParent: (pin: string) => Promise<boolean>;
+  enterParentMode: () => void;
   logoutParent: () => void;
   setParentPin: (currentPin: string, newPin: string) => Promise<boolean>;
   selectKid: (kidId: string | null) => void;
@@ -24,6 +27,8 @@ const AppStateContext = createContext<AppStateContextType | null>(null);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useLocalStorage<AppState>(STORAGE_KEYS.APP_STATE, DEFAULT_STATE);
+  const { household } = useAuth();
+  const pinEnabled = household?.pinEnabled ?? false;
 
   const setMode = useCallback((mode: AppMode) => {
     setState((prev) => ({
@@ -49,6 +54,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     } catch {
       return false;
     }
+  }, [setState]);
+
+  const enterParentMode = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      isParentAuthenticated: true,
+      mode: 'parent',
+    }));
   }, [setState]);
 
   const logoutParent = useCallback(() => {
@@ -79,8 +92,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     <AppStateContext.Provider
       value={{
         ...state,
+        pinEnabled,
         setMode,
         authenticateParent,
+        enterParentMode,
         logoutParent,
         setParentPin,
         selectKid,

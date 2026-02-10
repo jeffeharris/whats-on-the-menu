@@ -22,6 +22,10 @@ export const updatePinSchema = z.object({
   newPin: z.string().regex(/^\d{4}$/, 'New PIN must be exactly 4 digits'),
 });
 
+export const enablePinSchema = z.object({
+  pin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits'),
+});
+
 // ============================================================
 // Household / invitation schemas
 // ============================================================

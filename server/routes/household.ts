@@ -82,7 +82,7 @@ publicHouseholdRouter.get('/accept-invite', async (req: Request, res: Response) 
 
     if (!user) {
       // New user: create a temporary household + user, then we'll move them
-      const household = await createHousehold('My Household', '1234');
+      const household = await createHousehold('My Household');
       orphanHouseholdId = household.id;
       user = await createUser(invite.email, household.id, undefined, 'owner');
       await initializeHouseholdFoods(household.id);

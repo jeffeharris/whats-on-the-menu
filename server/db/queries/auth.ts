@@ -32,13 +32,13 @@ export async function createUser(
 
 export async function createHousehold(
   name: string,
-  kidPin?: string
-): Promise<{ id: string; name: string; kid_pin: string }> {
+  kidPin?: string | null
+): Promise<{ id: string; name: string; kid_pin: string | null }> {
   const { rows } = await pool.query(
     `INSERT INTO households (name, kid_pin)
      VALUES ($1, $2)
      RETURNING id, name, kid_pin`,
-    [name, kidPin ?? '1234']
+    [name, kidPin ?? null]
   );
   return rows[0];
 }
@@ -121,12 +121,12 @@ export async function markMagicLinkTokenUsed(token: string): Promise<void> {
 // Kid PIN queries
 // ============================================================
 
-export async function getHouseholdPin(householdId: string): Promise<string> {
+export async function getHouseholdPin(householdId: string): Promise<string | null> {
   const { rows } = await pool.query(
     'SELECT kid_pin FROM households WHERE id = $1',
     [householdId]
   );
-  return rows[0]?.kid_pin ?? '1234';
+  return rows[0]?.kid_pin ?? null;
 }
 
 export async function updateHouseholdPin(householdId: string, newPin: string): Promise<void> {
@@ -136,13 +136,20 @@ export async function updateHouseholdPin(householdId: string, newPin: string): P
   );
 }
 
+export async function clearHouseholdPin(householdId: string): Promise<void> {
+  await pool.query(
+    'UPDATE households SET kid_pin = NULL WHERE id = $1',
+    [householdId]
+  );
+}
+
 // ============================================================
 // Household queries
 // ============================================================
 
 export async function getHousehold(
   householdId: string
-): Promise<{ id: string; name: string; kid_pin: string } | null> {
+): Promise<{ id: string; name: string; kid_pin: string | null } | null> {
   const { rows } = await pool.query(
     'SELECT id, name, kid_pin FROM households WHERE id = $1',
     [householdId]

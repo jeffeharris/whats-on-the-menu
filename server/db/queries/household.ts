@@ -258,7 +258,7 @@ export async function removeHouseholdMember(
 
     // Create a new empty household for the removed user
     const { rows: newHousehold } = await client.query(
-      `INSERT INTO households (name, kid_pin) VALUES ('My Household', '1234') RETURNING id`,
+      `INSERT INTO households (name) VALUES ('My Household') RETURNING id`,
     );
 
     // Move user to their new household

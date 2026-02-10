@@ -17,7 +17,7 @@ interface KidModeHomeProps {
 }
 
 export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStars }: KidModeHomeProps) {
-  const { authenticateParent } = useAppState();
+  const { authenticateParent, enterParentMode, pinEnabled } = useAppState();
   const { profiles } = useKidProfiles();
   const { currentMenu, hasKidSelected, selections, selectionsLocked, lockSelections, getSelectionForKid } = useMenu();
   const { getStarCountForKid, getTotalFamilyStars } = useMealHistory();
@@ -28,6 +28,14 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
 
   const hasAnySelections = selections.length > 0;
 
+  const handleParentLogin = () => {
+    if (!pinEnabled) {
+      enterParentMode();
+    } else {
+      setShowPinModal(true);
+    }
+  };
+
   const handlePinSubmit = async (pin: string) => {
     const success = await authenticateParent(pin);
     if (!success) {
@@ -35,6 +43,16 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
     } else {
       setShowPinModal(false);
       setPinError('');
+    }
+  };
+
+  const handleConfirmSelections = () => {
+    if (!pinEnabled) {
+      enterParentMode();
+      lockSelections();
+      onConfirmSelections?.();
+    } else {
+      setShowConfirmPinModal(true);
     }
   };
 
@@ -65,7 +83,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
             mode="kid"
             variant="primary"
             size="touch"
-            onClick={() => setShowPinModal(true)}
+            onClick={handleParentLogin}
           >
             Parent Login
           </Button>
@@ -101,7 +119,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
             mode="kid"
             variant="primary"
             size="touch"
-            onClick={() => setShowPinModal(true)}
+            onClick={handleParentLogin}
           >
             Parent Login
           </Button>
@@ -139,7 +157,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
           <div />
         )}
         <button
-          onClick={() => setShowPinModal(true)}
+          onClick={handleParentLogin}
           className="text-gray-400 hover:text-gray-600 transition-colors p-2"
           aria-label="Parent login"
         >
@@ -209,7 +227,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
             variant="primary"
             size="touch"
             fullWidth
-            onClick={() => setShowConfirmPinModal(true)}
+            onClick={handleConfirmSelections}
           >
             Confirm Selections
           </Button>

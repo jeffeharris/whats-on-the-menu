@@ -16,10 +16,12 @@ interface SettingsProps {
 }
 
 export function Settings({ onBack }: SettingsProps) {
-  const { setParentPin } = useAppState();
+  const { setParentPin, pinEnabled } = useAppState();
   const { provider, setProvider } = useImageGenerationContext();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshAuth } = useAuth();
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showEnablePinModal, setShowEnablePinModal] = useState(false);
+  const [showDisablePinModal, setShowDisablePinModal] = useState(false);
   const [step, setStep] = useState<'verify' | 'new'>('verify');
   const [error, setError] = useState('');
   const [verifiedPin, setVerifiedPin] = useState('');
@@ -132,8 +134,32 @@ export function Settings({ onBack }: SettingsProps) {
     }
   };
 
+  const handleEnablePin = async (pin: string) => {
+    try {
+      await authApi.enablePin(pin);
+      setShowEnablePinModal(false);
+      setError('');
+      refreshAuth();
+    } catch {
+      setError('Failed to enable PIN');
+    }
+  };
+
+  const handleDisablePin = async (pin: string) => {
+    try {
+      await authApi.disablePin(pin);
+      setShowDisablePinModal(false);
+      setError('');
+      refreshAuth();
+    } catch {
+      setError('Incorrect PIN');
+    }
+  };
+
   const handleClose = () => {
     setShowPinModal(false);
+    setShowEnablePinModal(false);
+    setShowDisablePinModal(false);
     setStep('verify');
     setError('');
   };
@@ -162,11 +188,24 @@ export function Settings({ onBack }: SettingsProps) {
               </div>
               <div className="flex-1">
                 <h2 className="font-semibold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>Parent PIN</h2>
-                <p className="text-sm text-gray-500">Used to access parent mode</p>
+                <p className="text-sm text-gray-500">
+                  {pinEnabled ? 'Required to access parent mode' : 'Off — parent mode is open'}
+                </p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setShowPinModal(true)}>
-                Change
-              </Button>
+              <div className="flex gap-2">
+                {pinEnabled && (
+                  <Button variant="ghost" size="sm" onClick={() => setShowPinModal(true)}>
+                    Change
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => pinEnabled ? setShowDisablePinModal(true) : setShowEnablePinModal(true)}
+                >
+                  {pinEnabled ? 'Disable' : 'Enable'}
+                </Button>
+              </div>
             </div>
           </Card>
 
@@ -361,6 +400,33 @@ export function Settings({ onBack }: SettingsProps) {
             confirmMode
           />
         )}
+      </Modal>
+
+      <Modal
+        isOpen={showEnablePinModal}
+        onClose={handleClose}
+        title="Set a PIN"
+      >
+        <PinPad
+          onSubmit={handleEnablePin}
+          onCancel={handleClose}
+          title="Choose a 4-digit PIN"
+          confirmMode
+          error={error}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={showDisablePinModal}
+        onClose={handleClose}
+        title="Disable PIN"
+      >
+        <PinPad
+          onSubmit={handleDisablePin}
+          onCancel={handleClose}
+          title="Enter current PIN to disable"
+          error={error}
+        />
       </Modal>
 
       <Modal

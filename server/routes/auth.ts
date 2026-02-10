@@ -11,12 +11,13 @@ import {
   verifyMagicLinkToken,
   getHouseholdPin,
   updateHouseholdPin,
+  clearHouseholdPin,
   getHousehold,
 } from '../db/queries/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { initializeHouseholdFoods } from '../db/queries/foods.js';
 import { initializeHouseholdPresets } from '../db/queries/menus.js';
-import { signupSchema, loginSchema, verifyPinSchema, updatePinSchema } from '../validation/schemas.js';
+import { signupSchema, loginSchema, verifyPinSchema, updatePinSchema, enablePinSchema } from '../validation/schemas.js';
 import { resend, APP_URL, EMAIL_FROM, emailTemplate } from '../email.js';
 
 // ============================================================
@@ -82,7 +83,7 @@ router.post('/signup', async (req: Request, res: Response) => {
     }
 
     // Create household + user
-    const household = await createHousehold(householdName || 'My Household', '1234');
+    const household = await createHousehold(householdName || 'My Household');
     const user = await createUser(email, household.id, undefined, 'owner');
     await initializeHouseholdFoods(household.id);
     try { await initializeHouseholdPresets(household.id); } catch (e) { console.error('Non-fatal: failed to seed presets', e); }
@@ -178,7 +179,7 @@ router.get('/me', async (req: Request, res: Response) => {
         role: session.role,
       },
       household: household
-        ? { id: household.id, name: household.name }
+        ? { id: household.id, name: household.name, pinEnabled: household.kid_pin !== null }
         : null,
     });
   } catch (error) {
@@ -211,7 +212,8 @@ router.post('/verify-pin', requireAuth, async (req: Request, res: Response) => {
     }
     const { pin } = result.data;
     const householdPin = await getHouseholdPin(req.householdId!);
-    res.json({ valid: pin === householdPin });
+    // If PIN is disabled (null), always valid
+    res.json({ valid: householdPin === null || pin === householdPin });
   } catch (error) {
     console.error('Verify PIN error:', error);
     res.status(500).json({ error: 'Failed to verify PIN' });
@@ -228,7 +230,7 @@ router.post('/update-pin', requireAuth, async (req: Request, res: Response) => {
     const { currentPin, newPin } = result.data;
 
     const householdPin = await getHouseholdPin(req.householdId!);
-    if (currentPin !== householdPin) {
+    if (householdPin !== null && currentPin !== householdPin) {
       return res.status(403).json({ error: 'Current PIN is incorrect' });
     }
 
@@ -237,6 +239,40 @@ router.post('/update-pin', requireAuth, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Update PIN error:', error);
     res.status(500).json({ error: 'Failed to update PIN' });
+  }
+});
+
+// POST /api/auth/enable-pin (protected) — set a new PIN from disabled state
+router.post('/enable-pin', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const result = enablePinSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    await updateHouseholdPin(req.householdId!, result.data.pin);
+    res.json({ success: true, pinEnabled: true });
+  } catch (error) {
+    console.error('Enable PIN error:', error);
+    res.status(500).json({ error: 'Failed to enable PIN' });
+  }
+});
+
+// POST /api/auth/disable-pin (protected) — clear the PIN
+router.post('/disable-pin', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const result = verifyPinSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+    const householdPin = await getHouseholdPin(req.householdId!);
+    if (householdPin !== null && result.data.pin !== householdPin) {
+      return res.status(403).json({ error: 'Incorrect PIN' });
+    }
+    await clearHouseholdPin(req.householdId!);
+    res.json({ success: true, pinEnabled: false });
+  } catch (error) {
+    console.error('Disable PIN error:', error);
+    res.status(500).json({ error: 'Failed to disable PIN' });
   }
 });
 
