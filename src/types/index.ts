@@ -19,7 +19,7 @@ export const PRESET_CONFIG: Record<PresetSlot, { label: string; icon: string; or
 };
 
 // Predefined tags for food items
-export const PREDEFINED_TAGS = ['Protein', 'Veggie', 'Grain', 'Fruit', 'Dairy', 'Breakfast'] as const;
+export const PREDEFINED_TAGS = ['Protein', 'Veggie', 'Grain', 'Fruit', 'Dairy', 'Breakfast', 'Snack', 'Drink'] as const;
 
 export type AvatarColor = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'purple' | 'pink';
 

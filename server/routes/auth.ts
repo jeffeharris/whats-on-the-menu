@@ -15,6 +15,7 @@ import {
 } from '../db/queries/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { initializeHouseholdFoods } from '../db/queries/foods.js';
+import { initializeHouseholdPresets } from '../db/queries/menus.js';
 import { signupSchema, loginSchema, verifyPinSchema, updatePinSchema } from '../validation/schemas.js';
 import { resend, APP_URL, EMAIL_FROM, emailTemplate } from '../email.js';
 
@@ -84,6 +85,7 @@ router.post('/signup', async (req: Request, res: Response) => {
     const household = await createHousehold(householdName || 'My Household', '1234');
     const user = await createUser(email, household.id, undefined, 'owner');
     await initializeHouseholdFoods(household.id);
+    try { await initializeHouseholdPresets(household.id); } catch (e) { console.error('Non-fatal: failed to seed presets', e); }
 
     const token = await createMagicLinkToken(email);
     await sendMagicLinkEmail(email, token);

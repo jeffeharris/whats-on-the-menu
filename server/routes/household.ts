@@ -21,6 +21,7 @@ import {
   createSession,
 } from '../db/queries/auth.js';
 import { initializeHouseholdFoods } from '../db/queries/foods.js';
+import { initializeHouseholdPresets, getPresets } from '../db/queries/menus.js';
 import pool from '../db/pool.js';
 import { invitePartnerSchema } from '../validation/schemas.js';
 import { resend, APP_URL, EMAIL_FROM, emailTemplate } from '../email.js';
@@ -103,6 +104,17 @@ publicHouseholdRouter.get('/accept-invite', async (req: Request, res: Response) 
 
     if (!accepted) {
       return errorRedirect('invalid');
+    }
+
+    // 3b. Seed presets on the target household if it has none yet
+    try {
+      const { presets } = await getPresets(accepted.householdId);
+      const hasAnyPreset = Object.values(presets).some((p) => p !== null);
+      if (!hasAnyPreset) {
+        await initializeHouseholdPresets(accepted.householdId);
+      }
+    } catch (e) {
+      console.error('Non-fatal: failed to seed presets for invited household', e);
     }
 
     // 4. Create session and set cookie

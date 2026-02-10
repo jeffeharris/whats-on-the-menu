@@ -311,7 +311,7 @@ INSERT INTO seed_food_templates (name, tags, image_url) VALUES
   ('Pancakes', ARRAY['Grain', 'Breakfast'], '/food-images/pancakes.jpg'),
   ('Waffles', ARRAY['Grain', 'Breakfast'], '/food-images/waffles.jpg'),
   ('Tortilla', ARRAY['Grain'], NULL),
-  ('Crackers', ARRAY['Grain'], '/food-images/crackers.jpg'),
+  ('Crackers', ARRAY['Grain', 'Snack'], '/food-images/crackers.jpg'),
   ('Oatmeal', ARRAY['Grain', 'Breakfast'], '/food-images/oatmeal.jpg'),
   ('Bagel', ARRAY['Grain', 'Breakfast'], '/food-images/bagel.jpg'),
   -- Veggie (10)
@@ -335,14 +335,17 @@ INSERT INTO seed_food_templates (name, tags, image_url) VALUES
   ('Watermelon', ARRAY['Fruit'], NULL),
   ('Pineapple', ARRAY['Fruit'], '/food-images/pineapple.jpg'),
   ('Mango', ARRAY['Fruit'], '/food-images/mango.jpg'),
-  ('Raisins', ARRAY['Fruit'], NULL),
+  ('Raisins', ARRAY['Fruit', 'Snack'], NULL),
   -- Dairy (4)
   ('Yogurt', ARRAY['Dairy', 'Breakfast'], NULL),
-  ('Cheese Stick', ARRAY['Dairy'], NULL),
-  ('Milk', ARRAY['Dairy'], '/food-images/milk.jpg'),
+  ('Cheese Stick', ARRAY['Dairy', 'Snack'], NULL),
+  ('Milk', ARRAY['Dairy', 'Drink'], '/food-images/milk.jpg'),
   ('Cottage Cheese', ARRAY['Dairy'], '/food-images/cottage-cheese.jpg'),
   -- Breakfast (2, cross-tagged)
   ('Cereal', ARRAY['Grain', 'Breakfast'], '/food-images/cereal.jpg'),
-  ('Granola Bar', ARRAY['Grain', 'Breakfast'], '/food-images/granola-bar.jpg');
+  ('Granola Bar', ARRAY['Grain', 'Breakfast', 'Snack'], '/food-images/granola-bar.jpg'),
+  -- Drink (2)
+  ('Water', ARRAY['Drink'], NULL),
+  ('Apple Juice', ARRAY['Drink'], NULL);
 
 COMMIT;

@@ -423,6 +423,87 @@ export async function deletePreset(
   }
 }
 
+// ============================================================
+// Household Preset Initialization (seeded presets for new users)
+// ============================================================
+
+interface PresetGroupDef {
+  label: string;
+  tags: string[];
+  selectionPreset: SelectionPreset;
+  limit: number;
+}
+
+interface PresetDef {
+  slot: PresetSlot;
+  name: string;
+  groups: PresetGroupDef[];
+}
+
+const SEED_PRESETS: PresetDef[] = [
+  {
+    slot: 'breakfast',
+    name: 'Breakfast',
+    groups: [
+      { label: 'Main', tags: ['Breakfast'], selectionPreset: 'pick-1-2', limit: 4 },
+      { label: 'Fruit', tags: ['Fruit'], selectionPreset: 'pick-2-3', limit: 3 },
+      { label: 'Drink', tags: ['Drink'], selectionPreset: 'pick-1', limit: 3 },
+    ],
+  },
+  {
+    slot: 'snack',
+    name: 'Snack',
+    groups: [
+      { label: 'Snack', tags: ['Snack', 'Fruit'], selectionPreset: 'pick-1', limit: 3 },
+      { label: 'Drink', tags: ['Drink'], selectionPreset: 'pick-1', limit: 3 },
+    ],
+  },
+  {
+    slot: 'dinner',
+    name: 'Dinner',
+    groups: [
+      { label: 'Main', tags: ['Protein'], selectionPreset: 'pick-1', limit: 4 },
+      { label: 'Sides', tags: ['Veggie'], selectionPreset: 'pick-1-2', limit: 4 },
+      { label: 'Drink', tags: ['Drink'], selectionPreset: 'pick-1', limit: 3 },
+    ],
+  },
+];
+
+export async function initializeHouseholdPresets(householdId: string): Promise<void> {
+  for (const preset of SEED_PRESETS) {
+    const groups: MenuGroup[] = [];
+
+    for (let i = 0; i < preset.groups.length; i++) {
+      const groupDef = preset.groups[i];
+
+      // Query household foods matching any of the group's tags
+      const { rows } = await pool.query<{ id: string }>(
+        `SELECT id FROM food_items
+         WHERE household_id = $1 AND tags && $2::text[]
+         ORDER BY random() LIMIT $3`,
+        [householdId, groupDef.tags, groupDef.limit]
+      );
+
+      if (rows.length === 0) continue;
+
+      groups.push({
+        id: `seed-${preset.slot}-${i}`,
+        label: groupDef.label,
+        foodIds: rows.map((r) => r.id),
+        selectionPreset: groupDef.selectionPreset,
+        order: i,
+        filterTags: groupDef.tags,
+      });
+    }
+
+    if (groups.length > 0) {
+      await updatePreset(householdId, preset.slot, preset.name, groups);
+    }
+  }
+
+  logger.info({ householdId }, 'Initialized household presets');
+}
+
 export async function copyPreset(
   householdId: string,
   fromSlot: PresetSlot,
