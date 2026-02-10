@@ -38,7 +38,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 const authLimiter = isDev ? [] : rateLimit({
   windowMs: 60 * 1000,
-  max: 5,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many authentication attempts, please try again later' },
@@ -46,7 +46,7 @@ const authLimiter = isDev ? [] : rateLimit({
 
 const apiLimiter = isDev ? [] : rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },
@@ -54,7 +54,7 @@ const apiLimiter = isDev ? [] : rateLimit({
 
 const publicSharedMenuLimiter = isDev ? [] : rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },
