@@ -34,7 +34,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
 
-const authLimiter = rateLimit({
+const isDev = process.env.NODE_ENV !== 'production';
+
+const authLimiter = isDev ? [] : rateLimit({
   windowMs: 60 * 1000,
   max: 5,
   standardHeaders: true,
@@ -42,7 +44,7 @@ const authLimiter = rateLimit({
   message: { error: 'Too many authentication attempts, please try again later' },
 });
 
-const apiLimiter = rateLimit({
+const apiLimiter = isDev ? [] : rateLimit({
   windowMs: 60 * 1000,
   max: 100,
   standardHeaders: true,
@@ -50,7 +52,7 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
 });
 
-const publicSharedMenuLimiter = rateLimit({
+const publicSharedMenuLimiter = isDev ? [] : rateLimit({
   windowMs: 60 * 1000,
   max: 30,
   standardHeaders: true,
