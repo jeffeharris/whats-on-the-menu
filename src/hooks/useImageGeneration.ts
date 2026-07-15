@@ -44,18 +44,19 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const debounceRef = useRef<number | null>(null);
   const cancelledRef = useRef(false);
-  const prevFoodNameRef = useRef(foodName);
+  const [prevFoodName, setPrevFoodName] = useState(foodName);
 
-  // Reset history when food name changes
-  useEffect(() => {
-    if (foodName !== prevFoodNameRef.current) {
-      prevFoodNameRef.current = foodName;
-      setImageHistory([]);
-      setHistoryIndex(-1);
-      setGenerationCount(0);
-      setSeed(0);
-    }
-  }, [foodName]);
+  // Reset history when food name changes.
+  // Adjusting state during render (not in an effect) is the recommended
+  // pattern for resetting state on a prop change — React re-renders
+  // immediately without committing the intermediate UI.
+  if (foodName !== prevFoodName) {
+    setPrevFoodName(foodName);
+    setImageHistory([]);
+    setHistoryIndex(-1);
+    setGenerationCount(0);
+    setSeed(0);
+  }
 
   useEffect(() => {
     const trimmed = foodName.trim();
@@ -68,15 +69,13 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
     cancelledRef.current = true;
 
     if (trimmed.length < MIN_CHARS) {
-      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
     debounceRef.current = window.setTimeout(async () => {
       cancelledRef.current = false;
+      setIsLoading(true);
+      setError(null);
       const provider = getProviderService();
       const prompt = buildFoodPrompt(trimmed);
       const model = getModelForGeneration(generationCount);
@@ -124,6 +123,9 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
         clearTimeout(debounceRef.current);
       }
       cancelledRef.current = true;
+      // Clear loading on teardown/abort (e.g. input shortened mid-generation)
+      // so an in-flight request that never resolves can't leave a stuck spinner.
+      setIsLoading(false);
     };
   }, [foodName, seed, generationCount, getProviderService]);
 
