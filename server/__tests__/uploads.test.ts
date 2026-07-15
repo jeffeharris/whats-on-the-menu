@@ -2,9 +2,21 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import sharp from 'sharp';
 import { createApp } from '../app.js';
+import pool from '../db/pool.js';
 import { createTenant, type TestTenant } from './helpers/tenant.js';
 
 const app = createApp();
+
+// Default per-household limit is 25 MB (UPLOAD_STORAGE_LIMIT_MB).
+const STORAGE_LIMIT_BYTES = 25 * 1024 * 1024;
+
+// Fill a household's quota by inserting an uploads row at the limit.
+async function fillQuota(householdId: string) {
+  await pool.query(
+    `INSERT INTO uploads (household_id, filename, size_bytes) VALUES ($1, $2, $3)`,
+    [householdId, `big-${householdId}.jpg`, STORAGE_LIMIT_BYTES],
+  );
+}
 
 // A small valid PNG that the upload route can process with sharp.
 async function tinyPng(): Promise<Buffer> {
@@ -70,5 +82,34 @@ describe('Upload isolation', () => {
       .delete('/api/uploads/00000000-0000-0000-0000-000000000000.jpg')
       .set('Cookie', alice.cookie)
       .expect(404);
+  });
+});
+
+describe('Upload quota enforcement', () => {
+  it('returns 507 when the household is over quota, without affecting other households', async () => {
+    const alice = await createTenant('Alice');
+    const bob = await createTenant('Bob');
+    const png = await tinyPng();
+
+    await fillQuota(alice.householdId);
+
+    // Alice is over quota → 507 with a storage payload.
+    const res = await uploadImage(alice, png).expect(507);
+    expect(res.body.storage.used).toBeGreaterThanOrEqual(STORAGE_LIMIT_BYTES);
+
+    // Bob is unaffected and can still upload.
+    await uploadImage(bob, png).expect(201);
+  });
+
+  it('blocks image generation when the household is over quota (507)', async () => {
+    const alice = await createTenant('Alice');
+    await fillQuota(alice.householdId);
+
+    // The quota pre-check fires before any external fetch, so no network mock
+    // is needed — an over-quota household gets 507.
+    await request(app)
+      .get('/api/image-generation/pollinations?prompt=pizza')
+      .set('Cookie', alice.cookie)
+      .expect(507);
   });
 });

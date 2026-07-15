@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import { logger } from '../logger.js';
 import {
   getHouseholdUploadBytes,
   recordUpload,
@@ -25,12 +26,20 @@ if (!existsSync(UPLOADS_DIR)) {
 
 // Per-household storage limit configuration (in bytes)
 const STORAGE_LIMIT_MB = parseInt(process.env.UPLOAD_STORAGE_LIMIT_MB || '25', 10);
-const STORAGE_LIMIT_BYTES = STORAGE_LIMIT_MB * 1024 * 1024;
+export const STORAGE_LIMIT_BYTES = STORAGE_LIMIT_MB * 1024 * 1024;
 const WARNING_THRESHOLD = 0.8;
 
 // Image processing configuration
 export const MAX_DIMENSION = 800;
 export const JPEG_QUALITY = 80;
+
+/** Thrown when an operation would push a household past its storage limit. */
+export class QuotaExceededError extends Error {
+  constructor(public readonly householdId: string) {
+    super('Storage limit reached');
+    this.name = 'QuotaExceededError';
+  }
+}
 
 // Configure multer for memory storage (we'll process before saving)
 const upload = multer({
@@ -49,7 +58,7 @@ const upload = multer({
 });
 
 // Per-household storage stats
-async function getStorageStats(householdId: string) {
+export async function getStorageStats(householdId: string) {
   const used = await getHouseholdUploadBytes(householdId);
   const limit = STORAGE_LIMIT_BYTES;
   const percentage = (used / limit) * 100;
@@ -65,29 +74,51 @@ async function getStorageStats(householdId: string) {
   };
 }
 
+/**
+ * Throw QuotaExceededError if storing `incomingBytes` more would push the
+ * household past its limit. Pass 0 to check whether it is already at/over.
+ */
+export async function assertWithinQuota(householdId: string, incomingBytes: number): Promise<void> {
+  const used = await getHouseholdUploadBytes(householdId);
+  const wouldExceed = incomingBytes === 0
+    ? used >= STORAGE_LIMIT_BYTES
+    : used + incomingBytes > STORAGE_LIMIT_BYTES;
+  if (wouldExceed) {
+    throw new QuotaExceededError(householdId);
+  }
+}
+
 // Low-level file deletion by filename (no ownership check — callers must scope).
+// Returns false if the file was absent or could not be removed; a removal
+// failure (vs. a legitimately-absent file) is logged.
 export function deleteUploadedFile(filename: string): boolean {
   const filepath = join(UPLOADS_DIR, filename);
-  if (existsSync(filepath)) {
-    try {
-      unlinkSync(filepath);
-      return true;
-    } catch {
-      return false;
-    }
+  if (!existsSync(filepath)) {
+    return false;
   }
-  return false;
+  try {
+    unlinkSync(filepath);
+    return true;
+  } catch (err) {
+    logger.error({ err, filename }, 'Failed to unlink upload file');
+    return false;
+  }
 }
 
 /**
  * Delete an upload owned by a household: removes the DB record (scoped to the
  * household) and, only if that household actually owned it, the file on disk.
+ * If the record is removed but the file lingers (unlink failure), the orphan is
+ * logged so it can be reaped — the DB row is authoritative for the quota.
  * Returns true if the household owned and deleted the upload.
  */
 export async function deleteHouseholdUpload(householdId: string, filename: string): Promise<boolean> {
-  const owned = await deleteUploadRecord(householdId, filename);
+  const owned = await deleteUploadRecord({ householdId, filename });
   if (owned) {
-    deleteUploadedFile(filename);
+    const filepath = join(UPLOADS_DIR, filename);
+    if (existsSync(filepath) && !deleteUploadedFile(filename)) {
+      logger.error({ householdId, filename }, 'Upload record deleted but file remained on disk (orphan)');
+    }
   }
   return owned;
 }
@@ -98,7 +129,7 @@ export async function registerUpload(
   filename: string,
   sizeBytes: number,
 ): Promise<void> {
-  await recordUpload(householdId, filename, sizeBytes);
+  await recordUpload({ householdId, filename }, sizeBytes);
 }
 
 const router = Router();
@@ -111,12 +142,12 @@ router.get('/storage', async (req, res) => {
 
 // POST /api/uploads - Upload and process an image
 router.post('/', upload.single('image'), async (req, res) => {
+  const householdId = req.householdId!;
+  let filename: string | null = null;
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
     }
-
-    const householdId = req.householdId!;
 
     // Check this household's storage usage before processing
     const currentSize = await getHouseholdUploadBytes(householdId);
@@ -145,12 +176,18 @@ router.post('/', upload.single('image'), async (req, res) => {
     }
 
     // Generate unique filename and save
-    const filename = `${randomUUID()}.jpg`;
+    filename = `${randomUUID()}.jpg`;
     const filepath = join(UPLOADS_DIR, filename);
 
     // Write the processed buffer directly (avoid double Sharp processing)
     writeFileSync(filepath, processedImage);
-    await registerUpload(householdId, filename, processedImage.length);
+    try {
+      await registerUpload(householdId, filename, processedImage.length);
+    } catch (err) {
+      // DB record failed — remove the just-written file so it isn't orphaned.
+      deleteUploadedFile(filename);
+      throw err;
+    }
 
     const imageUrl = `/uploads/${filename}`;
     const stats = await getStorageStats(householdId);
@@ -161,7 +198,7 @@ router.post('/', upload.single('image'), async (req, res) => {
       storage: stats,
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    logger.error({ err: error, householdId }, 'Upload failed');
     res.status(500).json({ error: 'Failed to process and save image' });
   }
 });

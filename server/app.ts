@@ -15,7 +15,7 @@ import foodsRouter from './routes/foods.js';
 import profilesRouter from './routes/profiles.js';
 import menusRouter from './routes/menus.js';
 import mealsRouter from './routes/meals.js';
-import uploadsRouter from './routes/uploads.js';
+import uploadsRouter, { UPLOADS_DIR } from './routes/uploads.js';
 import sharedMenusRouter, { publicSharedMenusRouter } from './routes/shared-menus.js';
 import imageGenerationRouter from './routes/image-generation.js';
 import householdRouter, { publicHouseholdRouter } from './routes/household.js';
@@ -72,8 +72,9 @@ export function createApp() {
     message: { error: 'Too many requests, please try again later' },
   });
 
-  // Static uploads (no auth — filenames are unguessable UUIDs)
-  app.use('/uploads', express.static(join(__dirname, '..', 'data', 'uploads')));
+  // Static uploads (no auth — filenames are unguessable UUIDs). Served from the
+  // same UPLOADS_DIR that writes use, so an env override stays consistent.
+  app.use('/uploads', express.static(UPLOADS_DIR));
 
   // Health check — unprotected
   app.get('/api/health', async (_req, res) => {
