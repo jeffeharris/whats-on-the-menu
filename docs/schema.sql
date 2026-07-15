@@ -136,6 +136,20 @@ CREATE TRIGGER food_items_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================
+-- uploads (per-household record of stored image files)
+-- Tracks ownership + byte size so the storage quota is scoped per household.
+-- ============================================================
+CREATE TABLE uploads (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id  UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  filename      TEXT NOT NULL UNIQUE,   -- '<uuid>.jpg' under data/uploads/
+  size_bytes    BIGINT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_uploads_household ON uploads(household_id);
+
+-- ============================================================
 -- kid_profiles (per-household)
 -- ============================================================
 CREATE TABLE kid_profiles (

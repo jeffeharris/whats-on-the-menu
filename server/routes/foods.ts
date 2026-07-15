@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { deleteUploadedFile } from './uploads.js';
+import { deleteHouseholdUpload } from './uploads.js';
 import { getAllFoods, createFood, updateFood, deleteFood } from '../db/queries/foods.js';
 import { createFoodSchema, updateFoodSchema } from '../validation/schemas.js';
 
@@ -67,9 +67,9 @@ router.put('/:id', async (req, res) => {
       const existingItem = current.items.find((item) => item.id === id);
       if (existingItem) {
         const oldFilename = getUploadedFilename(existingItem.imageUrl);
-        const newFilename = getUploadedFilename(updates.imageUrl);
+        const newFilename = getUploadedFilename(updates.imageUrl ?? null);
         if (oldFilename && oldFilename !== newFilename) {
-          deleteUploadedFile(oldFilename);
+          await deleteHouseholdUpload(req.householdId!, oldFilename);
         }
       }
     }
@@ -98,7 +98,7 @@ router.delete('/:id', async (req, res) => {
     // Clean up uploaded image if exists
     const uploadedFilename = getUploadedFilename(deleted.imageUrl);
     if (uploadedFilename) {
-      deleteUploadedFile(uploadedFilename);
+      await deleteHouseholdUpload(req.householdId!, uploadedFilename);
     }
 
     res.status(204).send();

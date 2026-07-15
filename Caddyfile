@@ -1,0 +1,36 @@
+# Reverse-proxy config for whatsonthemenu.app
+#
+# This is a REFERENCE copy of the Caddy configuration. Caddy runs as a shared
+# proxy on the host (attached to the external `web` Docker network that
+# docker-compose.prod.yml joins), not as a service inside this repo's compose
+# file. Keep this file in sync with the deployed Caddyfile.
+#
+# The app container is reachable on the `web` network as `menu-app:3001`
+# (see the `menu-app` service in docker-compose.prod.yml).
+
+whatsonthemenu.app {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # API, uploaded images, and the built SPA are all served by the app container.
+    handle /api/* {
+        reverse_proxy menu-app:3001
+    }
+
+    handle /uploads/* {
+        reverse_proxy menu-app:3001
+    }
+
+    handle {
+        reverse_proxy menu-app:3001
+    }
+}
+
+www.whatsonthemenu.app {
+    redir https://whatsonthemenu.app{uri} permanent
+}

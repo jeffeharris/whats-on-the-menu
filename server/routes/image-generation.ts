@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { UPLOADS_DIR, MAX_DIMENSION, JPEG_QUALITY } from './uploads.js';
+import { UPLOADS_DIR, MAX_DIMENSION, JPEG_QUALITY, registerUpload } from './uploads.js';
 
 const router = Router();
 
@@ -12,8 +12,13 @@ function roundToMultipleOf64(value: number): number {
   return Math.round(value / 64) * 64;
 }
 
-// Download an image from an external URL, process it, and save locally
-async function downloadAndSaveImage(url: string, timeoutMs = 30000): Promise<string> {
+// Download an image from an external URL, process it, save locally, and record
+// it against the household so it counts toward that household's storage quota.
+async function downloadAndSaveImage(
+  householdId: string,
+  url: string,
+  timeoutMs = 30000,
+): Promise<string> {
   const response = await fetch(url, {
     signal: AbortSignal.timeout(timeoutMs),
   });
@@ -40,6 +45,7 @@ async function downloadAndSaveImage(url: string, timeoutMs = 30000): Promise<str
   const filename = `${randomUUID()}.jpg`;
   const filepath = join(UPLOADS_DIR, filename);
   writeFileSync(filepath, processedImage);
+  await registerUpload(householdId, filename, processedImage.length);
 
   return `/uploads/${filename}`;
 }
@@ -60,7 +66,7 @@ router.get('/pollinations', async (req, res) => {
   const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true${keyParam}${seedParam}`;
 
   try {
-    const imageUrl = await downloadAndSaveImage(pollinationsUrl, 60000);
+    const imageUrl = await downloadAndSaveImage(req.householdId!, pollinationsUrl, 60000);
     return res.json({ imageUrl });
   } catch (error) {
     console.error('Pollinations download error:', error);
@@ -136,7 +142,7 @@ router.post('/runware', async (req, res) => {
     // Runware returns { data: [...] } with imageURL in each result
     if (data.data && data.data.length > 0 && data.data[0].imageURL) {
       const cdnUrl = data.data[0].imageURL;
-      const imageUrl = await downloadAndSaveImage(cdnUrl);
+      const imageUrl = await downloadAndSaveImage(req.householdId!, cdnUrl);
       return res.json({ imageUrl });
     }
 
