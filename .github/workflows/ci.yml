@@ -9,8 +9,20 @@ permissions:
 
 jobs:
   check:
-    name: Lint, Typecheck & Build
+    name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: whatsonthemenu_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d whatsonthemenu_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -24,5 +36,13 @@ jobs:
       - run: npm run lint
 
       - run: npx tsc -b
+
+      - name: Load database schema
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d whatsonthemenu_test -f docs/schema.sql
+
+      - name: Run tests
+        run: npm test
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/whatsonthemenu_test
 
       - run: npm run build

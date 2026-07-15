@@ -1,23 +1,29 @@
 import { Router } from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
-import { existsSync, mkdirSync, unlinkSync, readdirSync, statSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import {
+  getHouseholdUploadBytes,
+  recordUpload,
+  deleteUploadRecord,
+} from '../db/queries/uploads.js';
 
 // Filename format validation (UUID + .jpg)
 const VALID_FILENAME_PATTERN = /^[a-z0-9-]{20,40}\.jpg$/;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-export const UPLOADS_DIR = join(__dirname, '..', '..', 'data', 'uploads');
+// Overridable via env so tests can point at a throwaway directory.
+export const UPLOADS_DIR = process.env.UPLOADS_DIR || join(__dirname, '..', '..', 'data', 'uploads');
 
 // Ensure uploads directory exists
 if (!existsSync(UPLOADS_DIR)) {
   mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// Storage limit configuration (in bytes)
+// Per-household storage limit configuration (in bytes)
 const STORAGE_LIMIT_MB = parseInt(process.env.UPLOAD_STORAGE_LIMIT_MB || '25', 10);
 const STORAGE_LIMIT_BYTES = STORAGE_LIMIT_MB * 1024 * 1024;
 const WARNING_THRESHOLD = 0.8;
@@ -42,31 +48,9 @@ const upload = multer({
   },
 });
 
-// Calculate total size of uploads directory
-export function getUploadsDirectorySize(): number {
-  if (!existsSync(UPLOADS_DIR)) {
-    return 0;
-  }
-
-  try {
-    const files = readdirSync(UPLOADS_DIR);
-    return files.reduce((total, file) => {
-      const filepath = join(UPLOADS_DIR, file);
-      try {
-        const stats = statSync(filepath);
-        return total + stats.size;
-      } catch {
-        return total;
-      }
-    }, 0);
-  } catch {
-    return 0;
-  }
-}
-
-// Get storage stats
-function getStorageStats() {
-  const used = getUploadsDirectorySize();
+// Per-household storage stats
+async function getStorageStats(householdId: string) {
+  const used = await getHouseholdUploadBytes(householdId);
   const limit = STORAGE_LIMIT_BYTES;
   const percentage = (used / limit) * 100;
   const warning = percentage >= WARNING_THRESHOLD * 100;
@@ -81,7 +65,7 @@ function getStorageStats() {
   };
 }
 
-// Delete an uploaded file by filename
+// Low-level file deletion by filename (no ownership check — callers must scope).
 export function deleteUploadedFile(filename: string): boolean {
   const filepath = join(UPLOADS_DIR, filename);
   if (existsSync(filepath)) {
@@ -95,11 +79,33 @@ export function deleteUploadedFile(filename: string): boolean {
   return false;
 }
 
+/**
+ * Delete an upload owned by a household: removes the DB record (scoped to the
+ * household) and, only if that household actually owned it, the file on disk.
+ * Returns true if the household owned and deleted the upload.
+ */
+export async function deleteHouseholdUpload(householdId: string, filename: string): Promise<boolean> {
+  const owned = await deleteUploadRecord(householdId, filename);
+  if (owned) {
+    deleteUploadedFile(filename);
+  }
+  return owned;
+}
+
+// Record a stored image against a household after writing it to disk.
+export async function registerUpload(
+  householdId: string,
+  filename: string,
+  sizeBytes: number,
+): Promise<void> {
+  await recordUpload(householdId, filename, sizeBytes);
+}
+
 const router = Router();
 
-// GET /api/uploads/storage - Get storage usage stats
-router.get('/storage', (_req, res) => {
-  const stats = getStorageStats();
+// GET /api/uploads/storage - Get this household's storage usage stats
+router.get('/storage', async (req, res) => {
+  const stats = await getStorageStats(req.householdId!);
   res.json(stats);
 });
 
@@ -110,12 +116,14 @@ router.post('/', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    // Check storage limit before processing
-    const currentSize = getUploadsDirectorySize();
+    const householdId = req.householdId!;
+
+    // Check this household's storage usage before processing
+    const currentSize = await getHouseholdUploadBytes(householdId);
     if (currentSize >= STORAGE_LIMIT_BYTES) {
       return res.status(507).json({
         error: 'Storage limit reached. Please delete some images before uploading new ones.',
-        storage: getStorageStats(),
+        storage: await getStorageStats(householdId),
       });
     }
 
@@ -128,11 +136,11 @@ router.post('/', upload.single('image'), async (req, res) => {
       .jpeg({ quality: JPEG_QUALITY })
       .toBuffer();
 
-    // Check if processed image would exceed storage limit
+    // Check if processed image would exceed this household's storage limit
     if (currentSize + processedImage.length > STORAGE_LIMIT_BYTES) {
       return res.status(507).json({
         error: 'Uploading this image would exceed the storage limit. Please delete some images first.',
-        storage: getStorageStats(),
+        storage: await getStorageStats(householdId),
       });
     }
 
@@ -142,9 +150,10 @@ router.post('/', upload.single('image'), async (req, res) => {
 
     // Write the processed buffer directly (avoid double Sharp processing)
     writeFileSync(filepath, processedImage);
+    await registerUpload(householdId, filename, processedImage.length);
 
     const imageUrl = `/uploads/${filename}`;
-    const stats = getStorageStats();
+    const stats = await getStorageStats(householdId);
 
     res.status(201).json({
       imageUrl,
@@ -157,8 +166,8 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
-// DELETE /api/uploads/:filename - Delete an uploaded image
-router.delete('/:filename', (req, res) => {
+// DELETE /api/uploads/:filename - Delete an uploaded image owned by this household
+router.delete('/:filename', async (req, res) => {
   const { filename } = req.params;
 
   // Security: validate filename format and prevent path traversal
@@ -166,9 +175,11 @@ router.delete('/:filename', (req, res) => {
     return res.status(400).json({ error: 'Invalid filename' });
   }
 
-  const deleted = deleteUploadedFile(filename);
+  // Ownership: only the owning household may delete its file. Unowned/foreign
+  // files return 404 (no distinction, to avoid revealing another tenant's file).
+  const deleted = await deleteHouseholdUpload(req.householdId!, filename);
   if (deleted) {
-    res.json({ success: true, storage: getStorageStats() });
+    res.json({ success: true, storage: await getStorageStats(req.householdId!) });
   } else {
     res.status(404).json({ error: 'File not found' });
   }
