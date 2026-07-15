@@ -44,6 +44,7 @@ const APP_TABLES = [
   'users',
   'sessions',
   'magic_link_tokens',
+  'household_invitations',
   'food_items',
   'uploads',
   'kid_profiles',
