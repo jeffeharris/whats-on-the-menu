@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useLayoutEffect, useCallback } from 'react';
 
 interface TargetRect {
   top: number;
@@ -33,7 +33,12 @@ export function useTargetPosition(selector: string): TargetRect | null {
     });
   }, [selector]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // Measuring an element's layout geometry into state is an inherent
+    // read-from-the-DOM synchronization: we must measure once on mount to
+    // position the coach mark. This is the sanctioned useLayoutEffect
+    // measurement pattern, which the set-state-in-effect heuristic can't model.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     measure();
 
     window.addEventListener('resize', measure);

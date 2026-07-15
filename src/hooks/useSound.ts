@@ -7,10 +7,10 @@ export function useSound() {
   const placedRef = useRef<HTMLAudioElement | null>(null);
   const rejectedRef = useRef<HTMLAudioElement | null>(null);
 
-  if (!placedRef.current) {
+  if (placedRef.current === null) {
     placedRef.current = new Audio(PLACED_SRC);
   }
-  if (!rejectedRef.current) {
+  if (rejectedRef.current === null) {
     rejectedRef.current = new Audio(REJECTED_SRC);
   }
 

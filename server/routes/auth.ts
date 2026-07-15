@@ -84,7 +84,7 @@ router.post('/signup', async (req: Request, res: Response) => {
 
     // Create household + user
     const household = await createHousehold(householdName || 'My Household');
-    const user = await createUser(email, household.id, undefined, 'owner');
+    await createUser(email, household.id, undefined, 'owner');
     await initializeHouseholdFoods(household.id);
     try { await initializeHouseholdPresets(household.id); } catch (e) { console.error('Non-fatal: failed to seed presets', e); }
 
