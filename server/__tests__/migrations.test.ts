@@ -37,10 +37,11 @@ describe('migration runner', () => {
   const ids = ['20260101_0000_create_widget', '20260102_0000_add_widget_col'];
 
   afterEach(async () => {
-    await pool.query('DROP TABLE IF EXISTS mig_test_widget');
+    await pool.query('DROP TABLE IF EXISTS mig_test_widget, mig_test_fail_table, mig_test_never');
     // applied_migrations only exists once runMigrations has run at least once.
+    // Test migration ids all start 2026010x; real migrations are 20260715_*.
     await pool
-      .query('DELETE FROM applied_migrations WHERE id = ANY($1)', [ids])
+      .query("DELETE FROM applied_migrations WHERE id LIKE '2026010%'")
       .catch(() => {});
   });
 
@@ -80,6 +81,47 @@ describe('migration runner', () => {
       await runMigrations(pool, dir);
       const second = await runMigrations(pool, dir);
       expect(second.applied).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('rolls back a failing migration and leaves prior migrations committed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wotm-migrations-fail-'));
+    // First migration succeeds; second creates a table then throws; third would
+    // run only if the second somehow succeeded.
+    writeFileSync(join(dir, '20260101_0000_create_widget.ts'), CREATE_WIDGET);
+    writeFileSync(
+      join(dir, '20260102_0000_fails.ts'),
+      `import type { PoolClient } from 'pg';
+       export async function upgrade(client: PoolClient): Promise<void> {
+         await client.query('CREATE TABLE mig_test_fail_table (id SERIAL PRIMARY KEY)');
+         throw new Error('boom');
+       }`,
+    );
+    writeFileSync(
+      join(dir, '20260103_0000_never.ts'),
+      `import type { PoolClient } from 'pg';
+       export async function upgrade(client: PoolClient): Promise<void> {
+         await client.query('CREATE TABLE mig_test_never (id SERIAL PRIMARY KEY)');
+       }`,
+    );
+
+    try {
+      await expect(runMigrations(pool, dir)).rejects.toThrow(/Migration 20260102_0000_fails failed/);
+
+      // The first migration committed and is recorded.
+      const applied = await pool.query("SELECT id FROM applied_migrations WHERE id LIKE '2026010%' ORDER BY id");
+      expect(applied.rows.map((r) => r.id)).toEqual(['20260101_0000_create_widget']);
+      const widget = await pool.query("SELECT to_regclass('mig_test_widget') AS t");
+      expect(widget.rows[0].t).not.toBeNull();
+
+      // The failing migration's partial work was rolled back and it is NOT recorded
+      // (so a re-run retries it). The third migration never ran.
+      const failTable = await pool.query("SELECT to_regclass('mig_test_fail_table') AS t");
+      expect(failTable.rows[0].t).toBeNull();
+      const neverTable = await pool.query("SELECT to_regclass('mig_test_never') AS t");
+      expect(neverTable.rows[0].t).toBeNull();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

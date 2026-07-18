@@ -3,7 +3,15 @@ import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { UPLOADS_DIR, MAX_DIMENSION, JPEG_QUALITY, registerUpload } from './uploads.js';
+import {
+  UPLOADS_DIR,
+  MAX_DIMENSION,
+  JPEG_QUALITY,
+  registerUpload,
+  assertWithinQuota,
+  getStorageStats,
+  QuotaExceededError,
+} from './uploads.js';
 
 const router = Router();
 
@@ -14,6 +22,7 @@ function roundToMultipleOf64(value: number): number {
 
 // Download an image from an external URL, process it, save locally, and record
 // it against the household so it counts toward that household's storage quota.
+// Throws QuotaExceededError if storing it would exceed the household's limit.
 async function downloadAndSaveImage(
   householdId: string,
   url: string,
@@ -42,12 +51,27 @@ async function downloadAndSaveImage(
     .jpeg({ quality: JPEG_QUALITY })
     .toBuffer();
 
+  // Enforce the household storage quota (generated images count toward it).
+  await assertWithinQuota(householdId, processedImage.length);
+
   const filename = `${randomUUID()}.jpg`;
   const filepath = join(UPLOADS_DIR, filename);
   writeFileSync(filepath, processedImage);
   await registerUpload(householdId, filename, processedImage.length);
 
   return `/uploads/${filename}`;
+}
+
+// Map a storage-quota failure to a 507 response; returns true if handled.
+async function handleQuotaError(err: unknown, res: import('express').Response): Promise<boolean> {
+  if (err instanceof QuotaExceededError) {
+    res.status(507).json({
+      error: 'Storage limit reached. Please delete some images before generating new ones.',
+      storage: await getStorageStats(err.householdId),
+    });
+    return true;
+  }
+  return false;
 }
 
 // GET /api/image-generation/pollinations - Generate Pollinations image URL
@@ -66,9 +90,12 @@ router.get('/pollinations', async (req, res) => {
   const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true${keyParam}${seedParam}`;
 
   try {
+    // Fail fast before the external fetch if already at/over quota.
+    await assertWithinQuota(req.householdId!, 0);
     const imageUrl = await downloadAndSaveImage(req.householdId!, pollinationsUrl, 60000);
     return res.json({ imageUrl });
   } catch (error) {
+    if (await handleQuotaError(error, res)) return;
     console.error('Pollinations download error:', error);
     return res.status(500).json({ error: 'Failed to generate and save image' });
   }
@@ -93,6 +120,9 @@ router.post('/runware', async (req, res) => {
   }
 
   try {
+    // Fail fast before the external call if already at/over quota.
+    await assertWithinQuota(req.householdId!, 0);
+
     const taskUUID = randomUUID();
 
     // Runware REST API - payload is a JSON array of tasks
@@ -149,6 +179,7 @@ router.post('/runware', async (req, res) => {
     console.error('Unexpected Runware response:', data);
     return res.status(500).json({ error: 'No image generated' });
   } catch (error) {
+    if (await handleQuotaError(error, res)) return;
     console.error('Runware proxy error:', error);
     return res.status(500).json({ error: 'Failed to generate image' });
   }

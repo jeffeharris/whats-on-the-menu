@@ -1,10 +1,10 @@
 /**
  * Forward schema migrations: per-file, applied-set model.
  *
- * Mirrors the approach used in the my-poker-face project. `docs/schema.sql` is
- * the **baseline** (equivalent to a squashed migration): a fresh database is
- * created from it, and the production database already has it applied. Every
- * schema change authored *after* the baseline is a per-file migration here.
+ * `docs/schema.sql` is the **baseline** (equivalent to a squashed migration): a
+ * fresh database is created from it, and the production database already has it
+ * applied. Every schema change authored *after* the baseline is a per-file
+ * migration here.
  *
  * Why per-file + applied-set:
  *   - Per-file — each migration is its own module, so two branches authoring
@@ -17,7 +17,7 @@
  *
  * Authoring a migration — drop a file in `server/db/migrations/` named:
  *
- *     YYYYMMDD_HHMM_short_slug.ts
+ *     YYYYMMDD_HHMM_short_slug.ts   (slug lowercase: [a-z0-9_])
  *
  * exposing:
  *
@@ -27,6 +27,10 @@
  *
  *     export const DESCRIPTION = 'one-line summary';
  *     export const DEPENDS_ON = '20260607_1430_other'; // string | string[]
+ *
+ * A file whose stem does not match the exact `YYYYMMDD_HHMM_slug` id (wrong
+ * date format, uppercase, etc.) is **silently skipped** — it will never run and
+ * the runner will still report "up to date", so double-check the name.
  *
  * Make `upgrade` idempotent (guard with IF NOT EXISTS / catalog checks) so a
  * re-run or a partially-built DB is safe. Ordering is lexicographic by id (the
@@ -55,20 +59,25 @@ export interface Migration {
   upgrade: (client: PoolClient) => Promise<void>;
 }
 
-/** Discover and load migration modules from a directory, sorted by id. */
+/** Discover and load migration modules in dependency-respecting order
+ *  (lexicographic by id, refined by DEPENDS_ON). */
 export async function loadMigrations(dir: string): Promise<Migration[]> {
   let files: string[];
   try {
     files = readdirSync(dir);
-  } catch {
-    return []; // No migrations directory yet — nothing to do.
+  } catch (err) {
+    // Only an absent directory means "no migrations yet". A dir that exists but
+    // is unreadable (EACCES/EIO) must NOT masquerade as up-to-date, or we'd
+    // serve against an un-migrated database.
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw err;
   }
 
   const migrations: Migration[] = [];
   for (const file of files) {
     if (!file.endsWith('.ts') && !file.endsWith('.js')) continue;
     const id = file.replace(/\.(ts|js)$/, '');
-    if (!ID_RE.test(id)) continue; // Skip README, helpers, etc.
+    if (!ID_RE.test(id)) continue; // Skip non-migration .ts/.js files (helpers, index, etc.).
 
     const mod = await import(pathToFileURL(join(dir, file)).href);
     if (typeof mod.upgrade !== 'function') {
@@ -171,7 +180,13 @@ export async function runMigrations(
       appliedNow.push(m.id);
       log(`Applied ${m.id}${m.description ? ` — ${m.description}` : ''}`);
     } catch (err) {
-      await client.query('ROLLBACK');
+      // Guard the rollback so a broken-connection ROLLBACK can't mask the real
+      // migration failure — the original error must always win.
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // ignore — surfaced via the wrapped error below
+      }
       throw new Error(`Migration ${m.id} failed: ${(err as Error).message}`, { cause: err });
     } finally {
       client.release();

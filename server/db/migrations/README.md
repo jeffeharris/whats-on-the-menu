@@ -7,7 +7,10 @@ the production database already has it applied. Every schema change authored
 ## Authoring a migration
 
 Create a file named `YYYYMMDD_HHMM_short_slug.ts` (the `YYYYMMDD_HHMM` prefix
-sorts chronologically). Example — `20260716_0900_add_household_locale.ts`:
+sorts chronologically; the slug must be lowercase `[a-z0-9_]`). **A file whose
+name doesn't match this exact pattern is silently skipped** — it never runs and
+the runner still reports "up to date", so double-check the name. Example —
+`20260716_0900_add_household_locale.ts`:
 
 ```ts
 import type { PoolClient } from 'pg';
