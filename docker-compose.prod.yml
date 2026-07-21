@@ -20,6 +20,11 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    # Bound memory on this shared host so a runaway can't starve co-tenants.
+    # Postgres idles ~15 MiB here; 256m leaves generous headroom. shm_size
+    # backs Postgres shared memory (sorts/hash joins) — the 64m default is tight.
+    mem_limit: 256m
+    shm_size: 64m
     networks:
       - internal
 
@@ -54,6 +59,9 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    # Bound memory on this shared host so a runaway can't starve co-tenants.
+    # The Node/tsx server idles ~38 MiB; 256m leaves ~6x headroom.
+    mem_limit: 256m
     networks:
       - web
       - internal
