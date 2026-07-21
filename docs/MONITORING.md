@@ -19,19 +19,30 @@
 
 ### Docker Compose Commands
 
+Run these from the deploy directory (`/opt/menu`). The app service is
+`menu-app` and the database service is `db`.
+
 ```bash
 # Follow all app logs
-docker-compose -f docker-compose.prod.yml logs -f app
+docker compose -f docker-compose.prod.yml logs -f menu-app
 
 # Last 100 lines
-docker-compose -f docker-compose.prod.yml logs --tail=100 app
+docker compose -f docker-compose.prod.yml logs --tail=100 menu-app
 
 # All services
-docker-compose -f docker-compose.prod.yml logs -f
+docker compose -f docker-compose.prod.yml logs -f
 
 # Database logs only
-docker-compose -f docker-compose.prod.yml logs -f db
+docker compose -f docker-compose.prod.yml logs -f db
 ```
+
+> **Note:** Caddy (TLS / reverse proxy) is **not** part of this compose file —
+> it runs as a shared proxy on the host, attached to the external `web` network.
+> Inspect it with the host's Caddy tooling (e.g. `journalctl -u caddy` or
+> `docker logs <caddy-container>`), not `docker compose`.
+
+Container logs are capped at 10 MB × 5 files per service (`json-file` driver,
+see `docker-compose.prod.yml`), so they can't fill the host disk.
 
 ### Log Format
 
@@ -72,7 +83,7 @@ environment:
 Restart the app service after changing:
 
 ```bash
-docker-compose -f docker-compose.prod.yml restart app
+docker compose -f docker-compose.prod.yml restart menu-app
 ```
 
 ## Incident Response
@@ -84,28 +95,28 @@ docker-compose -f docker-compose.prod.yml restart app
    ssh your-server
    ```
 
-2. **Check Docker containers are running**
+2. **Check Docker containers are running** (from `/opt/menu`)
    ```bash
-   docker-compose -f docker-compose.prod.yml ps
+   docker compose -f docker-compose.prod.yml ps
    ```
 
 3. **Check app logs for errors**
    ```bash
-   docker-compose -f docker-compose.prod.yml logs --tail=200 app
+   docker compose -f docker-compose.prod.yml logs --tail=200 menu-app
    ```
 
 4. **Check database logs**
    ```bash
-   docker-compose -f docker-compose.prod.yml logs --tail=100 db
+   docker compose -f docker-compose.prod.yml logs --tail=100 db
    ```
 
 5. **Restart services**
    ```bash
    # Restart app only
-   docker-compose -f docker-compose.prod.yml restart app
+   docker compose -f docker-compose.prod.yml restart menu-app
 
    # Restart everything
-   docker-compose -f docker-compose.prod.yml down && docker-compose -f docker-compose.prod.yml up -d
+   docker compose -f docker-compose.prod.yml down && docker compose -f docker-compose.prod.yml up -d
    ```
 
 6. **Verify recovery**
@@ -116,9 +127,11 @@ docker-compose -f docker-compose.prod.yml restart app
 
 ### Common Issues
 
+All `docker compose` commands run from `/opt/menu`.
+
 | Symptom | Likely Cause | Fix |
 |---------|-------------|-----|
-| 502 Bad Gateway | App container crashed | `docker-compose restart app` |
-| Database connection errors | DB container down or OOM | Check `docker-compose logs db`, restart db |
-| Slow responses | High load or DB queries | Check logs for slow queries, restart app |
-| Certificate errors | Caddy TLS renewal failed | Check `docker-compose logs caddy`, ensure port 80/443 open |
+| 502 Bad Gateway | App container crashed | `docker compose -f docker-compose.prod.yml restart menu-app` |
+| Database connection errors | DB container down or OOM | Check `docker compose -f docker-compose.prod.yml logs db`, restart `db` |
+| Slow responses | High load or DB queries | Check logs for slow queries, restart `menu-app` |
+| Certificate errors | Caddy TLS renewal failed | Caddy runs on the host (not in this compose) — check the host Caddy logs, ensure ports 80/443 are open |
