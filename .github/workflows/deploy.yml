@@ -100,6 +100,7 @@ jobs:
       packages: read
     env:
       DEPLOY_HOST: 178.156.202.136
+      DEPLOY_PORT: 2222
       DEPLOY_HOST_KEY: 178.156.202.136 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKMMqZA2sZv2SIq9CalU5IcY8MrUqm6cHAWn/svqrdkf
     steps:
       - name: Configure restricted deployment SSH
@@ -120,6 +121,8 @@ jobs:
           set -euo pipefail
           printf '%s' "$GH_TOKEN" |
             ssh -i "$HOME/.ssh/id_ed25519" \
-              -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              -p "$DEPLOY_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
               "menu-deploy@$DEPLOY_HOST" \
               "production $GITHUB_SHA $IMAGE_DIGEST"

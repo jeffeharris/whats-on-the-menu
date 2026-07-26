@@ -10,12 +10,16 @@ last_updated: 2026-07-26
 A push to protected `main` runs validation, builds the application image on a
 GitHub-hosted runner, and publishes it to GHCR. The production job passes the
 commit SHA, Buildx image digest, and short-lived workflow token over pinned SSH
-to `menu-deploy@178.156.202.136`.
+to the deploy-only service at `menu-deploy@178.156.202.136:2222`.
 
 The SSH key is stored only as `DEPLOY_SSH_PRIVATE_KEY` in the GitHub
 `production` environment. Its host account has no interactive shell, TTY,
 forwarding, Docker-group membership, or general sudo. It can invoke only the
 root-owned deployment controller's menu scope.
+
+TCP `2222` is served by a separate SSH daemon that denies root and password
+authentication and allows only the forced-command deploy accounts.
+Administrative TCP `22` remains source-restricted by the Hetzner firewall.
 
 The controller:
 

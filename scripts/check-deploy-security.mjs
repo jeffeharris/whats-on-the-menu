@@ -18,6 +18,12 @@ if (!workflow.includes('menu-deploy@$DEPLOY_HOST')) {
 if (!workflow.includes('StrictHostKeyChecking=yes')) {
   failures.push('deployment SSH must pin and enforce the host key');
 }
+if (!workflow.includes('DEPLOY_PORT: 2222')) {
+  failures.push('deployment SSH must use the deploy-only TCP 2222 service');
+}
+if (!workflow.includes('ConnectTimeout=15')) {
+  failures.push('deployment SSH must fail quickly when the host is unreachable');
+}
 if (!workflow.includes('${{ steps.build.outputs.digest }}')) {
   failures.push('the build job must export its immutable image digest');
 }
