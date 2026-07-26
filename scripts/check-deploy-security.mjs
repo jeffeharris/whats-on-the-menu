@@ -21,6 +21,13 @@ if (!workflow.includes('StrictHostKeyChecking=yes')) {
 if (!workflow.includes('${{ steps.build.outputs.digest }}')) {
   failures.push('the build job must export its immutable image digest');
 }
+if (
+  !workflow.includes(
+    'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
+  )
+) {
+  failures.push('attested image builds must initialize the pinned Buildx driver');
+}
 if (!workflow.includes('production $GITHUB_SHA $IMAGE_DIGEST')) {
   failures.push('the deploy request must carry the protected commit and image digest');
 }
