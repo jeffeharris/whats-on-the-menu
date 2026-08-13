@@ -67,7 +67,8 @@ export function LandingPage() {
                 Family meal planning made simple.
               </h1>
               <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-slate-600 lg:mx-0 lg:text-xl">
-                Build menus, let kids choose, and enjoy dinner together.
+                Build menus, let kids choose,<br />
+                and enjoy dinner <em>together</em>.
               </p>
               <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row lg:justify-start">
                 <Link
@@ -109,19 +110,24 @@ export function LandingPage() {
               </h2>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-3">
+            {/* 2-up on tablet, not 3: at 3-up these cards are ~185px wide, which
+                is too narrow for the icon and title to share a row without the
+                title wrapping mid-word. */}
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {features.map((feature) => (
                 <article
                   key={feature.title}
                   className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_12px_40px_rgba(35,48,71,0.06)]"
                 >
-                  <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${feature.iconStyle}`}>
-                    <feature.icon className="h-6 w-6" />
+                  <div className="flex items-center gap-3.5">
+                    <div className={`inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl ${feature.iconStyle}`}>
+                      <feature.icon className="h-6 w-6" />
+                    </div>
+                    <h3 className="font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--color-brand-ink)]">
+                      {feature.title}
+                    </h3>
                   </div>
-                  <h3 className="mt-5 font-[family-name:var(--font-heading)] text-lg font-bold text-[var(--color-brand-ink)]">
-                    {feature.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{feature.description}</p>
+                  <p className="mt-4 text-sm leading-6 text-slate-600">{feature.description}</p>
                 </article>
               ))}
             </div>
