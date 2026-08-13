@@ -30,7 +30,7 @@ export function LandingPage() {
   return (
     <div className="h-full overflow-y-auto bg-[var(--color-brand-cream)] text-[var(--color-brand-ink)]">
       <header className="sticky top-0 z-20 border-b border-slate-900/5 bg-[var(--color-brand-cream)]/90 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 sm:px-8">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 sm:px-8 xl:max-w-7xl">
           <Link to="/" className="flex items-center gap-3" aria-label="What's On The Menu home">
             <BrandMark className="h-10 w-10 rounded-xl shadow-sm" />
             <span className="font-[family-name:var(--font-heading)] text-base font-bold tracking-tight sm:text-lg">
@@ -58,7 +58,7 @@ export function LandingPage() {
         <section className="relative isolate overflow-hidden">
           <div className="absolute -left-28 top-16 -z-10 h-64 w-64 rounded-full bg-[var(--color-kid-secondary)]/10 blur-3xl" />
           <div className="absolute -right-24 top-4 -z-10 h-80 w-80 rounded-full bg-[var(--color-kid-primary)]/10 blur-3xl" />
-          <div className="mx-auto grid max-w-6xl items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[0.88fr_1.12fr] lg:gap-12 lg:py-20">
+          <div className="mx-auto grid max-w-6xl items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[0.82fr_1.18fr] lg:gap-12 lg:py-20 xl:max-w-7xl">
             <div className="text-center lg:text-left">
               <div className="mb-5 inline-flex items-center rounded-full border border-[var(--color-kid-secondary)]/25 bg-white/75 px-3 py-1.5 text-sm font-semibold text-teal-700 shadow-sm">
                 Parent-approved <span className="mx-2 text-teal-300">•</span> Kid-powered
@@ -86,7 +86,7 @@ export function LandingPage() {
               </div>
             </div>
 
-            <div className="relative mx-auto w-full max-w-2xl">
+            <div className="relative mx-auto w-full max-w-3xl">
               <div className="absolute inset-x-10 bottom-1 h-20 rounded-full bg-[var(--color-parent-primary)]/10 blur-2xl" />
               <img
                 src="/brand/hero-family.svg"
@@ -101,7 +101,7 @@ export function LandingPage() {
         </section>
 
         <section className="border-y border-slate-900/5 bg-white/65 px-5 py-14 sm:px-8 sm:py-18" aria-labelledby="features-heading">
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-6xl xl:max-w-7xl">
             <div className="mx-auto mb-9 max-w-2xl text-center">
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-[var(--color-parent-primary)]">Built for the whole family</p>
               <h2 id="features-heading" className="mt-3 font-[family-name:var(--font-heading)] text-3xl font-bold tracking-tight text-[var(--color-brand-ink)] sm:text-4xl">
@@ -130,7 +130,7 @@ export function LandingPage() {
       </main>
 
       <footer className="px-5 py-8 text-sm text-slate-500 sm:px-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 sm:flex-row">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 sm:flex-row xl:max-w-7xl">
           <div className="flex items-center gap-2.5 text-slate-600">
             <BrandMark className="h-7 w-7 rounded-lg" />
             <span className="font-semibold">What's On The Menu</span>
