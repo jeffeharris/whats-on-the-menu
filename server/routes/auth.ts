@@ -52,11 +52,20 @@ async function sendMagicLinkEmail(email: string, token: string): Promise<void> {
 
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-function setSessionCookie(res: Response, token: string) {
+/**
+ * Single source of truth for the session cookie.
+ *
+ * Every flow that signs a user in reaches this app through a link in an email —
+ * magic link, household invite — so all of them share the same constraint and
+ * must share this helper. The accept-invite route used to carry its own inline
+ * copy, which is how it kept SameSite=Strict after the magic-link path was
+ * fixed and left invited users staring at an empty app.
+ */
+export function setSessionCookie(res: Response, token: string) {
   res.cookie('session', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    // 'lax' — not 'strict'. Magic links are clicked from an email client, which
+    // 'lax' — not 'strict'. These links are clicked from an email client, which
     // is a cross-site navigation; 'strict' withholds the cookie on that first
     // load, so the app boots unauthenticated even with a valid session.
     sameSite: 'lax',
