@@ -10,8 +10,8 @@ invitation, sharing, or other token-bearing routes is not reported.
 
 1. In Cloudflare, open **Web Analytics**, select **Add a site**, and add
    `whatsonthemenu.app`.
-2. Copy the site token from the generated JavaScript beacon. This public site
-   token is not a Cloudflare API token.
+2. Copy the site token or the complete generated JavaScript beacon. The app
+   accepts either format. This public site token is not a Cloudflare API token.
 3. In GitHub Actions, create a repository or `production` environment variable
    named `CLOUDFLARE_WEB_ANALYTICS_TOKEN` with that value. A secret with the
    same name also works, although the Cloudflare site token is public.

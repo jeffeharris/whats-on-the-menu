@@ -1,6 +1,24 @@
 import { useEffect } from 'react';
 
-const SITE_TOKEN = import.meta.env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN?.trim();
+const rawAnalyticsValue = import.meta.env.VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN?.trim();
+
+function getSiteToken(value: string | undefined) {
+  if (!value) return undefined;
+
+  // Cloudflare presents the token inside a ready-to-paste script tag. Accept
+  // that snippet as well as a bare token so either can be stored in GitHub.
+  const embeddedToken = value.match(
+    /["']token["']\s*:\s*["']([^"']+)["']/i,
+  )?.[1];
+  if (embeddedToken) return embeddedToken.trim();
+
+  // Never pass an unparsed HTML snippet to the beacon as its token.
+  if (/<script\b|data-cf-beacon/i.test(value)) return undefined;
+
+  return value;
+}
+
+const SITE_TOKEN = getSiteToken(rawAnalyticsValue);
 
 /**
  * Loads Cloudflare's cookie-free performance beacon for the public landing page.
