@@ -196,12 +196,16 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
                 Select
               </button>
             )}
-            <Button variant="primary" size="sm" onClick={() => setIsFormOpen(true)}>
-              <span className="flex items-center gap-1.5">
-                <Plus className="w-4 h-4" />
-                Add
-              </span>
-            </Button>
+            {/* Hidden while the library failed to load: offering "Add" over a
+                library we couldn't read is what produced duplicate foods. */}
+            {!error && (
+              <Button variant="primary" size="sm" onClick={() => setIsFormOpen(true)}>
+                <span className="flex items-center gap-1.5">
+                  <Plus className="w-4 h-4" />
+                  Add
+                </span>
+              </Button>
+            )}
           </>
         )}
       </header>

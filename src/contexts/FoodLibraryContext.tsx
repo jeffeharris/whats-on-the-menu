@@ -34,10 +34,12 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
 
   const reload = useCallback(() => {
+    // Guarded so reload() can never latch a spinner the effect won't clear.
+    if (!isAuthenticated) return;
     setLoading(true);
     setError(false);
     setReloadCount((n) => n + 1);
-  }, []);
+  }, [isAuthenticated]);
 
   const refreshStorageStats = useCallback(async () => {
     try {

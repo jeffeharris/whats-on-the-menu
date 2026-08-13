@@ -15,6 +15,13 @@ interface MenuContextType {
   presets: Presets;
   currentPresetSlot: PresetSlot | null;
   presetsLoading: boolean;
+  /**
+   * True when the preset fetch failed, so `presets` holds nulls we could not
+   * verify. Callers MUST NOT treat those nulls as "this slot is empty" —
+   * saving over one destroys whatever the server actually had.
+   */
+  presetsError: boolean;
+  reloadPresets: () => void;
   // Original menu methods
   createMenu: (groups: MenuGroup[]) => Promise<Menu>;
   clearMenu: () => Promise<void>;
@@ -79,40 +86,62 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   });
   const [currentPresetSlot, setCurrentPresetSlot] = useState<PresetSlot | null>(null);
   const [presetsLoading, setPresetsLoading] = useState(isAuthenticated);
+  const [presetsError, setPresetsError] = useState(false);
+  const [reloadCount, setReloadCount] = useState(0);
+
+  const reloadPresets = useCallback(() => {
+    // Guarded so reload can never latch a spinner the effect won't clear.
+    if (!isAuthenticated) return;
+    setPresetsLoading(true);
+    setPresetsError(false);
+    setReloadCount((n) => n + 1);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
     let cancelled = false;
 
-    Promise.all([
+    // allSettled, not all: these are independent reads, and letting a failed
+    // preset fetch also discard a perfectly good active menu would strand the
+    // family mid-meal.
+    Promise.allSettled([
       menusApi.getActive(),
       menusApi.getPresets(),
     ])
-      .then(([activeData, presetsData]) => {
+      .then(([activeResult, presetsResult]) => {
         if (cancelled) return;
-        if (activeData.menu) {
-          setCurrentMenu({
-            id: activeData.menu.id,
-            groups: activeData.menu.groups,
-          });
-          // If the active menu is a preset, set currentPresetSlot
-          if (activeData.menu.presetSlot) {
-            setCurrentPresetSlot(activeData.menu.presetSlot);
+
+        if (activeResult.status === 'fulfilled') {
+          const activeData = activeResult.value;
+          if (activeData.menu) {
+            setCurrentMenu({
+              id: activeData.menu.id,
+              groups: activeData.menu.groups,
+            });
+            // If the active menu is a preset, set currentPresetSlot
+            if (activeData.menu.presetSlot) {
+              setCurrentPresetSlot(activeData.menu.presetSlot);
+            }
           }
+          setSelections(activeData.selections);
+        } else {
+          console.error('Failed to fetch active menu:', activeResult.reason);
         }
-        setSelections(activeData.selections);
-        setPresets(presetsData.presets);
-      })
-      .catch((err) => console.error('Failed to fetch menus:', err))
-      .finally(() => {
-        if (cancelled) return;
+
+        if (presetsResult.status === 'fulfilled') {
+          setPresets(presetsResult.value.presets);
+        } else {
+          console.error('Failed to fetch presets:', presetsResult.reason);
+          setPresetsError(true);
+        }
+
         setLoading(false);
         setPresetsLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, reloadCount]);
 
   const createMenu = useCallback(async (groups: MenuGroup[]): Promise<Menu> => {
     const savedMenu = await menusApi.create(groups, 'Menu');
@@ -207,6 +236,12 @@ export function MenuProvider({ children }: { children: ReactNode }) {
 
   // Preset methods
   const loadPreset = useCallback((slot: PresetSlot) => {
+    // When the preset fetch failed we cannot tell an empty slot from one we
+    // simply failed to read. Handing back DEFAULT_GROUPS would let the parent
+    // "fill in" a slot that already has a menu, and saving it issues an
+    // unconditional UPDATE that destroys the real one.
+    if (presetsError) return;
+
     const preset = presets[slot];
     if (preset) {
       setCurrentMenu({
@@ -222,7 +257,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       });
       setCurrentPresetSlot(slot);
     }
-  }, [presets]);
+  }, [presets, presetsError]);
 
   const saveCurrentAsPreset = useCallback(async (slot: PresetSlot, name: string, groups: MenuGroup[]) => {
     const savedMenu = await menusApi.updatePreset(slot, name, groups);
@@ -295,6 +330,8 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         selectionsLocked,
         loading,
         presets,
+        presetsError,
+        reloadPresets,
         currentPresetSlot,
         presetsLoading,
         createMenu,
