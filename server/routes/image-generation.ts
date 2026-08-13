@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { logger } from '../logger.js';
 import {
   UPLOADS_DIR,
   MAX_DIMENSION,
@@ -12,8 +13,29 @@ import {
   getStorageStats,
   QuotaExceededError,
 } from './uploads.js';
+import {
+  reserveGeneration,
+  releaseGeneration,
+  countHouseholdGenerations,
+} from '../db/queries/image-generations.js';
 
 const router = Router();
+
+// The one model we buy images from. Z-Image Turbo is sub-second and priced at
+// roughly $0.0034/megapixel — about $0.0005 for the 400x400 images this app
+// requests. Server-side only: the client never chooses a model, so a crafted
+// request can't switch us onto an expensive one.
+const MODEL = process.env.RUNWARE_MODEL || 'runware:z-image@turbo';
+
+// Spend guardrails. Both caps are counted over a rolling 24h window (no
+// timezone/reset-hour edge cases). At ~$0.0005 an image the defaults bound
+// worst-case spend to roughly $0.50/day globally.
+const GENERATION_WINDOW_MS = 24 * 60 * 60 * 1000;
+const HOUSEHOLD_DAILY_LIMIT = parseInt(process.env.IMAGE_GEN_DAILY_LIMIT_HOUSEHOLD || '50', 10);
+const GLOBAL_DAILY_LIMIT = parseInt(process.env.IMAGE_GEN_DAILY_LIMIT_GLOBAL || '1000', 10);
+// Kill switch: set IMAGE_GEN_ENABLED=false to stop all paid generation without
+// a redeploy of the client.
+const GENERATION_ENABLED = process.env.IMAGE_GEN_ENABLED !== 'false';
 
 // Runware requires dimensions to be multiples of 64
 function roundToMultipleOf64(value: number): number {
@@ -74,38 +96,18 @@ async function handleQuotaError(err: unknown, res: import('express').Response): 
   return false;
 }
 
-// GET /api/image-generation/pollinations - Generate Pollinations image URL
-router.get('/pollinations', async (req, res) => {
-  const { prompt, width = 400, height = 400, seed } = req.query;
-
-  if (!prompt || typeof prompt !== 'string') {
-    return res.status(400).json({ error: 'Prompt is required' });
-  }
-
-  const apiKey = process.env.POLLINATIONS_API_KEY;
-  const encodedPrompt = encodeURIComponent(prompt);
-  const keyParam = apiKey ? `&key=${apiKey}` : '';
-  const seedParam = seed ? `&seed=${seed}` : '';
-
-  const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true${keyParam}${seedParam}`;
-
-  try {
-    // Fail fast before the external fetch if already at/over quota.
-    await assertWithinQuota(req.householdId!, 0);
-    const imageUrl = await downloadAndSaveImage(req.householdId!, pollinationsUrl, 60000);
-    return res.json({ imageUrl });
-  } catch (error) {
-    if (await handleQuotaError(error, res)) return;
-    console.error('Pollinations download error:', error);
-    return res.status(500).json({ error: 'Failed to generate and save image' });
-  }
+// GET /api/image-generation/usage - This household's remaining daily allowance
+router.get('/usage', async (req, res) => {
+  const used = await countHouseholdGenerations(req.householdId!, GENERATION_WINDOW_MS);
+  res.json({
+    used,
+    limit: HOUSEHOLD_DAILY_LIMIT,
+    remaining: Math.max(0, HOUSEHOLD_DAILY_LIMIT - used),
+    enabled: GENERATION_ENABLED,
+  });
 });
 
 // POST /api/image-generation/runware - Proxy to Runware API
-// Model tiers (escalated on regenerate):
-//   runware:101@1 — FLUX Schnell (fast, cheap) — default
-//   runware:400@4 — FLUX.2 klein 4B (good quality, still cheap)
-//   runware:400@1 — FLUX.2 dev (highest quality, pricier)
 router.post('/runware', async (req, res) => {
   const apiKey = process.env.RUNWARE_API_KEY;
 
@@ -113,11 +115,44 @@ router.post('/runware', async (req, res) => {
     return res.status(500).json({ error: 'Runware API key not configured' });
   }
 
-  const { prompt, width = 512, height = 512, seed, model = 'runware:101@1' } = req.body;
+  if (!GENERATION_ENABLED) {
+    return res.status(503).json({
+      error: 'Image generation is temporarily unavailable. You can still upload your own photos.',
+    });
+  }
+
+  const { prompt, width = 512, height = 512, seed } = req.body;
 
   if (!prompt || typeof prompt !== 'string') {
     return res.status(400).json({ error: 'Prompt is required' });
   }
+
+  // Claim a slot against the caps *before* spending money. Released again
+  // below if the provider never returns an image.
+  const reservation = await reserveGeneration(
+    req.householdId!,
+    MODEL,
+    HOUSEHOLD_DAILY_LIMIT,
+    GLOBAL_DAILY_LIMIT,
+    GENERATION_WINDOW_MS,
+  );
+
+  if (!reservation.ok) {
+    logger.warn(
+      { householdId: req.householdId, reason: reservation.reason },
+      'Image generation cap reached',
+    );
+    return res.status(429).json({
+      error:
+        reservation.reason === 'household_limit'
+          ? `You've used all ${HOUSEHOLD_DAILY_LIMIT} AI images for today. You can still upload your own photos — the limit resets 24 hours after each image.`
+          : 'AI image generation is busy right now. Please try again later, or upload your own photo.',
+    });
+  }
+
+  // Flips once Runware has actually produced an image (i.e. we've been
+  // charged). A failure after that point must keep the reservation.
+  let billed = false;
 
   try {
     // Fail fast before the external call if already at/over quota.
@@ -144,7 +179,7 @@ router.post('/runware', async (req, res) => {
           positivePrompt: prompt,
           width: runwareWidth,
           height: runwareHeight,
-          model,
+          model: MODEL,
           numberResults: 1,
           ...(seed !== undefined && { seed }),
         },
@@ -153,7 +188,8 @@ router.post('/runware', async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('Runware API error:', response.status, errorData);
+      logger.error({ status: response.status, errorData }, 'Runware API error');
+      await releaseGeneration(reservation.id);
       return res.status(response.status).json({
         error: errorData.errors?.[0]?.message || `Runware API error: ${response.status}`,
       });
@@ -163,7 +199,8 @@ router.post('/runware', async (req, res) => {
 
     // Check for errors in response
     if (data.errors && data.errors.length > 0) {
-      console.error('Runware API returned errors:', data.errors);
+      logger.error({ errors: data.errors }, 'Runware API returned errors');
+      await releaseGeneration(reservation.id);
       return res.status(400).json({
         error: data.errors[0]?.message || 'Runware API error',
       });
@@ -171,16 +208,24 @@ router.post('/runware', async (req, res) => {
 
     // Runware returns { data: [...] } with imageURL in each result
     if (data.data && data.data.length > 0 && data.data[0].imageURL) {
+      billed = true;
       const cdnUrl = data.data[0].imageURL;
       const imageUrl = await downloadAndSaveImage(req.householdId!, cdnUrl);
       return res.json({ imageUrl });
     }
 
-    console.error('Unexpected Runware response:', data);
+    logger.error({ data }, 'Unexpected Runware response');
+    await releaseGeneration(reservation.id);
     return res.status(500).json({ error: 'No image generated' });
   } catch (error) {
+    // Give the slot back first, whatever the failure was — but only if nothing
+    // was bought. A storage-quota rejection *after* Runware generated the image
+    // still cost money, so that one stays counted.
+    if (!billed) {
+      await releaseGeneration(reservation.id).catch(() => {});
+    }
     if (await handleQuotaError(error, res)) return;
-    console.error('Runware proxy error:', error);
+    logger.error({ err: error }, 'Runware proxy error');
     return res.status(500).json({ error: 'Failed to generate image' });
   }
 });

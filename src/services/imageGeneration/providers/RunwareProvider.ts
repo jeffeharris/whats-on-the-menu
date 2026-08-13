@@ -2,14 +2,15 @@ import type { ImageGenerationOptions, ImageProviderService } from '../types';
 
 export class RunwareProvider implements ImageProviderService {
   async generateImageUrl(options: ImageGenerationOptions): Promise<string> {
-    const { prompt, width = 400, height = 400, seed, model } = options;
+    const { prompt, width = 400, height = 400, seed } = options;
 
+    // The model is chosen server-side — the client never sends one.
     const response = await fetch('/api/image-generation/runware', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ prompt, width, height, seed, ...(model && { model }) }),
+      body: JSON.stringify({ prompt, width, height, seed }),
     });
 
     if (!response.ok) {

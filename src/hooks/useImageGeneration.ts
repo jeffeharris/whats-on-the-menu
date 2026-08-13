@@ -17,18 +17,9 @@ interface UseImageGenerationReturn {
 const MIN_CHARS = 3;
 const DEBOUNCE_MS = 500;
 
-// Model escalation: generation count → model ID
-const MODEL_SEQUENCE = [
-  'runware:101@1', // Generations 1-2: FLUX Schnell (fast, cheap)
-  'runware:101@1',
-  'runware:400@4', // Generation 3: FLUX.2 klein 4B (good quality, still cheap)
-  'runware:400@1', // Generation 4+: FLUX.2 dev (highest quality)
-];
-
-function getModelForGeneration(generationCount: number): string {
-  const index = Math.min(generationCount, MODEL_SEQUENCE.length - 1);
-  return MODEL_SEQUENCE[index];
-}
+// The model lives on the server (Z-Image Turbo — fast, high quality, cheap
+// enough that regenerating no longer needs to escalate to a pricier tier).
+// Regenerating just varies the seed.
 
 function buildFoodPrompt(foodName: string): string {
   return `A friendly cartoon illustration of ${foodName}, simple, colorful, appetizing, white background, for children`;
@@ -39,7 +30,6 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seed, setSeed] = useState(0);
-  const [generationCount, setGenerationCount] = useState(0);
   const [imageHistory, setImageHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const debounceRef = useRef<number | null>(null);
@@ -54,7 +44,6 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
     setPrevFoodName(foodName);
     setImageHistory([]);
     setHistoryIndex(-1);
-    setGenerationCount(0);
     setSeed(0);
   }
 
@@ -78,12 +67,10 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
       setError(null);
       const provider = getProviderService();
       const prompt = buildFoodPrompt(trimmed);
-      const model = getModelForGeneration(generationCount);
       const options = {
         prompt,
         width: 400,
         height: 400,
-        model,
         ...(seed > 0 && { seed }),
       };
 
@@ -127,10 +114,9 @@ export function useImageGeneration(foodName: string): UseImageGenerationReturn {
       // so an in-flight request that never resolves can't leave a stuck spinner.
       setIsLoading(false);
     };
-  }, [foodName, seed, generationCount, getProviderService]);
+  }, [foodName, seed, getProviderService]);
 
   const regenerate = useCallback(() => {
-    setGenerationCount((prev) => prev + 1);
     setSeed((prev) => prev + 1);
   }, []);
 

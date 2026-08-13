@@ -150,6 +150,22 @@ CREATE TABLE uploads (
 CREATE INDEX idx_uploads_household ON uploads(household_id);
 
 -- ============================================================
+-- image_generations (audit log of paid AI image generations)
+-- One row per image bought from the generation provider. Rows are counted
+-- over a rolling window to enforce the per-household and global daily caps
+-- that bound spend — see server/routes/image-generation.ts.
+-- ============================================================
+CREATE TABLE image_generations (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id  UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  model         TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_image_generations_household_created ON image_generations(household_id, created_at DESC);
+CREATE INDEX idx_image_generations_created ON image_generations(created_at DESC);
+
+-- ============================================================
 -- kid_profiles (per-household)
 -- ============================================================
 CREATE TABLE kid_profiles (
