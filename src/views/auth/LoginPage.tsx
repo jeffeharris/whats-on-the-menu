@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
-import { Mail, UtensilsCrossed, Loader2 } from 'lucide-react';
+import { Mail, Loader2 } from 'lucide-react';
+import { BrandMark } from '../../components/common/BrandMark';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -49,9 +50,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--color-parent-primary)] mb-4">
-            <UtensilsCrossed className="w-8 h-8 text-white" />
-          </div>
+          <BrandMark className="mx-auto mb-4 h-16 w-16 rounded-2xl shadow-sm" />
           <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-gray-900">
             What's On The Menu
           </h1>

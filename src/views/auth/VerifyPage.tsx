@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Loader2, UtensilsCrossed } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { BrandMark } from '../../components/common/BrandMark';
 
 export function VerifyPage() {
   const [searchParams] = useSearchParams();
@@ -44,9 +45,7 @@ export function VerifyPage() {
   return (
     <div className="min-h-dvh bg-[var(--color-parent-bg)] flex flex-col items-center justify-center p-6">
       <div className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--color-parent-primary)] mb-4">
-          <UtensilsCrossed className="w-8 h-8 text-white" />
-        </div>
+        <BrandMark className="mx-auto mb-4 h-16 w-16 rounded-2xl shadow-sm" />
         {error ? (
           <>
             <h2 className="font-[family-name:var(--font-heading)] text-xl font-bold text-gray-900 mb-2">

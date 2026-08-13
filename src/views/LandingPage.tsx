@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import {
-  UtensilsCrossed,
   CalendarDays,
   Sparkles,
   History,
@@ -8,10 +7,10 @@ import {
   MailCheck,
   Salad,
   Tablet,
-  Check,
   ArrowRight,
   Coffee,
 } from 'lucide-react';
+import { BrandMark } from '../components/common/BrandMark';
 
 // Optional tip-jar link (e.g. Buy Me a Coffee); hidden when VITE_SUPPORT_URL is unset.
 const SUPPORT_URL = import.meta.env.VITE_SUPPORT_URL;
@@ -70,87 +69,21 @@ const features = [
   },
 ];
 
-/** Decorative mock of the kid-mode plate picker. */
-function KidModePreview() {
-  const foods = [
-    { name: 'Chicken Nuggets', emoji: '\u{1F357}', picked: true },
-    { name: 'Mac & Cheese', emoji: '\u{1F35D}', picked: false },
-    { name: 'Broccoli', emoji: '\u{1F966}', picked: true },
-    { name: 'Apple Slices', emoji: '\u{1F34E}', picked: false },
-    { name: 'Carrots', emoji: '\u{1F955}', picked: true },
-    { name: 'Milk', emoji: '\u{1F95B}', picked: false },
-  ];
-
-  return (
-    <div
-      aria-hidden="true"
-      className="relative mx-auto w-full max-w-sm select-none"
-    >
-      {/* Soft glow behind the device */}
-      <div className="absolute -inset-6 rounded-[2.5rem] bg-gradient-to-br from-[var(--color-parent-primary)]/20 via-[var(--color-parent-secondary)]/15 to-[var(--color-kid-primary)]/20 blur-2xl" />
-
-      <div className="relative rounded-[2rem] border border-white/70 bg-[var(--color-kid-bg)] p-5 shadow-xl shadow-gray-900/10 ring-1 ring-gray-900/5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-kid-secondary)] text-base font-bold text-white">
-              M
-            </div>
-            <div>
-              <p className="font-[family-name:var(--font-heading)] text-sm font-bold text-gray-900">
-                Maya&apos;s plate
-              </p>
-              <p className="text-xs text-gray-500">Pick 3 more</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 rounded-full bg-[var(--color-kid-accent)] px-2.5 py-1 text-xs font-bold text-gray-800">
-            <Sparkles className="h-3.5 w-3.5" />3
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2.5">
-          {foods.map((food) => (
-            <div
-              key={food.name}
-              className={`relative flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl border-2 bg-white p-2 text-center ${
-                food.picked
-                  ? 'border-[var(--color-kid-primary)] shadow-md shadow-[var(--color-kid-primary)]/20'
-                  : 'border-gray-100'
-              }`}
-            >
-              {food.picked && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-kid-primary)] text-white">
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                </span>
-              )}
-              <span className="text-2xl leading-none">{food.emoji}</span>
-              <span className="text-[10px] font-semibold leading-tight text-gray-600">
-                {food.name}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-4 rounded-2xl bg-[var(--color-kid-primary)] py-3 text-center font-[family-name:var(--font-heading)] text-sm font-bold text-white">
-          That&apos;s my plate!
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function LandingPage() {
   return (
     <div className="h-full overflow-y-auto bg-[var(--color-parent-bg)]">
       {/* Header */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--color-parent-primary)]">
-            <UtensilsCrossed className="h-5 w-5 text-white" />
-          </div>
+        <Link
+          to="/"
+          aria-label="What's On The Menu home"
+          className="flex items-center gap-2.5 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-parent-primary-deep)]"
+        >
+          <BrandMark className="h-9 w-9 rounded-xl shadow-sm" />
           <span className="font-[family-name:var(--font-heading)] text-base font-bold text-gray-900">
             What&apos;s On The Menu
           </span>
-        </div>
+        </Link>
         <Link
           to="/login"
           className="rounded-lg px-3 py-2 text-sm font-semibold text-[var(--color-parent-primary-deep)] transition-colors hover:bg-[var(--color-parent-primary)]/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-parent-primary-deep)]"
@@ -201,7 +134,17 @@ export function LandingPage() {
           </div>
 
           <div className="fade-up-in motion-reduce:animate-none [animation-delay:120ms]">
-            <KidModePreview />
+            <div className="relative mx-auto w-full max-w-xl">
+              <div className="absolute inset-x-10 bottom-3 h-24 rounded-full bg-[var(--color-brand-peach)]/35 blur-3xl" />
+              <img
+                src="/brand/hero-family.svg"
+                alt="A family happily choosing foods together at the dinner table"
+                width="1280"
+                height="832"
+                fetchPriority="high"
+                className="relative h-auto w-full"
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -308,7 +251,7 @@ export function LandingPage() {
       <footer className="border-t border-gray-200 px-6 py-8">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 text-sm text-gray-500 sm:flex-row">
           <div className="flex items-center gap-2">
-            <UtensilsCrossed className="h-4 w-4 text-[var(--color-parent-primary-deep)]" />
+            <BrandMark className="h-6 w-6 rounded-md" />
             <span>What&apos;s On The Menu</span>
           </div>
           <div className="flex items-center gap-4">
