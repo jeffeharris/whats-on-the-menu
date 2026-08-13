@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppStateProvider, useAppState } from './contexts/AppStateContext';
@@ -330,20 +331,44 @@ function AppRoutes() {
   );
 }
 
+/**
+ * Household data providers, scoped to the signed-in session.
+ *
+ * Two things matter here. First, we hold the providers until AuthContext has
+ * resolved the session — mounting earlier meant every provider fired its fetch
+ * before the session cookie was readable, got a 401, and latched an empty state
+ * that nothing ever retried. Second, the `key` remounts the whole subtree when
+ * the session changes, so signing in loads fresh data and signing out drops it
+ * rather than leaking one household's foods into the next session.
+ */
+function SessionDataProviders({ children }: { children: ReactNode }) {
+  const { isLoading, user } = useAuth();
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <FoodLibraryProvider key={user?.id ?? 'anonymous'}>
+      <KidProfilesProvider>
+        <MenuProvider>
+          <MealHistoryProvider>
+            {children}
+          </MealHistoryProvider>
+        </MenuProvider>
+      </KidProfilesProvider>
+    </FoodLibraryProvider>
+  );
+}
+
 function App() {
   const content = (
     <BrowserRouter>
       <AuthProvider>
         <AppStateProvider>
-          <FoodLibraryProvider>
-            <KidProfilesProvider>
-              <MenuProvider>
-                <MealHistoryProvider>
-                  <AppRoutes />
-                </MealHistoryProvider>
-              </MenuProvider>
-            </KidProfilesProvider>
-          </FoodLibraryProvider>
+          <SessionDataProviders>
+            <AppRoutes />
+          </SessionDataProviders>
         </AppStateProvider>
       </AuthProvider>
     </BrowserRouter>

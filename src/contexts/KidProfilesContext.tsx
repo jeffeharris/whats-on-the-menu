@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useState, useEffect } from 'rea
 import type { ReactNode } from 'react';
 import { profilesApi } from '../api/client';
 import type { KidProfile, AvatarColor, AvatarAnimal } from '../types';
+import { useAuth } from './AuthContext';
 
 interface KidProfilesContextType {
   profiles: KidProfile[];
@@ -15,15 +16,26 @@ interface KidProfilesContextType {
 const KidProfilesContext = createContext<KidProfilesContextType | null>(null);
 
 export function KidProfilesProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [profiles, setProfiles] = useState<KidProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isAuthenticated);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let cancelled = false;
+
     profilesApi.getAll()
-      .then((data) => setProfiles(data.profiles))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .then((data) => {
+        if (!cancelled) setProfiles(data.profiles);
+      })
+      .catch((err) => console.error('Failed to fetch profiles:', err))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated]);
 
   const addProfile = useCallback(async (name: string, avatarColor: AvatarColor, avatarAnimal?: AvatarAnimal): Promise<KidProfile> => {
     const newProfile = await profilesApi.create(name, avatarColor, avatarAnimal);

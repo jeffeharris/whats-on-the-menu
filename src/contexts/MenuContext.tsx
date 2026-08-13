@@ -1,7 +1,8 @@
-import { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useCallback, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { menusApi } from '../api/client';
 import type { Menu, KidSelection, MenuGroup, GroupSelections, PresetSlot, SavedMenu } from '../types';
+import { useAuth } from './AuthContext';
 
 type Presets = Record<PresetSlot, SavedMenu | null>;
 
@@ -63,10 +64,11 @@ const DEFAULT_GROUPS: MenuGroup[] = [
 ];
 
 export function MenuProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [currentMenu, setCurrentMenu] = useState<Menu | null>(null);
   const [selections, setSelections] = useState<KidSelection[]>([]);
   const [selectionsLocked, setSelectionsLocked] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isAuthenticated);
 
   // Preset state
   const [presets, setPresets] = useState<Presets>({
@@ -76,20 +78,19 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     custom: null,
   });
   const [currentPresetSlot, setCurrentPresetSlot] = useState<PresetSlot | null>(null);
-  const [presetsLoading, setPresetsLoading] = useState(true);
-
-  // Track if initial load has happened
-  const initialLoadDone = useRef(false);
+  const [presetsLoading, setPresetsLoading] = useState(isAuthenticated);
 
   useEffect(() => {
-    if (initialLoadDone.current) return;
-    initialLoadDone.current = true;
+    if (!isAuthenticated) return;
+
+    let cancelled = false;
 
     Promise.all([
       menusApi.getActive(),
       menusApi.getPresets(),
     ])
       .then(([activeData, presetsData]) => {
+        if (cancelled) return;
         if (activeData.menu) {
           setCurrentMenu({
             id: activeData.menu.id,
@@ -103,12 +104,15 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         setSelections(activeData.selections);
         setPresets(presetsData.presets);
       })
-      .catch(console.error)
+      .catch((err) => console.error('Failed to fetch menus:', err))
       .finally(() => {
+        if (cancelled) return;
         setLoading(false);
         setPresetsLoading(false);
       });
-  }, []);
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated]);
 
   const createMenu = useCallback(async (groups: MenuGroup[]): Promise<Menu> => {
     const savedMenu = await menusApi.create(groups, 'Menu');

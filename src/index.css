@@ -69,11 +69,38 @@ body {
   overflow: hidden;
   position: fixed;
   width: 100%;
-  /* Safe area insets for notched devices */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Only the horizontal insets go here (landscape notch). Vertical insets are
+     deliberately NOT applied to body: with border-box sizing they subtract from
+     the 100dvh, shrinking the whole app by ~93px on a notched iPhone and
+     leaving dead bands top and bottom. Instead, chrome that must stay clear of
+     the status bar / home indicator opts in via .pt-safe / .pb-safe below, so
+     scrolling content can still paint edge to edge underneath them. */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+}
+
+/* Safe-area handling for the app shell.
+   Every view is built the same way: a non-scrolling <header> above a scrolling
+   <main>. The header takes the top inset and the scroller takes the bottom one,
+   so controls stay clear of the status bar and home indicator while content
+   still scrolls edge to edge behind them. The base values below mirror the
+   p-4 / md:p-6 padding those elements already carry. */
+#root header.flex-shrink-0 {
+  padding-top: calc(1rem + env(safe-area-inset-top));
+}
+
+#root main.overflow-y-auto {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  #root header.flex-shrink-0 {
+    padding-top: calc(1.5rem + env(safe-area-inset-top));
+  }
+
+  #root main.overflow-y-auto {
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  }
 }
 
 #root {

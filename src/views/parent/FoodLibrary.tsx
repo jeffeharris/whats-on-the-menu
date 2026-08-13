@@ -28,7 +28,7 @@ function getTimestampFromId(id: string): number {
 }
 
 export function FoodLibrary({ onBack }: FoodLibraryProps) {
-  const { items, allTags, addItem, updateItem, deleteItem } = useFoodLibrary();
+  const { items, allTags, addItem, updateItem, deleteItem, loading, error, reload } = useFoodLibrary();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
@@ -260,7 +260,28 @@ export function FoodLibrary({ onBack }: FoodLibraryProps) {
           )}
 
           {/* Content */}
-          {items.length === 0 ? (
+          {error ? (
+            /* Load failed — distinct from a genuinely empty library, so we
+               never invite the user to re-add foods they already have. */
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UtensilsCrossed className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-gray-500 text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+                Couldn't load your foods
+              </p>
+              <p className="text-gray-400 text-sm mt-1">
+                Your food library is safe — we just couldn't reach it.
+              </p>
+              <Button variant="primary" className="mt-4" onClick={reload}>
+                Try Again
+              </Button>
+            </div>
+          ) : loading ? (
+            <div className="text-center py-12">
+              <div className="w-8 h-8 border-4 border-[var(--color-parent-primary)] border-t-transparent rounded-full animate-spin mx-auto" />
+            </div>
+          ) : items.length === 0 ? (
             /* Empty library */
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-parent-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">

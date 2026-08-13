@@ -4,10 +4,13 @@ import { foodsApi, uploadsApi } from '../api/client';
 import type { StorageStats } from '../api/client';
 import type { FoodItem } from '../types';
 import { PREDEFINED_TAGS } from '../types';
+import { useAuth } from './AuthContext';
 
 interface FoodLibraryContextType {
   items: FoodItem[];
   loading: boolean;
+  error: boolean;
+  reload: () => void;
   addItem: (name: string, tags: string[], imageUrl: string | null) => Promise<FoodItem>;
   updateItem: (id: string, updates: Partial<Omit<FoodItem, 'id'>>) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -21,9 +24,20 @@ interface FoodLibraryContextType {
 const FoodLibraryContext = createContext<FoodLibraryContextType | null>(null);
 
 export function FoodLibraryProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [items, setItems] = useState<FoodItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Only "loading" if we're actually going to fetch. This provider mounts after
+  // auth has resolved, so isAuthenticated is accurate at mount time.
+  const [loading, setLoading] = useState(isAuthenticated);
+  const [error, setError] = useState(false);
+  const [reloadCount, setReloadCount] = useState(0);
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+
+  const reload = useCallback(() => {
+    setLoading(true);
+    setError(false);
+    setReloadCount((n) => n + 1);
+  }, []);
 
   const refreshStorageStats = useCallback(async () => {
     try {
@@ -35,16 +49,32 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    foodsApi.getAll()
-      .then((data) => setItems(data.items))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    if (!isAuthenticated) return;
 
-    // Also fetch storage stats on mount
+    let cancelled = false;
+
+    foodsApi.getAll()
+      .then((data) => {
+        if (cancelled) return;
+        setItems(data.items);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Failed to fetch foods:', err);
+        setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
     uploadsApi.getStorage()
-      .then(setStorageStats)
-      .catch((error) => console.error('Failed to fetch storage stats:', error));
-  }, []);
+      .then((stats) => {
+        if (!cancelled) setStorageStats(stats);
+      })
+      .catch((err) => console.error('Failed to fetch storage stats:', err));
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated, reloadCount]);
 
   // Compute all unique tags from items + predefined tags
   const allTags = useMemo(() => {
@@ -90,6 +120,8 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
       value={{
         items,
         loading,
+        error,
+        reload,
         addItem,
         updateItem,
         deleteItem,

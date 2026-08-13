@@ -56,7 +56,10 @@ function setSessionCookie(res: Response, token: string) {
   res.cookie('session', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    // 'lax' — not 'strict'. Magic links are clicked from an email client, which
+    // is a cross-site navigation; 'strict' withholds the cookie on that first
+    // load, so the app boots unauthenticated even with a valid session.
+    sameSite: 'lax',
     maxAge: SESSION_DURATION_MS,
     path: '/',
   });

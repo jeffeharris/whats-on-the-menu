@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useState, useEffect } from 'rea
 import type { ReactNode } from 'react';
 import { mealsApi } from '../api/client';
 import type { MealRecord, KidSelection, KidMealReview } from '../types';
+import { useAuth } from './AuthContext';
 
 interface MealHistoryContextType {
   meals: MealRecord[];
@@ -16,15 +17,26 @@ interface MealHistoryContextType {
 const MealHistoryContext = createContext<MealHistoryContextType | null>(null);
 
 export function MealHistoryProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [meals, setMeals] = useState<MealRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isAuthenticated);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let cancelled = false;
+
     mealsApi.getAll()
-      .then((data) => setMeals(data.meals))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .then((data) => {
+        if (!cancelled) setMeals(data.meals);
+      })
+      .catch((err) => console.error('Failed to fetch meals:', err))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated]);
 
   const addMeal = useCallback(async (menuId: string, selections: KidSelection[], reviews: KidMealReview[]): Promise<MealRecord> => {
     const newMeal = await mealsApi.create(menuId, selections, reviews);
