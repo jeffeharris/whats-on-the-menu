@@ -1,4 +1,5 @@
 import { ArrowLeft, ClipboardCheck, Clock, ChevronRight } from 'lucide-react';
+import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { useMealHistory } from '../../contexts/MealHistoryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
@@ -9,7 +10,7 @@ interface MealHistoryListProps {
 }
 
 export function MealHistoryList({ onBack, onSelectMeal }: MealHistoryListProps) {
-  const { meals } = useMealHistory();
+  const { meals, error, reload } = useMealHistory();
   const { getProfile } = useKidProfiles();
 
   const formatDate = (timestamp: number) => {
@@ -40,7 +41,22 @@ export function MealHistoryList({ onBack, onSelectMeal }: MealHistoryListProps) 
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
         <div className="max-w-lg md:max-w-3xl mx-auto">
-          {meals.length === 0 ? (
+          {error ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-gray-500 text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+                Couldn't load your meal history
+              </p>
+              <p className="text-gray-400 text-sm mt-1">
+                It's still saved — we just couldn't reach it.
+              </p>
+              <Button variant="primary" className="mt-4" onClick={reload}>
+                Try Again
+              </Button>
+            </div>
+          ) : meals.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Clock className="w-8 h-8 text-purple-400" />

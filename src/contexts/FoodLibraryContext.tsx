@@ -5,10 +5,14 @@ import type { StorageStats } from '../api/client';
 import type { FoodItem } from '../types';
 import { PREDEFINED_TAGS } from '../types';
 import { useAuth } from './AuthContext';
+import { useAuthedResource } from '../hooks/useAuthedResource';
+
+const NO_ITEMS: FoodItem[] = [];
 
 interface FoodLibraryContextType {
   items: FoodItem[];
   loading: boolean;
+  /** True when the fetch failed — do not render "no foods yet" in this state. */
   error: boolean;
   reload: () => void;
   addItem: (name: string, tags: string[], imageUrl: string | null) => Promise<FoodItem>;
@@ -25,21 +29,15 @@ const FoodLibraryContext = createContext<FoodLibraryContextType | null>(null);
 
 export function FoodLibraryProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
-  const [items, setItems] = useState<FoodItem[]>([]);
-  // Only "loading" if we're actually going to fetch. This provider mounts after
-  // auth has resolved, so isAuthenticated is accurate at mount time.
-  const [loading, setLoading] = useState(isAuthenticated);
-  const [error, setError] = useState(false);
-  const [reloadCount, setReloadCount] = useState(0);
-  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+  const {
+    data: items,
+    setData: setItems,
+    loading,
+    error,
+    reload,
+  } = useAuthedResource('foods', () => foodsApi.getAll().then((d) => d.items), NO_ITEMS);
 
-  const reload = useCallback(() => {
-    // Guarded so reload() can never latch a spinner the effect won't clear.
-    if (!isAuthenticated) return;
-    setLoading(true);
-    setError(false);
-    setReloadCount((n) => n + 1);
-  }, [isAuthenticated]);
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
 
   const refreshStorageStats = useCallback(async () => {
     try {
@@ -50,24 +48,13 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Storage stats are deliberately kept off the library's `error` flag: they
+  // decorate the upload UI, and failing to read a quota is no reason to tell
+  // someone their food library is unavailable.
   useEffect(() => {
     if (!isAuthenticated) return;
 
     let cancelled = false;
-
-    foodsApi.getAll()
-      .then((data) => {
-        if (cancelled) return;
-        setItems(data.items);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('Failed to fetch foods:', err);
-        setError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
 
     uploadsApi.getStorage()
       .then((stats) => {
@@ -76,7 +63,7 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
       .catch((err) => console.error('Failed to fetch storage stats:', err));
 
     return () => { cancelled = true; };
-  }, [isAuthenticated, reloadCount]);
+  }, [isAuthenticated]);
 
   // Compute all unique tags from items + predefined tags
   const allTags = useMemo(() => {
@@ -95,19 +82,19 @@ export function FoodLibraryProvider({ children }: { children: ReactNode }) {
     const newItem = await foodsApi.create(name, tags, imageUrl);
     setItems((prev) => [...prev, newItem]);
     return newItem;
-  }, []);
+  }, [setItems]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Omit<FoodItem, 'id'>>) => {
     const updated = await foodsApi.update(id, updates);
     setItems((prev) => prev.map((item) => item.id === id ? updated : item));
-  }, []);
+  }, [setItems]);
 
   const deleteItem = useCallback(async (id: string) => {
     await foodsApi.delete(id);
     setItems((prev) => prev.filter((item) => item.id !== id));
     // Refresh storage stats since an uploaded image may have been deleted
     await refreshStorageStats();
-  }, [refreshStorageStats]);
+  }, [refreshStorageStats, setItems]);
 
   const getItem = useCallback((id: string): FoodItem | undefined => {
     return items.find((item) => item.id === id);

@@ -13,7 +13,7 @@ interface KidProfilesProps {
 }
 
 export function KidProfiles({ onBack }: KidProfilesProps) {
-  const { profiles, addProfile, updateProfile, deleteProfile } = useKidProfiles();
+  const { profiles, addProfile, updateProfile, deleteProfile, error, reload } = useKidProfiles();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<KidProfile | null>(null);
 
@@ -61,7 +61,24 @@ export function KidProfiles({ onBack }: KidProfilesProps) {
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-0">
         <div className="max-w-lg mx-auto">
-          {profiles.length === 0 ? (
+          {error ? (
+            /* Never invite "add your first kid" over a list we failed to read —
+               that is how duplicate records get created. */
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-gray-500 text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+                Couldn't load your kids
+              </p>
+              <p className="text-gray-400 text-sm mt-1">
+                They're still saved — we just couldn't reach them.
+              </p>
+              <Button variant="primary" className="mt-4" onClick={reload}>
+                Try Again
+              </Button>
+            </div>
+          ) : profiles.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-parent-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Users className="w-8 h-8 text-parent-secondary/60" />
