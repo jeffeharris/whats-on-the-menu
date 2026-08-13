@@ -2,12 +2,15 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { ImageGenerationProvider } from './contexts/ImageGenerationContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ImageGenerationProvider>
-      <App />
-    </ImageGenerationProvider>
+    <ErrorBoundary>
+      <ImageGenerationProvider>
+        <App />
+      </ImageGenerationProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )
