@@ -16,7 +16,7 @@ export function PrivacyPage() {
         <h1 className="font-[family-name:var(--font-heading)] text-3xl font-bold text-gray-900 mb-2">
           Privacy Policy
         </h1>
-        <p className="text-sm text-gray-500 mb-8">Last updated: February 2026</p>
+        <p className="text-sm text-gray-500 mb-8">Last updated: August 2026</p>
 
         <div className="space-y-6 text-gray-700 text-sm leading-relaxed">
           <section>
@@ -25,6 +25,11 @@ export function PrivacyPage() {
               We collect information you provide when creating an account, including your email
               address and household name. We also collect data about the meals, food preferences, and
               profiles you create within the Service.
+            </p>
+            <p className="mt-2">
+              On our public landing page, Cloudflare Web Analytics collects aggregate page-view,
+              referrer, browser, device, country, and page-performance information. We do not send
+              Cloudflare account information, household data, kid profiles, menus, or meal data.
             </p>
           </section>
 
@@ -49,8 +54,9 @@ export function PrivacyPage() {
           <section>
             <h2 className="font-semibold text-gray-900 text-base mb-2">4. Data Sharing</h2>
             <p>
-              We do not sell, trade, or rent your personal information to third parties. We may share
-              information only as required by law or to protect our rights.
+              We do not sell, trade, or rent your personal information. Service providers, including
+              Cloudflare for public-page analytics, may process limited information on our behalf.
+              We may also share information as required by law or to protect our rights.
             </p>
           </section>
 
@@ -58,7 +64,9 @@ export function PrivacyPage() {
             <h2 className="font-semibold text-gray-900 text-base mb-2">5. Cookies</h2>
             <p>
               We use essential cookies to maintain your session and authenticate your account. These
-              cookies are necessary for the Service to function and cannot be disabled.
+              cookies are necessary for the Service to function and cannot be disabled. Cloudflare
+              Web Analytics does not use cookies, local storage, or fingerprinting to measure the
+              public landing page.
             </p>
           </section>
 

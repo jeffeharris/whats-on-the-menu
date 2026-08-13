@@ -1,5 +1,42 @@
 # Monitoring & Incident Response
 
+## Public Landing Page Analytics
+
+Cloudflare Web Analytics is optional and limited to the logged-out landing
+page. Its SPA measurement is disabled so navigation into account, kid,
+invitation, sharing, or other token-bearing routes is not reported.
+
+### Cloudflare Setup
+
+1. In Cloudflare, open **Web Analytics**, select **Add a site**, and add
+   `whatsonthemenu.app`.
+2. Copy the site token from the generated JavaScript beacon. This public site
+   token is not a Cloudflare API token.
+3. In the GitHub repository, create the Actions repository variable
+   `CLOUDFLARE_WEB_ANALYTICS_TOKEN` with that value.
+4. Deploy a new build. The workflow passes the variable into Vite as
+   `VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN`; an empty or missing value leaves the
+   integration disabled.
+
+For a local production build, set the Vite variable directly:
+
+```bash
+VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN=your_site_token npm run build
+```
+
+The repository uses the manual beacon. If Cloudflare is also proxying the
+domain, keep automatic beacon injection disabled. The app will refuse to add a
+second beacon, but Cloudflare's automatically injected beacon would use its
+default SPA tracking and broaden the route scope beyond the landing page.
+
+### Verification
+
+Open `/` in a logged-out production session and inspect the browser network
+panel. `beacon.min.js` should load from `static.cloudflareinsights.com`, followed
+by a request to the Cloudflare RUM endpoint. Navigating within the SPA should
+not generate analytics for the destination route. Cloudflare notes that new
+data can take several minutes to appear in its dashboard.
+
 ## Uptime Monitoring
 
 ### UptimeRobot Setup

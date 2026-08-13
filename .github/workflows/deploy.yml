@@ -80,6 +80,8 @@ jobs:
         with:
           context: .
           file: Dockerfile.prod
+          build-args: |
+            VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN=${{ vars.CLOUDFLARE_WEB_ANALYTICS_TOKEN }}
           push: true
           provenance: mode=max
           sbom: true

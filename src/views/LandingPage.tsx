@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, CalendarDays, Smile, TrendingUp, Coffee } from 'lucide-react';
 import { BrandMark } from '../components/common/BrandMark';
+import { CloudflareWebAnalytics } from '../components/analytics/CloudflareWebAnalytics';
 
 // Optional tip-jar link (e.g. Buy Me a Coffee); hidden when VITE_SUPPORT_URL is unset.
 const SUPPORT_URL = import.meta.env.VITE_SUPPORT_URL;
@@ -29,6 +30,7 @@ const features = [
 export function LandingPage() {
   return (
     <div className="h-full overflow-y-auto bg-[var(--color-brand-cream)] text-[var(--color-brand-ink)]">
+      <CloudflareWebAnalytics />
       <header className="sticky top-0 z-20 border-b border-slate-900/5 bg-[var(--color-brand-cream)]/90 backdrop-blur-lg">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3 sm:px-8 xl:max-w-7xl">
           <Link to="/" className="flex items-center gap-3" aria-label="What's On The Menu home">

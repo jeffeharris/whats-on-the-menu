@@ -26,6 +26,8 @@ PORT=5173
 
 See `.env.example` for the full list. Commonly used:
 - `PORT` - Dev server port (default: 5173)
+- `VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN` - optional public Cloudflare Web
+  Analytics site token for the logged-out landing page
 - `RUNWARE_API_KEY` - Server-side key for AI image generation
 - `IMAGE_GEN_DAILY_LIMIT_HOUSEHOLD` / `IMAGE_GEN_DAILY_LIMIT_GLOBAL` - rolling-24h
   caps on paid image generation (defaults: 50 per household, 1000 overall)

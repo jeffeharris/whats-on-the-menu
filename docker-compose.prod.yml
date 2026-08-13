@@ -33,6 +33,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prod
+      args:
+        VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN: ${VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN:-}
     restart: unless-stopped
     volumes:
       - ./data:/app/data

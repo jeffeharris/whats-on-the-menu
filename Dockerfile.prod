@@ -10,6 +10,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+ARG VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN=""
+ENV VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN=${VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN}
 RUN npm run build
 
 # ── Stage 2: Runtime ──────────────────────────────────────────
