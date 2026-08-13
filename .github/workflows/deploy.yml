@@ -59,6 +59,7 @@ jobs:
     name: Build & Push Docker Image
     needs: check
     runs-on: ubuntu-latest
+    environment: production
     outputs:
       image_digest: ${{ steps.build.outputs.digest }}
     steps:
@@ -81,7 +82,7 @@ jobs:
           context: .
           file: Dockerfile.prod
           build-args: |
-            VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN=${{ vars.CLOUDFLARE_WEB_ANALYTICS_TOKEN }}
+            VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN=${{ vars.CLOUDFLARE_WEB_ANALYTICS_TOKEN || secrets.CLOUDFLARE_WEB_ANALYTICS_TOKEN }}
           push: true
           provenance: mode=max
           sbom: true

@@ -12,9 +12,10 @@ invitation, sharing, or other token-bearing routes is not reported.
    `whatsonthemenu.app`.
 2. Copy the site token from the generated JavaScript beacon. This public site
    token is not a Cloudflare API token.
-3. In the GitHub repository, create the Actions repository variable
-   `CLOUDFLARE_WEB_ANALYTICS_TOKEN` with that value.
-4. Deploy a new build. The workflow passes the variable into Vite as
+3. In GitHub Actions, create a repository or `production` environment variable
+   named `CLOUDFLARE_WEB_ANALYTICS_TOKEN` with that value. A secret with the
+   same name also works, although the Cloudflare site token is public.
+4. Deploy a new build. The workflow passes the configured value into Vite as
    `VITE_CLOUDFLARE_WEB_ANALYTICS_TOKEN`; an empty or missing value leaves the
    integration disabled.
 
