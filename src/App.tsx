@@ -348,21 +348,29 @@ function SessionDataProviders({ children }: { children: ReactNode }) {
     return <LoadingScreen />;
   }
 
+  const tree = (
+    <KidProfilesProvider>
+      <MenuProvider>
+        <MealHistoryProvider>
+          {children}
+        </MealHistoryProvider>
+      </MenuProvider>
+    </KidProfilesProvider>
+  );
+
   return (
     <FoodLibraryProvider key={user?.id ?? 'anonymous'}>
-      <KidProfilesProvider>
-        <MenuProvider>
-          <MealHistoryProvider>
-            {children}
-          </MealHistoryProvider>
-        </MenuProvider>
-      </KidProfilesProvider>
+      {FEATURE_SHARED_MENUS ? <SharedMenuProvider>{tree}</SharedMenuProvider> : tree}
     </FoodLibraryProvider>
   );
 }
 
 function App() {
-  const content = (
+  // SharedMenuProvider is mounted inside SessionDataProviders, not out here.
+  // Wrapping the whole app put it above AuthProvider, where it couldn't read
+  // the session and so fetched on mount before one existed — the same bug this
+  // file's provider gating was written to fix.
+  return (
     <BrowserRouter>
       <AuthProvider>
         <AppStateProvider>
@@ -373,17 +381,6 @@ function App() {
       </AuthProvider>
     </BrowserRouter>
   );
-
-  // Wrap with SharedMenuProvider only if feature is enabled
-  if (FEATURE_SHARED_MENUS) {
-    return (
-      <SharedMenuProvider>
-        {content}
-      </SharedMenuProvider>
-    );
-  }
-
-  return content;
 }
 
 export default App;
