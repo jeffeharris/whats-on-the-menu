@@ -41,6 +41,27 @@ describe('Authentication wall', () => {
   });
 });
 
+describe('Session cookie attributes', () => {
+  it('sets SameSite=Lax so the cookie survives the click from an email client', async () => {
+    // Regression guard. With SameSite=Strict the browser withholds the session
+    // cookie on the cross-site navigation out of a mail client, so the app
+    // booted unauthenticated off a magic link and rendered an empty library
+    // over a household full of data.
+    const tenant = await createTenant('Cookie');
+    const token = await createMagicLinkToken(tenant.email);
+
+    const res = await request(app).get(`/api/auth/verify?token=${token}`).expect(302);
+
+    const setCookie = res.headers['set-cookie'];
+    expect(setCookie).toBeDefined();
+    const sessionCookie = [...setCookie].find((c) => c.startsWith('session='));
+    expect(sessionCookie).toBeDefined();
+    expect(sessionCookie).toMatch(/SameSite=Lax/i);
+    expect(sessionCookie).not.toMatch(/SameSite=Strict/i);
+    expect(sessionCookie).toMatch(/HttpOnly/i);
+  });
+});
+
 describe('Magic link tokens', () => {
   it('are single-use: the second verification fails', async () => {
     const email = `magic-${randomBytes(4).toString('hex')}@example.com`;
