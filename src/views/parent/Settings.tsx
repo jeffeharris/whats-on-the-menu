@@ -3,7 +3,6 @@ import { ArrowLeft, KeyRound, Info, Users, UserPlus, Crown, X, Mail, Loader2, Lo
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
-import { PinPad } from '../../components/common/PinPad';
 import { useAppState } from '../../contexts/AppStateContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi, householdApi } from '../../api/client';
@@ -18,14 +17,10 @@ interface SettingsProps {
 }
 
 export function Settings({ onBack }: SettingsProps) {
-  const { setParentPin, pinEnabled } = useAppState();
+  const { grownUpCheckEnabled } = useAppState();
   const { user, logout, refreshAuth } = useAuth();
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [showEnablePinModal, setShowEnablePinModal] = useState(false);
-  const [showDisablePinModal, setShowDisablePinModal] = useState(false);
-  const [step, setStep] = useState<'verify' | 'new'>('verify');
   const [error, setError] = useState('');
-  const [verifiedPin, setVerifiedPin] = useState('');
+  const [savingCheck, setSavingCheck] = useState(false);
 
   // Household members & invitations
   const [members, setMembers] = useState<HouseholdMember[]>([]);
@@ -104,61 +99,17 @@ export function Settings({ onBack }: SettingsProps) {
 
   const isOwner = user?.role === 'owner';
 
-  const handleVerifyPin = async (pin: string) => {
+  const handleToggleGrownUpCheck = async () => {
+    setSavingCheck(true);
     try {
-      const result = await authApi.verifyPin(pin);
-      if (result.valid) {
-        setVerifiedPin(pin);
-        setStep('new');
-        setError('');
-      } else {
-        setError('Incorrect PIN');
-      }
-    } catch {
-      setError('Failed to verify PIN');
-    }
-  };
-
-  const handleNewPin = async (pin: string) => {
-    const success = await setParentPin(verifiedPin, pin);
-    if (success) {
-      setShowPinModal(false);
-      setStep('verify');
-      setVerifiedPin('');
+      await authApi.setGrownUpCheck(!grownUpCheckEnabled);
       setError('');
-    } else {
-      setError('Failed to update PIN');
-    }
-  };
-
-  const handleEnablePin = async (pin: string) => {
-    try {
-      await authApi.enablePin(pin);
-      setShowEnablePinModal(false);
-      setError('');
-      refreshAuth();
+      await refreshAuth();
     } catch {
-      setError('Failed to enable PIN');
+      setError('Could not change that just now. Try again.');
+    } finally {
+      setSavingCheck(false);
     }
-  };
-
-  const handleDisablePin = async (pin: string) => {
-    try {
-      await authApi.disablePin(pin);
-      setShowDisablePinModal(false);
-      setError('');
-      refreshAuth();
-    } catch {
-      setError('Incorrect PIN');
-    }
-  };
-
-  const handleClose = () => {
-    setShowPinModal(false);
-    setShowEnablePinModal(false);
-    setShowDisablePinModal(false);
-    setStep('verify');
-    setError('');
   };
 
   return (
@@ -184,25 +135,22 @@ export function Settings({ onBack }: SettingsProps) {
                 <KeyRound className="w-5 h-5 text-parent-primary" />
               </div>
               <div className="flex-1">
-                <h2 className="font-semibold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>Parent PIN</h2>
+                <h2 className="font-semibold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>Grown-up check</h2>
                 <p className="text-sm text-gray-500">
-                  {pinEnabled ? 'Required to access parent mode' : 'Off — parent mode is open'}
+                  {grownUpCheckEnabled
+                    ? 'Kids must read a short word puzzle to reach parent mode'
+                    : 'Off — parent mode is open'}
                 </p>
+                {error && <p className="text-danger text-xs mt-1">{error}</p>}
               </div>
-              <div className="flex gap-2">
-                {pinEnabled && (
-                  <Button variant="ghost" size="sm" onClick={() => setShowPinModal(true)}>
-                    Change
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => pinEnabled ? setShowDisablePinModal(true) : setShowEnablePinModal(true)}
-                >
-                  {pinEnabled ? 'Disable' : 'Enable'}
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleGrownUpCheck}
+                disabled={savingCheck}
+              >
+                {grownUpCheckEnabled ? 'Disable' : 'Enable'}
+              </Button>
             </div>
           </Card>
 
@@ -361,55 +309,6 @@ export function Settings({ onBack }: SettingsProps) {
           )}
         </div>
       </main>
-
-      <Modal
-        isOpen={showPinModal}
-        onClose={handleClose}
-        title={step === 'verify' ? 'Verify Current PIN' : 'Set New PIN'}
-      >
-        {step === 'verify' ? (
-          <PinPad
-            onSubmit={handleVerifyPin}
-            onCancel={handleClose}
-            title="Enter current PIN"
-            error={error}
-          />
-        ) : (
-          <PinPad
-            onSubmit={handleNewPin}
-            onCancel={handleClose}
-            title="Enter new PIN"
-            confirmMode
-          />
-        )}
-      </Modal>
-
-      <Modal
-        isOpen={showEnablePinModal}
-        onClose={handleClose}
-        title="Set a PIN"
-      >
-        <PinPad
-          onSubmit={handleEnablePin}
-          onCancel={handleClose}
-          title="Choose a 4-digit PIN"
-          confirmMode
-          error={error}
-        />
-      </Modal>
-
-      <Modal
-        isOpen={showDisablePinModal}
-        onClose={handleClose}
-        title="Disable PIN"
-      >
-        <PinPad
-          onSubmit={handleDisablePin}
-          onCancel={handleClose}
-          title="Enter current PIN to disable"
-          error={error}
-        />
-      </Modal>
 
       <Modal
         isOpen={showLeaveConfirm}

@@ -13,17 +13,8 @@ export const loginSchema = z.object({
   email: z.string().email('A valid email is required'),
 });
 
-export const verifyPinSchema = z.object({
-  pin: z.string(),
-});
-
-export const updatePinSchema = z.object({
-  currentPin: z.string(),
-  newPin: z.string().regex(/^\d{4}$/, 'New PIN must be exactly 4 digits'),
-});
-
-export const enablePinSchema = z.object({
-  pin: z.string().regex(/^\d{4}$/, 'PIN must be exactly 4 digits'),
+export const grownUpCheckSchema = z.object({
+  enabled: z.boolean(),
 });
 
 // ============================================================

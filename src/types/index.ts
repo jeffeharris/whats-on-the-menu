@@ -90,10 +90,16 @@ export interface KidSelection {
 
 export type AppMode = 'kid' | 'parent';
 
+/**
+ * The half of the app state that is safe to persist to localStorage.
+ *
+ * isParentAuthenticated is deliberately NOT here. Persisting it meant the
+ * grown-up check never challenged again once passed on a device — including
+ * for a different household signing in on the same browser — which defeated
+ * the point of having a check at all.
+ */
 export interface AppState {
   mode: AppMode;
-  isParentAuthenticated: boolean;
-  parentPin: string;
   selectedKidId: string | null;
 }
 

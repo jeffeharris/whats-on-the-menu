@@ -30,8 +30,8 @@ export async function createTenant(
   const email = `${namePrefix.toLowerCase()}-${suffix}@example.com`;
 
   const household = await pool.query(
-    `INSERT INTO households (name, kid_pin) VALUES ($1, $2) RETURNING id`,
-    [`${namePrefix} ${suffix}`, '1234'],
+    `INSERT INTO households (name) VALUES ($1) RETURNING id`,
+    [`${namePrefix} ${suffix}`],
   );
   const householdId = household.rows[0].id as string;
 

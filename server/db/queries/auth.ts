@@ -31,14 +31,13 @@ export async function createUser(
 }
 
 export async function createHousehold(
-  name: string,
-  kidPin?: string | null
-): Promise<{ id: string; name: string; kid_pin: string | null }> {
+  name: string
+): Promise<{ id: string; name: string; grownup_check_enabled: boolean }> {
   const { rows } = await pool.query(
-    `INSERT INTO households (name, kid_pin)
-     VALUES ($1, $2)
-     RETURNING id, name, kid_pin`,
-    [name, kidPin ?? null]
+    `INSERT INTO households (name)
+     VALUES ($1)
+     RETURNING id, name, grownup_check_enabled`,
+    [name]
   );
   return rows[0];
 }
@@ -118,28 +117,18 @@ export async function markMagicLinkTokenUsed(token: string): Promise<void> {
 }
 
 // ============================================================
-// Kid PIN queries
+// Grown-up check
 // ============================================================
 
-export async function getHouseholdPin(householdId: string): Promise<string | null> {
-  const { rows } = await pool.query(
-    'SELECT kid_pin FROM households WHERE id = $1',
-    [householdId]
-  );
-  return rows[0]?.kid_pin ?? null;
-}
-
-export async function updateHouseholdPin(householdId: string, newPin: string): Promise<void> {
+/**
+ * Whether kid mode should challenge before handing over parent mode. There is
+ * no stored secret behind this — the challenge is generated per attempt and
+ * shown on screen in words — so this is a plain on/off preference.
+ */
+export async function setGrownUpCheck(householdId: string, enabled: boolean): Promise<void> {
   await pool.query(
-    'UPDATE households SET kid_pin = $1 WHERE id = $2',
-    [newPin, householdId]
-  );
-}
-
-export async function clearHouseholdPin(householdId: string): Promise<void> {
-  await pool.query(
-    'UPDATE households SET kid_pin = NULL WHERE id = $1',
-    [householdId]
+    'UPDATE households SET grownup_check_enabled = $1 WHERE id = $2',
+    [enabled, householdId]
   );
 }
 
@@ -149,9 +138,9 @@ export async function clearHouseholdPin(householdId: string): Promise<void> {
 
 export async function getHousehold(
   householdId: string
-): Promise<{ id: string; name: string; kid_pin: string | null } | null> {
+): Promise<{ id: string; name: string; grownup_check_enabled: boolean } | null> {
   const { rows } = await pool.query(
-    'SELECT id, name, kid_pin FROM households WHERE id = $1',
+    'SELECT id, name, grownup_check_enabled FROM households WHERE id = $1',
     [householdId]
   );
   return rows.length > 0 ? rows[0] : null;
