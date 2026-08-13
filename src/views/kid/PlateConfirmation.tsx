@@ -1,4 +1,5 @@
 import { X, Check } from 'lucide-react';
+import { AppShell } from '../../components/common/AppShell';
 import { FoodCard } from '../../components/kid/FoodCard';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
@@ -56,12 +57,12 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
   }
 
   return (
-    <div className="h-full bg-kid-bg flex flex-col overflow-hidden">
+    <AppShell mode="kid" className="h-full flex flex-col overflow-hidden">
       {/* Header - fixed at top */}
-      <header className="flex-shrink-0 flex items-center gap-3 px-4 pt-4 pb-2 max-w-2xl mx-auto w-full">
+      <header className="app-header flex-shrink-0 flex items-center gap-3 px-4 py-3 max-w-2xl mx-auto w-full">
         <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="md" />
         <div>
-          <h1 className="text-xl font-bold text-gray-800 font-heading">
+          <h1 className="kid-hero-title text-xl">
             {kid.name}'s Plate
           </h1>
           <p className="text-gray-500 text-sm">
@@ -76,7 +77,7 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
         <div className="flex-1 pt-2">
           {groupedItems.map((group, idx) => (
             <div key={idx} className="mb-4">
-              <h2 className="text-xl font-semibold text-gray-700 mb-3 text-center">
+              <h2 className="kid-hero-title text-xl mb-3 text-center">
                 {group.label}
               </h2>
               <div className="flex justify-center gap-4 md:gap-6 flex-wrap">
@@ -97,12 +98,12 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
       </div>
 
       {/* Actions - fixed footer */}
-      <footer className="flex-shrink-0 border-t border-kid-primary/10 bg-kid-bg px-4 py-3">
+      <footer className="kid-action-dock flex-shrink-0 px-4 py-3">
         <div className="flex justify-center items-center gap-6 max-w-md mx-auto">
           {!selectionsLocked && (
             <button
               onClick={onEdit}
-              className="w-16 h-16 rounded-full bg-white shadow-lg ring-2 ring-danger/30 flex items-center justify-center touch-feedback hover:scale-110 transition-transform"
+              className="w-16 h-16 rounded-full bg-white shadow-lg ring-2 ring-danger/30 flex items-center justify-center touch-feedback hover:scale-105 transition-transform"
               aria-label="Change my mind"
             >
               <X className="w-8 h-8 text-danger" strokeWidth={3} />
@@ -110,7 +111,7 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
           )}
           <button
             onClick={() => { playPlaced(); onDone(); }}
-            className="w-20 h-20 rounded-full bg-kid-secondary shadow-xl ring-4 ring-kid-secondary/30 flex items-center justify-center touch-feedback hover:scale-110 transition-transform"
+            className="w-20 h-20 rounded-full bg-kid-secondary-deep shadow-xl ring-4 ring-kid-secondary/30 flex items-center justify-center touch-feedback hover:scale-105 transition-transform"
             aria-label="All Done"
           >
             <Check className="w-10 h-10 text-white" strokeWidth={3} />
@@ -122,6 +123,6 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
           )}
         </div>
       </footer>
-    </div>
+    </AppShell>
   );
 }

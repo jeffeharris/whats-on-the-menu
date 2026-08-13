@@ -47,14 +47,11 @@ export function FoodCard({
     <div
       className={`
         ${sizeStyles[size]} ${className}
-        relative
-        bg-white rounded-2xl shadow-lg overflow-hidden
-        flex flex-col
-        ${isClickable ? 'cursor-pointer touch-feedback' : ''}
-        ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
-        ${selected ? 'ring-4 ring-kid-secondary scale-105' : ''}
-        transition-all duration-150
+        kid-food-card
       `}
+      data-interactive={isClickable}
+      data-selected={selected}
+      data-disabled={disabled}
       onClick={handleClick}
       role={onClick ? 'button' : undefined}
       tabIndex={isClickable ? 0 : disabled ? -1 : undefined}
@@ -91,7 +88,7 @@ export function FoodCard({
 
       {/* Selection indicator */}
       {selected && (
-        <div className="absolute top-2 right-2 w-8 h-8 bg-kid-secondary rounded-full flex items-center justify-center">
+        <div className="kid-selection-badge absolute top-2 right-2">
           <Check className="w-5 h-5 text-white" strokeWidth={3} />
         </div>
       )}

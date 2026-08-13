@@ -46,6 +46,9 @@ src/
 └── utils/          # Utility functions
 ```
 
+UI foundations and contribution conventions are documented in
+[`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md).
+
 ## Available Scripts
 
 - `npm run dev` - Start development server

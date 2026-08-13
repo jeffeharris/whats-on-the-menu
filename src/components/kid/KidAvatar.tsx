@@ -38,14 +38,13 @@ export function KidAvatar({ name, color, avatarAnimal, size = 'md', selected = f
       className={`
         ${sizeStyles[size]}
         ${colorStyles[color]}
-        rounded-full
+        kid-avatar
         flex items-center justify-center
         font-bold text-white
-        shadow-lg
         relative overflow-hidden
-        ${isClickable ? 'cursor-pointer touch-feedback hover:scale-105 transition-transform' : ''}
-        ${selected ? 'ring-4 ring-kid-accent ring-offset-2' : ''}
       `}
+      data-interactive={isClickable}
+      data-selected={selected}
       onClick={onClick}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}

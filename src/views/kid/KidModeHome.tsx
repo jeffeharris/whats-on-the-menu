@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Star, Settings, Check } from 'lucide-react';
 import { Button } from '../../components/common/Button';
+import { AppShell } from '../../components/common/AppShell';
 import { Modal } from '../../components/common/Modal';
 import { GrownUpGate } from '../../components/common/GrownUpGate';
 import { KidAvatar } from '../../components/kid/KidAvatar';
@@ -62,9 +63,9 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
   // No menu set
   if (!currentMenu) {
     return (
-      <div className="h-full bg-kid-bg flex flex-col items-center justify-center p-6 overflow-hidden">
+      <AppShell mode="kid" className="h-full flex flex-col items-center justify-center p-6 overflow-hidden">
         <div className="text-center max-w-md">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+          <h1 className="kid-hero-title text-3xl mb-4">
             No Menu Yet!
           </h1>
           <p className="text-xl text-gray-600 mb-8">
@@ -86,7 +87,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
             onCancel={() => setShowPinModal(false)}
           />
         </Modal>
-      </div>
+      </AppShell>
     );
   }
 
@@ -95,9 +96,9 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
   // sends them to a parent who will find their kids already there.
   if (profiles.length === 0) {
     return (
-      <div className="h-full bg-kid-bg flex flex-col items-center justify-center p-6 overflow-hidden">
+      <AppShell mode="kid" className="h-full flex flex-col items-center justify-center p-6 overflow-hidden">
         <div className="text-center max-w-md">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+          <h1 className="kid-hero-title text-3xl mb-4">
             {profilesError ? 'Hang on!' : "Who's Here?"}
           </h1>
           <p className="text-xl text-gray-600 mb-8">
@@ -128,18 +129,18 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
             onCancel={() => setShowPinModal(false)}
           />
         </Modal>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="h-full bg-kid-bg flex flex-col p-4 md:p-8 overflow-hidden">
+    <AppShell mode="kid" className="h-full flex flex-col p-4 md:p-8 overflow-hidden">
       {/* Header with parent access */}
-      <div className="flex-shrink-0 flex justify-between items-center mb-4">
+      <header className="flex-shrink-0 flex justify-between items-center mb-4">
         {totalStars > 0 ? (
           <button
             onClick={onNavigateToStars}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-yellow-100 hover:bg-yellow-200 transition-colors"
+            className="ui-chip hover:-translate-y-0.5 transition-transform"
             aria-label="Our Stars"
           >
             <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
@@ -150,16 +151,16 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
         )}
         <button
           onClick={handleParentLogin}
-          className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+          className="ui-icon-button"
           aria-label="Parent login"
         >
           <Settings className="w-6 h-6" />
         </button>
-      </div>
+      </header>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center">
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2 text-center font-heading">
+        <h1 className="kid-hero-title text-4xl md:text-5xl mb-2 text-center">
           Who's hungry?
         </h1>
         <p className="text-lg md:text-xl text-gray-600 mb-8 md:mb-12 text-center">
@@ -182,12 +183,12 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
                     onClick={() => { playPlaced(); onSelectKid(profile.id); }}
                   />
                   {hasSelected && (
-                    <div className="absolute -top-2 -right-2 w-10 h-10 bg-success rounded-full flex items-center justify-center shadow-lg">
+                    <div className="absolute -top-2 -right-2 w-10 h-10 bg-success border-[3px] border-white rounded-full flex items-center justify-center shadow-lg">
                       <Check className="w-6 h-6 text-white" strokeWidth={3} />
                     </div>
                   )}
                 </div>
-                <span className="mt-3 text-2xl font-semibold text-gray-800">
+                <span className="mt-4 text-2xl font-bold text-brand-ink font-heading">
                   {profile.name}
                 </span>
                 {(() => {
@@ -213,7 +214,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
 
       {/* Confirm Selections Button */}
       {hasAnySelections && !selectionsLocked && (
-        <div className="mt-6">
+        <div className="kid-action-dock -mx-4 -mb-4 mt-6 p-4 md:-mx-8 md:-mb-8 md:p-6">
           <Button
             mode="kid"
             variant="primary"
@@ -242,6 +243,6 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
           title="Ask a grown-up to finish"
         />
       </Modal>
-    </div>
+    </AppShell>
   );
 }
