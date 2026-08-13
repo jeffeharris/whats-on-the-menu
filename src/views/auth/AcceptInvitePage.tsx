@@ -1,5 +1,6 @@
 import { useSearchParams, Link } from 'react-router-dom';
-import { UtensilsCrossed, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
+import { BrandMark } from '../../components/common/BrandMark';
 
 const ERROR_MESSAGES: Record<string, { icon: typeof AlertCircle; color: string; bg: string; message: string }> = {
   expired: {
@@ -34,9 +35,7 @@ export function AcceptInvitePage() {
       <div className="w-full max-w-sm">
         {/* Branding */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--color-parent-primary)] mb-4">
-            <UtensilsCrossed className="w-8 h-8 text-white" />
-          </div>
+          <BrandMark className="mx-auto mb-4 h-16 w-16 rounded-2xl shadow-sm" />
           <h1 className="font-[family-name:var(--font-heading)] text-2xl font-bold text-gray-900">
             What's On The Menu
           </h1>
