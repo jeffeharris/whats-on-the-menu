@@ -89,7 +89,7 @@ export function SharedMenuBuilder({ onBack, onSuccess }: SharedMenuBuilderProps)
         height: 512,
       });
 
-      // Handle both sync (Pollinations) and async (Runware) providers
+      // The service interface allows a sync provider, so normalise here.
       const imageUrl = result instanceof Promise ? await result : result;
       updateOption(groupId, optionId, { imageUrl });
     } catch (error) {

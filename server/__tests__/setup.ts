@@ -47,6 +47,7 @@ const APP_TABLES = [
   'household_invitations',
   'food_items',
   'uploads',
+  'image_generations',
   'kid_profiles',
   'menus',
   'kid_selections',

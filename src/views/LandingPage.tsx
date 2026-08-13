@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom';
-import { UtensilsCrossed, CalendarDays, Smile, TrendingUp } from 'lucide-react';
+import { UtensilsCrossed, CalendarDays, Smile, TrendingUp, Coffee } from 'lucide-react';
+
+// Optional tip-jar link (e.g. Buy Me a Coffee); hidden when VITE_SUPPORT_URL is unset.
+const SUPPORT_URL = import.meta.env.VITE_SUPPORT_URL;
 
 const features = [
   {
@@ -79,6 +82,20 @@ export function LandingPage() {
           <Link to="/privacy" className="hover:text-gray-700 transition-colors">
             Privacy Policy
           </Link>
+          {SUPPORT_URL && (
+            <>
+              <span>&middot;</span>
+              <a
+                href={SUPPORT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 hover:text-gray-700 transition-colors"
+              >
+                <Coffee className="w-3.5 h-3.5" />
+                Buy me a coffee
+              </a>
+            </>
+          )}
         </div>
       </footer>
     </div>

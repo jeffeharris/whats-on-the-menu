@@ -1,11 +1,10 @@
-export type ImageProvider = 'pollinations' | 'runware';
+export type ImageProvider = 'runware';
 
 export interface ImageGenerationOptions {
   prompt: string;
   width?: number;
   height?: number;
   seed?: number;
-  model?: string;
 }
 
 export interface ImageProviderService {

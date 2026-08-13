@@ -5,6 +5,10 @@ import { createApp } from '../app.js';
 import pool from '../db/pool.js';
 import { createTenant, type TestTenant } from './helpers/tenant.js';
 
+// The generation route checks for a configured key before anything else. The
+// quota test below never reaches an outbound call, so any non-empty value does.
+process.env.RUNWARE_API_KEY ||= 'test-key-not-used';
+
 const app = createApp();
 
 // Default per-household limit is 25 MB (UPLOAD_STORAGE_LIMIT_MB).
@@ -108,8 +112,9 @@ describe('Upload quota enforcement', () => {
     // The quota pre-check fires before any external fetch, so no network mock
     // is needed — an over-quota household gets 507.
     await request(app)
-      .get('/api/image-generation/pollinations?prompt=pizza')
+      .post('/api/image-generation/runware')
       .set('Cookie', alice.cookie)
+      .send({ prompt: 'pizza' })
       .expect(507);
   });
 });

@@ -24,9 +24,12 @@ PORT=5173
 
 ## Environment Variables
 
-See `.env` for configuration:
+See `.env.example` for the full list. Commonly used:
 - `PORT` - Dev server port (default: 5173)
-- `VITE_POLLINATIONS_API_KEY` - API key for AI image generation
+- `RUNWARE_API_KEY` - Server-side key for AI image generation
+- `IMAGE_GEN_DAILY_LIMIT_HOUSEHOLD` / `IMAGE_GEN_DAILY_LIMIT_GLOBAL` - rolling-24h
+  caps on paid image generation (defaults: 50 per household, 1000 overall)
+- `IMAGE_GEN_ENABLED=false` - kill switch to stop all paid image generation
 
 ## Project Structure
 
