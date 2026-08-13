@@ -9,15 +9,13 @@ import {
   deleteSession,
   createMagicLinkToken,
   verifyMagicLinkToken,
-  getHouseholdPin,
-  updateHouseholdPin,
-  clearHouseholdPin,
+  setGrownUpCheck,
   getHousehold,
 } from '../db/queries/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { initializeHouseholdFoods } from '../db/queries/foods.js';
 import { initializeHouseholdPresets } from '../db/queries/menus.js';
-import { signupSchema, loginSchema, verifyPinSchema, updatePinSchema, enablePinSchema } from '../validation/schemas.js';
+import { signupSchema, loginSchema, grownUpCheckSchema } from '../validation/schemas.js';
 import { resend, APP_URL, EMAIL_FROM, emailTemplate } from '../email.js';
 
 // ============================================================
@@ -196,7 +194,7 @@ router.get('/me', async (req: Request, res: Response) => {
         role: session.role,
       },
       household: household
-        ? { id: household.id, name: household.name, pinEnabled: household.kid_pin !== null }
+        ? { id: household.id, name: household.name, grownUpCheckEnabled: household.grownup_check_enabled }
         : null,
     });
   } catch (error) {
@@ -220,76 +218,23 @@ router.post('/logout', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/auth/verify-pin (protected)
-router.post('/verify-pin', requireAuth, async (req: Request, res: Response) => {
+// PUT /api/auth/grownup-check (protected) — turn the grown-up check on or off
+//
+// There is no PIN to supply. Kid mode gates parent access with a random
+// challenge spelled out in words, which an adult reads and a pre-reader
+// cannot, so nothing secret is stored or compared. The caller is already an
+// authenticated member of this household, which is the actual access control.
+router.put('/grownup-check', requireAuth, async (req: Request, res: Response) => {
   try {
-    const result = verifyPinSchema.safeParse(req.body);
+    const result = grownUpCheckSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ error: result.error.issues[0].message });
     }
-    const { pin } = result.data;
-    const householdPin = await getHouseholdPin(req.householdId!);
-    // If PIN is disabled (null), always valid
-    res.json({ valid: householdPin === null || pin === householdPin });
+    await setGrownUpCheck(req.householdId!, result.data.enabled);
+    res.json({ success: true, grownUpCheckEnabled: result.data.enabled });
   } catch (error) {
-    console.error('Verify PIN error:', error);
-    res.status(500).json({ error: 'Failed to verify PIN' });
-  }
-});
-
-// POST /api/auth/update-pin (protected)
-router.post('/update-pin', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const result = updatePinSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error.issues[0].message });
-    }
-    const { currentPin, newPin } = result.data;
-
-    const householdPin = await getHouseholdPin(req.householdId!);
-    if (householdPin !== null && currentPin !== householdPin) {
-      return res.status(403).json({ error: 'Current PIN is incorrect' });
-    }
-
-    await updateHouseholdPin(req.householdId!, newPin);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Update PIN error:', error);
-    res.status(500).json({ error: 'Failed to update PIN' });
-  }
-});
-
-// POST /api/auth/enable-pin (protected) — set a new PIN from disabled state
-router.post('/enable-pin', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const result = enablePinSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error.issues[0].message });
-    }
-    await updateHouseholdPin(req.householdId!, result.data.pin);
-    res.json({ success: true, pinEnabled: true });
-  } catch (error) {
-    console.error('Enable PIN error:', error);
-    res.status(500).json({ error: 'Failed to enable PIN' });
-  }
-});
-
-// POST /api/auth/disable-pin (protected) — clear the PIN
-router.post('/disable-pin', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const result = verifyPinSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error.issues[0].message });
-    }
-    const householdPin = await getHouseholdPin(req.householdId!);
-    if (householdPin !== null && result.data.pin !== householdPin) {
-      return res.status(403).json({ error: 'Incorrect PIN' });
-    }
-    await clearHouseholdPin(req.householdId!);
-    res.json({ success: true, pinEnabled: false });
-  } catch (error) {
-    console.error('Disable PIN error:', error);
-    res.status(500).json({ error: 'Failed to disable PIN' });
+    console.error('Grown-up check error:', error);
+    res.status(500).json({ error: 'Failed to update the grown-up check' });
   }
 });
 

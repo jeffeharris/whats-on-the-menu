@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Star, Settings, Check } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
-import { PinPad } from '../../components/common/PinPad';
+import { GrownUpGate } from '../../components/common/GrownUpGate';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { SelectionThumbnails } from '../../components/kid/SelectionThumbnails';
 import { useAppState } from '../../contexts/AppStateContext';
@@ -18,39 +18,32 @@ interface KidModeHomeProps {
 }
 
 export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStars }: KidModeHomeProps) {
-  const { authenticateParent, enterParentMode, pinEnabled } = useAppState();
+  const { enterParentMode, grownUpCheckEnabled } = useAppState();
   const { profiles, error: profilesError, reload: reloadProfiles } = useKidProfiles();
   const { currentMenu, hasKidSelected, selections, selectionsLocked, lockSelections, getSelectionForKid } = useMenu();
   const { getStarCountForKid, getTotalFamilyStars } = useMealHistory();
   const totalStars = getTotalFamilyStars();
   const [showPinModal, setShowPinModal] = useState(false);
   const [showConfirmPinModal, setShowConfirmPinModal] = useState(false);
-  const [pinError, setPinError] = useState('');
-  const { playPlaced, playRejected } = useSound();
+  const { playPlaced } = useSound();
 
   const hasAnySelections = selections.length > 0;
 
   const handleParentLogin = () => {
-    if (!pinEnabled) {
+    if (!grownUpCheckEnabled) {
       enterParentMode();
     } else {
       setShowPinModal(true);
     }
   };
 
-  const handlePinSubmit = async (pin: string) => {
-    const success = await authenticateParent(pin);
-    if (!success) {
-      playRejected();
-      setPinError('Wrong PIN!');
-    } else {
-      setShowPinModal(false);
-      setPinError('');
-    }
+  const handleGatePassed = () => {
+    setShowPinModal(false);
+    enterParentMode();
   };
 
   const handleConfirmSelections = () => {
-    if (!pinEnabled) {
+    if (!grownUpCheckEnabled) {
       enterParentMode();
       lockSelections();
       onConfirmSelections?.();
@@ -59,17 +52,11 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
     }
   };
 
-  const handleConfirmPinSubmit = async (pin: string) => {
-    const success = await authenticateParent(pin);
-    if (!success) {
-      playRejected();
-      setPinError('Wrong PIN!');
-    } else {
-      setShowConfirmPinModal(false);
-      setPinError('');
-      lockSelections();
-      onConfirmSelections?.();
-    }
+  const handleConfirmGatePassed = () => {
+    setShowConfirmPinModal(false);
+    enterParentMode();
+    lockSelections();
+    onConfirmSelections?.();
   };
 
   // No menu set
@@ -94,14 +81,9 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
         </div>
 
         <Modal isOpen={showPinModal} onClose={() => setShowPinModal(false)} mode="kid">
-          <PinPad
-            onSubmit={handlePinSubmit}
-            onCancel={() => {
-              setShowPinModal(false);
-              setPinError('');
-            }}
-            title="Enter Parent PIN"
-            error={pinError}
+          <GrownUpGate
+            onSuccess={handleGatePassed}
+            onCancel={() => setShowPinModal(false)}
           />
         </Modal>
       </div>
@@ -141,14 +123,9 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
         </div>
 
         <Modal isOpen={showPinModal} onClose={() => setShowPinModal(false)} mode="kid">
-          <PinPad
-            onSubmit={handlePinSubmit}
-            onCancel={() => {
-              setShowPinModal(false);
-              setPinError('');
-            }}
-            title="Enter Parent PIN"
-            error={pinError}
+          <GrownUpGate
+            onSuccess={handleGatePassed}
+            onCancel={() => setShowPinModal(false)}
           />
         </Modal>
       </div>
@@ -251,27 +228,18 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
 
       {/* Parent Login Modal */}
       <Modal isOpen={showPinModal} onClose={() => setShowPinModal(false)} mode="kid">
-        <PinPad
-          onSubmit={handlePinSubmit}
-          onCancel={() => {
-            setShowPinModal(false);
-            setPinError('');
-          }}
-          title="Enter Parent PIN"
-          error={pinError}
+        <GrownUpGate
+          onSuccess={handleGatePassed}
+          onCancel={() => setShowPinModal(false)}
         />
       </Modal>
 
       {/* Confirm Selections PIN Modal */}
       <Modal isOpen={showConfirmPinModal} onClose={() => setShowConfirmPinModal(false)} mode="kid">
-        <PinPad
-          onSubmit={handleConfirmPinSubmit}
-          onCancel={() => {
-            setShowConfirmPinModal(false);
-            setPinError('');
-          }}
-          title="Parent PIN to Confirm"
-          error={pinError}
+        <GrownUpGate
+          onSuccess={handleConfirmGatePassed}
+          onCancel={() => setShowConfirmPinModal(false)}
+          title="Ask a grown-up to finish"
         />
       </Modal>
     </div>

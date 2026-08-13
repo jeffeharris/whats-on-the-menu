@@ -1,25 +1,21 @@
-import { createContext, useContext, useCallback } from 'react';
+import { createContext, useContext, useCallback, useState, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../utils/storage';
 import type { AppState, AppMode } from '../types';
-import { authApi } from '../api/client';
 import { useAuth } from './AuthContext';
 
 const DEFAULT_STATE: AppState = {
   mode: 'kid',
-  isParentAuthenticated: false,
-  parentPin: '1234', // Legacy — now stored in DB, kept for localStorage compat
   selectedKidId: null,
 };
 
 interface AppStateContextType extends AppState {
-  pinEnabled: boolean;
+  isParentAuthenticated: boolean;
+  grownUpCheckEnabled: boolean;
   setMode: (mode: AppMode) => void;
-  authenticateParent: (pin: string) => Promise<boolean>;
   enterParentMode: () => void;
   logoutParent: () => void;
-  setParentPin: (currentPin: string, newPin: string) => Promise<boolean>;
   selectKid: (kidId: string | null) => void;
 }
 
@@ -27,59 +23,39 @@ const AppStateContext = createContext<AppStateContextType | null>(null);
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useLocalStorage<AppState>(STORAGE_KEYS.APP_STATE, DEFAULT_STATE);
-  const { household } = useAuth();
-  const pinEnabled = household?.pinEnabled ?? false;
+  const { household, user } = useAuth();
+  const grownUpCheckEnabled = household?.grownUpCheckEnabled ?? false;
+
+  // In-memory only: passing the grown-up check lasts for this page session and
+  // no longer. Reopening the app, or a different account signing in on this
+  // browser, gets challenged again.
+  const [isParentAuthenticated, setIsParentAuthenticated] = useState(false);
+
+  // This provider sits above the keyed session subtree in App.tsx, so it does
+  // not remount when the signed-in user changes. Drop parent access explicitly
+  // instead, or one household's unlocked session would carry into the next.
+  const userId = user?.id ?? null;
+  const lastUserId = useRef(userId);
+  if (lastUserId.current !== userId) {
+    lastUserId.current = userId;
+    if (isParentAuthenticated) setIsParentAuthenticated(false);
+  }
 
   const setMode = useCallback((mode: AppMode) => {
-    setState((prev) => ({
-      ...prev,
-      mode,
-      // Reset auth when switching to kid mode
-      isParentAuthenticated: mode === 'kid' ? false : prev.isParentAuthenticated,
-    }));
-  }, [setState]);
-
-  const authenticateParent = useCallback(async (pin: string): Promise<boolean> => {
-    try {
-      const result = await authApi.verifyPin(pin);
-      if (result.valid) {
-        setState((prev) => ({
-          ...prev,
-          isParentAuthenticated: true,
-          mode: 'parent',
-        }));
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    }
+    // Reset access when switching to kid mode
+    if (mode === 'kid') setIsParentAuthenticated(false);
+    setState((prev) => ({ ...prev, mode }));
   }, [setState]);
 
   const enterParentMode = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      isParentAuthenticated: true,
-      mode: 'parent',
-    }));
+    setIsParentAuthenticated(true);
+    setState((prev) => ({ ...prev, mode: 'parent' }));
   }, [setState]);
 
   const logoutParent = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      isParentAuthenticated: false,
-      mode: 'kid',
-    }));
+    setIsParentAuthenticated(false);
+    setState((prev) => ({ ...prev, mode: 'kid' }));
   }, [setState]);
-
-  const setParentPin = useCallback(async (currentPin: string, newPin: string): Promise<boolean> => {
-    try {
-      await authApi.updatePin(currentPin, newPin);
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
 
   const selectKid = useCallback((kidId: string | null) => {
     setState((prev) => ({
@@ -92,12 +68,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     <AppStateContext.Provider
       value={{
         ...state,
-        pinEnabled,
+        isParentAuthenticated,
+        grownUpCheckEnabled,
         setMode,
-        authenticateParent,
         enterParentMode,
         logoutParent,
-        setParentPin,
         selectKid,
       }}
     >

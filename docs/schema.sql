@@ -26,7 +26,7 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE households (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            TEXT NOT NULL DEFAULT 'My Household',
-  kid_pin         TEXT,           -- deterrent PIN for kid mode (not security)
+  grownup_check_enabled BOOLEAN NOT NULL DEFAULT false,  -- gate kid->parent mode behind a spelled-out challenge
   active_menu_id  UUID,           -- FK added below after menus table exists
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()

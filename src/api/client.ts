@@ -406,51 +406,15 @@ export const authApi = {
     return res.json();
   },
 
-  async verifyPin(pin: string): Promise<{ valid: boolean }> {
-    const res = await apiFetch(`${API_BASE}/auth/verify-pin`, {
-      method: 'POST',
+  async setGrownUpCheck(enabled: boolean): Promise<{ success: boolean; grownUpCheckEnabled: boolean }> {
+    const res = await apiFetch(`${API_BASE}/auth/grownup-check`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin }),
-    });
-    if (!res.ok) throw new Error('PIN verification failed');
-    return res.json();
-  },
-
-  async updatePin(currentPin: string, newPin: string): Promise<{ success: boolean }> {
-    const res = await apiFetch(`${API_BASE}/auth/update-pin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentPin, newPin }),
+      body: JSON.stringify({ enabled }),
     });
     if (!res.ok) {
       const data = await res.json();
-      throw new Error(data.error || 'PIN update failed');
-    }
-    return res.json();
-  },
-
-  async enablePin(pin: string): Promise<{ success: boolean; pinEnabled: boolean }> {
-    const res = await apiFetch(`${API_BASE}/auth/enable-pin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to enable PIN');
-    }
-    return res.json();
-  },
-
-  async disablePin(pin: string): Promise<{ success: boolean; pinEnabled: boolean }> {
-    const res = await apiFetch(`${API_BASE}/auth/disable-pin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to disable PIN');
+      throw new Error(data.error || 'Failed to update the grown-up check');
     }
     return res.json();
   },

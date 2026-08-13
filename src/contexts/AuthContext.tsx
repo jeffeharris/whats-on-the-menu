@@ -11,7 +11,7 @@ interface User {
 interface Household {
   id: string;
   name: string;
-  pinEnabled: boolean;
+  grownUpCheckEnabled: boolean;
 }
 
 interface AuthContextType {
