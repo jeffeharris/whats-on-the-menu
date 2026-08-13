@@ -260,6 +260,14 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   }, [presets, presetsError]);
 
   const saveCurrentAsPreset = useCallback(async (slot: PresetSlot, name: string, groups: MenuGroup[]) => {
+    // The enforcement point for the presetsError contract. updatePreset issues
+    // an unconditional UPDATE keyed on slot, so writing while `presets` holds
+    // values we never read would clobber the real menu — including renaming it,
+    // since callers derive `name` from the same unread data.
+    if (presetsError) {
+      throw new Error('Refusing to overwrite a preset that could not be loaded');
+    }
+
     const savedMenu = await menusApi.updatePreset(slot, name, groups);
     setPresets((prev) => ({
       ...prev,
@@ -269,7 +277,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       id: savedMenu.id,
       groups: savedMenu.groups,
     });
-  }, []);
+  }, [presetsError]);
 
   const clearPreset = useCallback(async (slot: PresetSlot) => {
     await menusApi.deletePreset(slot);

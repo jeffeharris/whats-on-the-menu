@@ -34,10 +34,27 @@ interface ParentDashboardProps {
 
 export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
   const { logoutParent, setMode } = useAppState();
-  const { items } = useFoodLibrary();
-  const { profiles } = useKidProfiles();
+  const { items, loading: itemsLoading, error: itemsError } = useFoodLibrary();
+  const { profiles, loading: profilesLoading, error: profilesError } = useKidProfiles();
   const { currentMenu, loadPresetAsActive, loadPreset, presets, presetsLoading } = useMenu();
-  const { meals } = useMealHistory();
+  const { meals, loading: mealsLoading, error: mealsError } = useMealHistory();
+
+  /**
+   * This is the screen you land on after signing in, so it is where a bad count
+   * does the most damage: "0 items" next to a full library is the symptom users
+   * reported. Show a neutral placeholder rather than a number we don't have.
+   */
+  const countLabel = (
+    loading: boolean,
+    error: boolean,
+    n: number,
+    singular: string,
+    plural: string,
+  ) => {
+    if (error) return 'Tap to retry';
+    if (loading) return '—';
+    return `${n} ${n === 1 ? singular : plural}`;
+  };
   const coachMarks = useCoachMarks();
 
   // Start coach marks if presets exist (seeded) and user hasn't seen them
@@ -73,7 +90,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
       key: 'food-library',
       label: 'Food Library',
       icon: UtensilsCrossed,
-      count: `${items.length} ${items.length === 1 ? 'item' : 'items'}`,
+      count: countLabel(itemsLoading, itemsError, items.length, 'item', 'items'),
       color: 'bg-parent-primary/10',
       iconColor: 'text-parent-primary',
     },
@@ -81,7 +98,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
       key: 'kid-profiles',
       label: 'Kid Profiles',
       icon: Users,
-      count: `${profiles.length} ${profiles.length === 1 ? 'kid' : 'kids'}`,
+      count: countLabel(profilesLoading, profilesError, profiles.length, 'kid', 'kids'),
       color: 'bg-parent-secondary/10',
       iconColor: 'text-parent-secondary',
     },
@@ -97,7 +114,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
       key: 'meal-history-list',
       label: 'Meal History',
       icon: Clock,
-      count: `${meals.length} ${meals.length === 1 ? 'meal' : 'meals'}`,
+      count: countLabel(mealsLoading, mealsError, meals.length, 'meal', 'meals'),
       color: 'bg-purple-100',
       iconColor: 'text-purple-600',
     },

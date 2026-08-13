@@ -1,0 +1,7 @@
+interface:
+  display_name: "Handoff"
+  short_description: "Write a concise next-session handoff"
+  default_prompt: "Use $handoff to capture the current work for the next session, then stop."
+
+policy:
+  allow_implicit_invocation: false

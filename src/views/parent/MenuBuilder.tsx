@@ -44,12 +44,19 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
     currentMenu,
     createMenu,
     clearMenu,
-    currentPresetSlot,
+    currentPresetSlot: activePresetSlot,
     presets,
+    presetsError,
     saveCurrentAsPreset,
     startScratchMenu,
     loadPresetAsActive,
   } = useMenu();
+
+  // The active menu can report a preset slot even when the preset fetch failed
+  // (they are independent reads). Editing "the Dinner preset" on the strength of
+  // data we never loaded means saving renames it from e.g. "Taco Tuesday" to the
+  // generic slot label, so treat that state as a scratch build instead.
+  const currentPresetSlot = presetsError ? null : activePresetSlot;
   const { setMode } = useAppState();
 
   // Local state for editing groups

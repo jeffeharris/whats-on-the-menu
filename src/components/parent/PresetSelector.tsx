@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Sunrise, Cookie, Moon, Sun, MoreVertical, Copy, Trash2, Check, X, Plus } from 'lucide-react';
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
+import { Button } from '../common/Button';
 import { useMenu } from '../../contexts/MenuContext';
 import type { PresetSlot } from '../../types';
 import { PRESET_CONFIG } from '../../types';
@@ -19,7 +20,7 @@ interface PresetSelectorProps {
 }
 
 export function PresetSelector({ onScratchClick }: PresetSelectorProps) {
-  const { presets, currentPresetSlot, loadPreset, clearPreset, copyPreset, renamePreset } = useMenu();
+  const { presets, currentPresetSlot, loadPreset, clearPreset, copyPreset, renamePreset, presetsError, reloadPresets } = useMenu();
   const [editingSlot, setEditingSlot] = useState<PresetSlot | null>(null);
   const [editingName, setEditingName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +68,21 @@ export function PresetSelector({ onScratchClick }: PresetSelectorProps) {
       await clearPreset(slot);
     }
   };
+
+  // Without this the tabs all render as "Empty" and loadPreset's guard makes
+  // them dead clicks — the user is told four saved menus don't exist and gets
+  // no explanation when tapping them does nothing.
+  if (presetsError) {
+    return (
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white px-4 py-4 text-center">
+        <p className="text-sm text-gray-500">Couldn't load your saved menus.</p>
+        <p className="text-xs text-gray-400 mt-1">They're still saved — we just couldn't reach them.</p>
+        <Button variant="secondary" size="sm" className="mt-3" onClick={reloadPresets}>
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-6">
