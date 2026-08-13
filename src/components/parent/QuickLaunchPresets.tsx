@@ -1,4 +1,5 @@
 import { Sunrise, Cookie, Moon, Sun, Play, Pencil, Plus, ChevronRight } from 'lucide-react';
+import { Button } from '../common/Button';
 import { useMenu } from '../../contexts/MenuContext';
 import type { PresetSlot } from '../../types';
 import { PRESET_CONFIG } from '../../types';
@@ -65,7 +66,30 @@ interface QuickLaunchPresetsProps {
 }
 
 export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps) {
-  const { presets, presetsLoading } = useMenu();
+  const { presets, presetsLoading, presetsError, reloadPresets } = useMenu();
+
+  // Never fall through to the slot grid on a failed load: every slot would
+  // render as "Tap to set up", and setting one up overwrites the saved menu
+  // we failed to read.
+  if (presetsError) {
+    return (
+      <div className="mb-6">
+        <div className="mb-4 flex items-center gap-3">
+          <h2 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>
+            Quick Launch
+          </h2>
+          <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-center">
+          <p className="text-sm text-gray-500">Couldn't load your saved menus.</p>
+          <p className="text-xs text-gray-400 mt-1">They're still saved — we just couldn't reach them.</p>
+          <Button variant="secondary" size="sm" className="mt-3" onClick={reloadPresets}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (presetsLoading) {
     return (

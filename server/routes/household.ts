@@ -25,6 +25,7 @@ import { initializeHouseholdPresets, getPresets } from '../db/queries/menus.js';
 import pool from '../db/pool.js';
 import { invitePartnerSchema } from '../validation/schemas.js';
 import { resend, APP_URL, EMAIL_FROM, emailTemplate } from '../email.js';
+import { setSessionCookie } from './auth.js';
 
 // ============================================================
 // Public router (no auth required)
@@ -118,15 +119,8 @@ publicHouseholdRouter.get('/accept-invite', async (req: Request, res: Response) 
     }
 
     // 4. Create session and set cookie
-    const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
     const sessionToken = await createSession(user.id);
-    res.cookie('session', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: SESSION_DURATION_MS,
-      path: '/',
-    });
+    setSessionCookie(res, sessionToken);
 
     // 5. Redirect home
     res.redirect(`${APP_URL}/`);

@@ -41,6 +41,58 @@ describe('Authentication wall', () => {
   });
 });
 
+/**
+ * Every route that signs a user in is reached by clicking a link in an email,
+ * which is a cross-site navigation. SameSite=Strict makes the browser withhold
+ * the session cookie on that first load, so the app boots unauthenticated and
+ * renders an empty library over a household full of data. These assert the
+ * shared cookie contract in one place so a second sign-in route can't drift
+ * away from it again — which is exactly what accept-invite did.
+ */
+function expectEmailClickableSessionCookie(setCookieHeader: string | string[] | undefined) {
+  expect(setCookieHeader).toBeDefined();
+  const cookies = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader!];
+  const sessionCookie = cookies.find((c) => c.startsWith('session='));
+  expect(sessionCookie).toBeDefined();
+  expect(sessionCookie).toMatch(/SameSite=Lax/i);
+  expect(sessionCookie).not.toMatch(/SameSite=Strict/i);
+  expect(sessionCookie).toMatch(/HttpOnly/i);
+  return sessionCookie!;
+}
+
+describe('Session cookie attributes', () => {
+  it('magic link verification issues a cookie that survives the click from email', async () => {
+    const tenant = await createTenant('Cookie');
+    const token = await createMagicLinkToken(tenant.email);
+
+    const res = await request(app).get(`/api/auth/verify?token=${token}`).expect(302);
+
+    const sessionCookie = expectEmailClickableSessionCookie(res.headers['set-cookie']);
+
+    // The cookie must actually authenticate, not just look right.
+    await request(app).get('/api/foods').set('Cookie', sessionCookie.split(';')[0]).expect(200);
+  });
+
+  it('invite acceptance issues a cookie that survives the click from email', async () => {
+    const inviter = await createTenant('Inviter');
+    const inviteeEmail = `invitee-${randomBytes(4).toString('hex')}@example.com`;
+    const inviteToken = randomBytes(32).toString('hex');
+    await pool.query(
+      `INSERT INTO household_invitations (household_id, invited_by, email, token, expires_at)
+       VALUES ($1, $2, $3, $4, now() + interval '7 days')`,
+      [inviter.householdId, inviter.userId, inviteeEmail, inviteToken],
+    );
+
+    const res = await request(app)
+      .get(`/api/household/accept-invite?token=${inviteToken}`)
+      .expect(302);
+
+    const sessionCookie = expectEmailClickableSessionCookie(res.headers['set-cookie']);
+
+    await request(app).get('/api/foods').set('Cookie', sessionCookie.split(';')[0]).expect(200);
+  });
+});
+
 describe('Magic link tokens', () => {
   it('are single-use: the second verification fails', async () => {
     const email = `magic-${randomBytes(4).toString('hex')}@example.com`;

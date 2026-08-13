@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Rocket, UtensilsCrossed, Users, PartyPopper } from 'lucide-react';
 import { useTargetPosition } from './useTargetPosition';
@@ -11,8 +12,15 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const PADDING = 8;
+/** Gap between the highlighted target and the tooltip card. */
+const GAP = 12;
+/** Minimum distance the card keeps from every viewport edge. */
+const MARGIN = 16;
+const CARD_WIDTH = 300;
 
-function TooltipCard({ icon: Icon, step, isLast, stepIndex, totalSteps, onNext, onSkip }: {
+function TooltipCard({ cardRef, width, icon: Icon, step, isLast, stepIndex, totalSteps, onNext, onSkip }: {
+  cardRef?: React.Ref<HTMLDivElement>;
+  width?: number;
   icon: React.ElementType;
   step: CoachMarkStep;
   isLast: boolean;
@@ -22,7 +30,11 @@ function TooltipCard({ icon: Icon, step, isLast, stepIndex, totalSteps, onNext, 
   onSkip: () => void;
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-5 max-w-[300px] w-[300px] fade-up-in">
+    <div
+      ref={cardRef}
+      style={width ? { width } : undefined}
+      className="bg-white rounded-2xl shadow-xl p-5 max-w-[300px] w-[300px] fade-up-in"
+    >
       <div className="flex items-start gap-3 mb-3">
         <div className="w-9 h-9 bg-parent-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
           <Icon className="w-5 h-5 text-parent-primary" />
@@ -82,6 +94,21 @@ interface CoachMarksOverlayProps {
 
 export function CoachMarksOverlay({ step, onNext, onSkip, stepIndex, totalSteps }: CoachMarksOverlayProps) {
   const targetRect = useTargetPosition(step?.selector ?? '');
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardHeight, setCardHeight] = useState(0);
+
+  // The card's height depends on how much text the step carries, so it has to
+  // be measured before we can tell whether it fits above or below the target.
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    const measure = () => setCardHeight(el.offsetHeight);
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [step?.id]);
 
   if (!step) return null;
 
@@ -89,24 +116,49 @@ export function CoachMarksOverlay({ step, onNext, onSkip, stepIndex, totalSteps 
   const isLast = stepIndex === totalSteps - 1;
   const isCentered = !step.selector;
 
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const cardWidth = Math.min(CARD_WIDTH, viewportWidth - MARGIN * 2);
+
   // Tooltip positioning (centered steps use flex wrapper instead of transform,
   // since fade-up-in animation would override the centering transform)
   let tooltipStyle: React.CSSProperties;
   if (isCentered || !targetRect) {
     tooltipStyle = {};
-  } else if (step.placement === 'bottom') {
-    tooltipStyle = {
-      position: 'fixed',
-      top: targetRect.bottom + 12,
-      left: Math.max(16, Math.min(targetRect.left + targetRect.width / 2 - 150, window.innerWidth - 316)),
-      width: 300,
-    };
   } else {
+    // Flip to the opposite side when the preferred one can't fit the card —
+    // otherwise a target near an edge pushes the card off-screen and clips it.
+    const spaceBelow = viewportHeight - targetRect.bottom - GAP - MARGIN;
+    const spaceAbove = targetRect.top - GAP - MARGIN;
+
+    let placement = step.placement;
+    if (cardHeight > 0) {
+      if (placement === 'bottom' && cardHeight > spaceBelow && spaceAbove > spaceBelow) {
+        placement = 'top';
+      } else if (placement === 'top' && cardHeight > spaceAbove && spaceBelow > spaceAbove) {
+        placement = 'bottom';
+      }
+    }
+
+    // Position both placements via `top` so a single clamp keeps the card fully
+    // on screen even when neither side has room for it.
+    const preferredTop = placement === 'bottom'
+      ? targetRect.bottom + GAP
+      : targetRect.top - GAP - cardHeight;
+
     tooltipStyle = {
       position: 'fixed',
-      bottom: window.innerHeight - targetRect.top + 12,
-      left: Math.max(16, Math.min(targetRect.left + targetRect.width / 2 - 150, window.innerWidth - 316)),
-      width: 300,
+      top: Math.max(MARGIN, Math.min(preferredTop, viewportHeight - cardHeight - MARGIN)),
+      left: Math.max(
+        MARGIN,
+        Math.min(
+          targetRect.left + targetRect.width / 2 - cardWidth / 2,
+          viewportWidth - cardWidth - MARGIN
+        )
+      ),
+      width: cardWidth,
+      // Hide for the first paint only, until we know the real card height.
+      visibility: cardHeight === 0 ? 'hidden' : undefined,
     };
   }
 
@@ -156,6 +208,8 @@ export function CoachMarksOverlay({ step, onNext, onSkip, stepIndex, totalSteps 
       ) : (
         <div style={{ ...tooltipStyle, zIndex: 9999 }}>
           <TooltipCard
+            cardRef={cardRef}
+            width={cardWidth}
             icon={Icon}
             step={step}
             isLast={isLast}

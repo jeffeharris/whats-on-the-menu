@@ -52,11 +52,28 @@ async function sendMagicLinkEmail(email: string, token: string): Promise<void> {
 
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-function setSessionCookie(res: Response, token: string) {
+/**
+ * Single source of truth for the session cookie.
+ *
+ * Every flow that signs a user in — magic link, household invite — arrives here
+ * through a link in an email, so they share one set of constraints and must
+ * share this helper. The accept-invite route used to keep its own inline copy,
+ * which silently missed the change below.
+ */
+export function setSessionCookie(res: Response, token: string) {
   res.cookie('session', token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    // 'lax' is the conventional choice for a session cookie and costs nothing
+    // here: it still withholds the cookie on cross-site POST/PUT/DELETE, and
+    // every authenticated GET in this API is read-only.
+    //
+    // Note for anyone tracing the empty-library bug back to this line: 'strict'
+    // did NOT cause it. Production logs from that incident show 'strict'
+    // cookies being sent normally on the app's same-origin XHRs — the requests
+    // that 401'd simply had no session yet. The bug was entirely client-side
+    // provider mount ordering. This is defence in depth, not the fix.
+    sameSite: 'lax',
     maxAge: SESSION_DURATION_MS,
     path: '/',
   });

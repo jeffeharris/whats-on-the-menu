@@ -69,11 +69,48 @@ body {
   overflow: hidden;
   position: fixed;
   width: 100%;
-  /* Safe area insets for notched devices */
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Only the horizontal insets go here (landscape notch). Vertical insets are
+     deliberately NOT applied to body: with border-box sizing they subtract from
+     the 100dvh, shrinking the whole app and leaving dead bands top and bottom
+     (on a Dynamic Island iPhone that is 59px + 34px of an 852px screen). The
+     rules below give the insets back to the specific chrome that needs them, so
+     scrolling content can still paint edge to edge underneath. */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+}
+
+/* Safe-area handling for the app shell.
+
+   These selectors cover the standard shell — a non-scrolling <header>, a
+   scrolling <main>, and on the two kid screens a pinned <footer> holding the
+   primary action. They are NOT universal: MenuSelection scrolls in a nested
+   div rather than its <main>, PlateConfirmation has no <main> at all, and the
+   public pages (landing, login, signup, legal) are plain min-h-dvh documents.
+   Those either centre their content or scroll it, so nothing lands under the
+   status bar; check here first if that stops being true.
+
+   Every rule is purely additive on purpose. These elements carry a range of
+   Tailwind padding (p-4, p-6, px-4 pt-4, py-3, pb-12, some with md: variants
+   and some without), and this stylesheet is unlayered so it would beat those
+   utilities outright — setting padding here would silently flatten each view's
+   intended spacing. Margin and a trailing spacer add to whatever padding is
+   already present instead of replacing it. */
+#root header.flex-shrink-0 {
+  margin-top: env(safe-area-inset-top);
+}
+
+#root main.overflow-y-auto::after {
+  content: '';
+  display: block;
+  flex: 0 0 auto;
+  height: env(safe-area-inset-bottom);
+}
+
+/* Kid-mode action bars sit flush against the bottom edge; without this their
+   buttons fall under the home indicator. PlateConfirmation's is py-3 (12px)
+   against a 34px indicator. */
+#root footer.flex-shrink-0 {
+  margin-bottom: env(safe-area-inset-bottom);
 }
 
 #root {

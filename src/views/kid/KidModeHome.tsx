@@ -19,7 +19,7 @@ interface KidModeHomeProps {
 
 export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStars }: KidModeHomeProps) {
   const { authenticateParent, enterParentMode, pinEnabled } = useAppState();
-  const { profiles } = useKidProfiles();
+  const { profiles, error: profilesError, reload: reloadProfiles } = useKidProfiles();
   const { currentMenu, hasKidSelected, selections, selectionsLocked, lockSelections, getSelectionForKid } = useMenu();
   const { getStarCountForKid, getTotalFamilyStars } = useMealHistory();
   const totalStars = getTotalFamilyStars();
@@ -108,17 +108,28 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
     );
   }
 
-  // No kids set up
+  // No kids set up — or we couldn't read them. Kid-facing copy has to tell the
+  // truth without asking a child to debug: "ask a grown-up to add your name"
+  // sends them to a parent who will find their kids already there.
   if (profiles.length === 0) {
     return (
       <div className="h-full bg-kid-bg flex flex-col items-center justify-center p-6 overflow-hidden">
         <div className="text-center max-w-md">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">
-            Who's Here?
+            {profilesError ? 'Hang on!' : "Who's Here?"}
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Ask a grown-up to add your name
+            {profilesError
+              ? "We can't find everyone right now. Ask a grown-up to check."
+              : 'Ask a grown-up to add your name'}
           </p>
+          {profilesError && (
+            <div className="mb-6">
+              <Button mode="kid" variant="secondary" size="touch" onClick={reloadProfiles}>
+                Try Again
+              </Button>
+            </div>
+          )}
           <Button
             mode="kid"
             variant="primary"
