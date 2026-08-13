@@ -9,6 +9,10 @@
 
   /* Parent mode - professional, calm */
   --color-parent-primary: #5B8DEE;
+  /* Deeper tint of the primary for text and solid CTAs.
+     --color-parent-primary only hits ~3.3:1 on white, which fails WCAG AA for
+     body-size text; this passes at 5.4:1 while reading as the same blue. */
+  --color-parent-primary-deep: #2E63D6;
   --color-parent-secondary: #8B5CF6;
   --color-parent-bg: #FAFAF8;
 
