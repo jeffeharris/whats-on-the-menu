@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, KeyRound, Info, Users, UserPlus, Crown, X, Mail, Loader2, LogOut } from 'lucide-react';
+import { ArrowLeft, KeyRound, Info, Users, UserPlus, Crown, X, Mail, Loader2, LogOut, Coffee } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Modal } from '../../components/common/Modal';
@@ -8,6 +8,10 @@ import { useAppState } from '../../contexts/AppStateContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { authApi, householdApi } from '../../api/client';
 import type { HouseholdMember, HouseholdInvitation } from '../../types';
+
+// Optional tip-jar link (e.g. Buy Me a Coffee). The support UI is hidden
+// entirely when VITE_SUPPORT_URL is unset.
+const SUPPORT_URL = import.meta.env.VITE_SUPPORT_URL;
 
 interface SettingsProps {
   onBack: () => void;
@@ -329,6 +333,32 @@ export function Settings({ onBack }: SettingsProps) {
               </div>
             </div>
           </Card>
+
+          {SUPPORT_URL && (
+            <Card className="fade-up-in" style={{ animationDelay: '300ms' }}>
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Coffee className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="font-semibold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>Support the app</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    What's On The Menu is free. If it's made mealtimes easier, you can chip in
+                    toward the server and AI image costs.
+                  </p>
+                  <a
+                    href={SUPPORT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-[var(--color-parent-primary)] hover:underline"
+                  >
+                    <Coffee className="w-4 h-4" />
+                    Buy me a coffee
+                  </a>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
       </main>
 
