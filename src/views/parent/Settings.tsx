@@ -350,7 +350,7 @@ export function Settings({ onBack }: SettingsProps) {
                     href={SUPPORT_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-[var(--color-parent-primary)] hover:underline"
+                    className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-parent-primary hover:underline"
                   >
                     <Coffee className="w-4 h-4" />
                     Buy me a coffee

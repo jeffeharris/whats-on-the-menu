@@ -127,6 +127,16 @@ router.post('/runware', async (req, res) => {
     return res.status(400).json({ error: 'Prompt is required' });
   }
 
+  // Storage quota first: it's a local check, and an out-of-space household
+  // shouldn't burn a generation slot on a request that can't be stored anyway.
+  try {
+    await assertWithinQuota(req.householdId!, 0);
+  } catch (error) {
+    if (await handleQuotaError(error, res)) return;
+    logger.error({ err: error }, 'Storage quota pre-check failed');
+    return res.status(500).json({ error: 'Failed to generate image' });
+  }
+
   // Claim a slot against the caps *before* spending money. Released again
   // below if the provider never returns an image.
   const reservation = await reserveGeneration(
@@ -155,9 +165,6 @@ router.post('/runware', async (req, res) => {
   let billed = false;
 
   try {
-    // Fail fast before the external call if already at/over quota.
-    await assertWithinQuota(req.householdId!, 0);
-
     const taskUUID = randomUUID();
 
     // Runware REST API - payload is a JSON array of tasks
