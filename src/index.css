@@ -81,26 +81,24 @@ body {
 
 /* Safe-area handling for the app shell.
    Every view is built the same way: a non-scrolling <header> above a scrolling
-   <main>. The header takes the top inset and the scroller takes the bottom one,
-   so controls stay clear of the status bar and home indicator while content
-   still scrolls edge to edge behind them. The base values below mirror the
-   p-4 / md:p-6 padding those elements already carry. */
+   <main>. The header clears the status bar and the scroller ends clear of the
+   home indicator, while content still scrolls edge to edge behind them.
+
+   Both rules are purely additive on purpose. These elements carry a range of
+   Tailwind padding (p-4, p-6, px-4 pt-4, pb-12, some with md: variants and some
+   without), and this stylesheet is unlayered so it would beat those utilities
+   outright — setting padding here would silently flatten each view's intended
+   spacing. Margin and a trailing spacer add to whatever padding is already
+   there instead of replacing it. */
 #root header.flex-shrink-0 {
-  padding-top: calc(1rem + env(safe-area-inset-top));
+  margin-top: env(safe-area-inset-top);
 }
 
-#root main.overflow-y-auto {
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
-}
-
-@media (min-width: 768px) {
-  #root header.flex-shrink-0 {
-    padding-top: calc(1.5rem + env(safe-area-inset-top));
-  }
-
-  #root main.overflow-y-auto {
-    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
-  }
+#root main.overflow-y-auto::after {
+  content: '';
+  display: block;
+  flex: 0 0 auto;
+  height: env(safe-area-inset-bottom);
 }
 
 #root {
