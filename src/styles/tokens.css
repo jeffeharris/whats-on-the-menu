@@ -1,0 +1,120 @@
+/*
+ * Design foundations
+ * ------------------
+ * Primitive tokens describe the brand. Semantic --ui-* tokens describe intent
+ * and are swapped by a theme scope. Components should consume semantic tokens
+ * so a future design system can change themes without rewriting components.
+ */
+@theme {
+  /* Brand primitives */
+  --color-brand-blue: #5b8dee;
+  --color-brand-blue-deep: #2e63d6;
+  --color-brand-purple: #8b5cf6;
+  --color-brand-coral: #ff6b6b;
+  --color-brand-coral-deep: #c53f51;
+  --color-brand-teal: #4ecdc4;
+  --color-brand-teal-deep: #087f78;
+  --color-brand-yellow: #ffe66d;
+  --color-brand-cream: #fff9f0;
+  --color-brand-ink: #233047;
+  --color-brand-peach: #ffd7a8;
+
+  /* Backwards-compatible product aliases */
+  --color-kid-primary: #ff6b6b;
+  --color-kid-primary-deep: #c53f51;
+  --color-kid-secondary: #4ecdc4;
+  --color-kid-secondary-deep: #087f78;
+  --color-kid-accent: #ffe66d;
+  --color-kid-bg: #fff9f0;
+  --color-parent-primary: #5b8dee;
+  --color-parent-primary-deep: #2e63d6;
+  --color-parent-primary-dark: #2e63d6;
+  --color-parent-secondary: #8b5cf6;
+  --color-parent-bg: #fafaf8;
+
+  /* Semantic feedback */
+  --color-success: #0b8f66;
+  --color-warning: #c76a05;
+  --color-danger: #dc3545;
+
+  /* Avatar primitives */
+  --color-avatar-red: #ef4444;
+  --color-avatar-orange: #f97316;
+  --color-avatar-yellow: #eab308;
+  --color-avatar-green: #22c55e;
+  --color-avatar-teal: #14b8a6;
+  --color-avatar-blue: #3b82f6;
+  --color-avatar-purple: #a855f7;
+  --color-avatar-pink: #ec4899;
+
+  /* Typography */
+  --font-heading: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-kid-title: 2.5rem;
+  --font-size-kid-subtitle: 1.75rem;
+  --font-size-kid-body: 1.25rem;
+  --font-size-parent-title: 1.5rem;
+  --font-size-parent-body: 1rem;
+
+  /* Shape, elevation, and motion */
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+  --radius-feature: 1.5rem;
+  --shadow-card: 0 1px 2px rgb(35 48 71 / 0.05), 0 8px 24px rgb(35 48 71 / 0.06);
+  --shadow-card-hover: 0 2px 4px rgb(35 48 71 / 0.06), 0 14px 36px rgb(35 48 71 / 0.1);
+  --shadow-kid: 0 5px 0 rgb(35 48 71 / 0.12), 0 12px 28px rgb(35 48 71 / 0.12);
+  --ease-ui: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Touch-friendly spacing retained for existing utilities */
+  --spacing-touch: 60px;
+  --spacing-card-gap: 16px;
+  --spacing-card-gap-md: 24px;
+  --spacing-section: 32px;
+}
+
+/* Parent is the default theme for shared and public product surfaces. */
+:root,
+[data-theme='parent'] {
+  color-scheme: light;
+  --ui-color-canvas: #fafaf8;
+  --ui-color-surface: #ffffff;
+  --ui-color-surface-subtle: #f4f6fa;
+  --ui-color-text: #233047;
+  --ui-color-text-muted: #667085;
+  --ui-color-border: #e4e7ec;
+  --ui-color-accent: #5b8dee;
+  --ui-color-accent-soft: #edf3ff;
+  --ui-color-action: #2e63d6;
+  --ui-color-action-hover: #2454bd;
+  --ui-color-secondary: #7447df;
+  --ui-color-secondary-hover: #6437ca;
+  --ui-color-focus: #2e63d6;
+  --ui-card-radius: 1rem;
+  --ui-card-shadow: var(--shadow-card);
+  --ui-card-shadow-hover: var(--shadow-card-hover);
+  --ui-background-art: radial-gradient(circle at 90% -10%, rgb(91 141 238 / 0.1), transparent 32rem);
+}
+
+[data-theme='kid'] {
+  --ui-color-canvas: #fff9f0;
+  --ui-color-surface: #ffffff;
+  --ui-color-surface-subtle: #fff2df;
+  --ui-color-text: #233047;
+  --ui-color-text-muted: #667085;
+  --ui-color-border: #f1d9bd;
+  --ui-color-accent: #ff6b6b;
+  --ui-color-accent-soft: #ffe6e1;
+  --ui-color-action: #c53f51;
+  --ui-color-action-hover: #ad3445;
+  --ui-color-secondary: #087f78;
+  --ui-color-secondary-hover: #066b65;
+  --ui-color-focus: #087f78;
+  --ui-card-radius: 1.5rem;
+  --ui-card-shadow: var(--shadow-kid);
+  --ui-card-shadow-hover: 0 7px 0 rgb(35 48 71 / 0.12), 0 18px 34px rgb(35 48 71 / 0.16);
+  --ui-background-art:
+    radial-gradient(circle at 7% 15%, rgb(255 107 107 / 0.13) 0 5rem, transparent 5.1rem),
+    radial-gradient(circle at 92% 12%, rgb(78 205 196 / 0.15) 0 7rem, transparent 7.1rem),
+    radial-gradient(circle at 86% 88%, rgb(255 230 109 / 0.2) 0 9rem, transparent 9.1rem),
+    radial-gradient(circle at 4% 84%, rgb(255 215 168 / 0.22) 0 6rem, transparent 6.1rem);
+}

@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
+import { AppShell } from '../../components/common/AppShell';
+import { BrandMark } from '../../components/common/BrandMark';
+import { SectionHeading } from '../../components/common/SectionHeading';
 import { QuickLaunchPresets } from '../../components/parent/QuickLaunchPresets';
 import { useAppState } from '../../contexts/AppStateContext';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
@@ -130,29 +133,38 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
       key: 'settings',
       label: 'Settings',
       icon: SettingsIcon,
-      count: 'Change PIN',
+      count: 'Account & household',
       color: 'bg-gray-100',
       iconColor: 'text-gray-600',
     },
   ];
 
   return (
-    <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 flex justify-between items-start p-4 md:p-6 pb-2 max-w-2xl mx-auto w-full">
-        <div>
-          <p className="text-xs font-semibold tracking-widest uppercase text-gray-400 mb-1">
-            {getGreeting()}
-          </p>
-          <h1 className="text-2xl font-bold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>
-            What's on the menu?
-          </h1>
+    <AppShell mode="parent" className="h-full flex flex-col overflow-hidden">
+      <header className="app-header flex-shrink-0">
+        <div className="flex justify-between items-center gap-4 p-4 md:px-6 md:py-5 max-w-2xl mx-auto w-full">
+          <div className="flex items-center gap-3 min-w-0">
+            <BrandMark className="hidden sm:block w-11 h-11 rounded-xl shadow-sm flex-shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold tracking-widest uppercase text-gray-500 mb-0.5">
+                {getGreeting()}
+              </p>
+              <h1 className="text-xl md:text-2xl font-bold text-brand-ink truncate font-heading">
+                What's on the menu?
+              </h1>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {currentMenu && <span className="ui-chip hidden sm:inline-flex">Menu ready</span>}
+            <Button variant="ghost" size="sm" onClick={logoutParent}>
+              <span className="flex items-center gap-1.5">
+                <ArrowRightLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Kid Mode</span>
+                <span className="sm:hidden">Kids</span>
+              </span>
+            </Button>
+          </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={logoutParent} className="mt-1">
-          <span className="flex items-center gap-1.5">
-            <ArrowRightLeft className="w-4 h-4" />
-            Kid Mode
-          </span>
-        </Button>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
@@ -161,15 +173,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
             <QuickLaunchPresets onLaunch={handleQuickLaunch} onEdit={handleQuickEdit} />
           </div>
 
-          <div className="mb-3 flex items-center gap-3 mt-2">
-            <h2
-              className="text-xs font-semibold tracking-widest uppercase text-gray-400"
-              style={{ fontFamily: 'var(--font-heading)' }}
-            >
-              Manage
-            </h2>
-            <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
-          </div>
+          <SectionHeading className="mb-3 mt-2">Manage</SectionHeading>
 
           <div className="grid gap-3 md:grid-cols-2">
             {features.map((feature, index) => {
@@ -181,7 +185,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
                 <div key={feature.key} data-coach-mark={coachMarkId}>
                   <Card
                     onClick={() => onNavigate(feature.key)}
-                    className="hover:shadow-lg transition-all duration-200 fade-up-in"
+                    className="fade-up-in"
                     style={{ animationDelay: `${300 + index * 75}ms` }}
                   >
                     <div className="flex items-center gap-3.5">
@@ -214,6 +218,6 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
         stepIndex={coachMarks.stepIndex}
         totalSteps={DASHBOARD_STEPS.length}
       />
-    </div>
+    </AppShell>
   );
 }

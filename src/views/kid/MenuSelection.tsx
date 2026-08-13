@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Button } from '../../components/common/Button';
+import { AppShell } from '../../components/common/AppShell';
 import { FoodCard } from '../../components/kid/FoodCard';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { StepProgress } from '../../components/kid/StepProgress';
@@ -15,6 +16,13 @@ const AUTO_ADVANCE_DELAY_MS = 1500;
 const TRANSITION_DURATION = 500;
 const CARD_STAGGER_DELAY_MS = 60;
 const CELEBRATION_WORDS = ['Yum!', 'Great pick!', 'Tasty!', 'Nice!', 'Delicious!'];
+
+function singularizeGroupLabel(label: string): string {
+  if (/ies$/i.test(label)) return `${label.slice(0, -3)}y`;
+  if (/(?:s|x|z|ch|sh)es$/i.test(label)) return label.slice(0, -2);
+  if (/s$/i.test(label) && !/ss$/i.test(label)) return label.slice(0, -1);
+  return label;
+}
 
 interface MenuSelectionProps {
   kidId: string;
@@ -254,7 +262,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     if (!group) return '';
     const config = SELECTION_PRESET_CONFIG[group.selectionPreset];
     if (config.max === 1) {
-      return `Pick 1 ${group.label.replace(/s$/i, '')}!`;
+      return `Pick 1 ${singularizeGroupLabel(group.label)}!`;
     }
     if (config.min === config.max) {
       return `Pick ${config.max} ${group.label}!`;
@@ -275,7 +283,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
         className={`${animClass ? 'absolute inset-0' : 'relative h-full'} p-4 md:p-6 overflow-y-auto ${animClass}`}
       >
         <div className="text-center mb-6 relative">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-800 tracking-tight font-heading">
+          <h2 className="kid-hero-title text-4xl md:text-5xl">
             {getStepTitle(stepIndex)}
           </h2>
           <p className="text-lg text-gray-500 mt-1">{config.label}</p>
@@ -312,12 +320,12 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   };
 
   return (
-    <div className="h-full bg-kid-bg flex flex-col overflow-hidden">
+    <AppShell mode="kid" className="h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex-shrink-0 flex items-center gap-3 px-4 pt-4 pb-2 max-w-3xl mx-auto w-full">
+      <header className="app-header flex-shrink-0 flex items-center gap-3 px-4 py-3 max-w-3xl mx-auto w-full">
         <button
           onClick={currentStep > 0 ? goToPreviousStep : onBack}
-          className="p-2 hover:bg-white/50 rounded-lg transition-colors"
+          className="ui-icon-button"
           aria-label={currentStep > 0 ? 'Previous step' : 'Go back'}
         >
           <ChevronLeft className="w-8 h-8 text-gray-600" />
@@ -362,14 +370,14 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
       {/* Celebration text overlay */}
       {celebrateText && (
         <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
-          <span className="celebrate-text text-5xl font-extrabold text-kid-primary drop-shadow-lg">
+          <span className="celebrate-text text-5xl font-extrabold text-kid-primary-deep font-heading">
             {celebrateText}
           </span>
         </div>
       )}
 
       {/* Footer */}
-      <footer className="flex-shrink-0 p-4 md:p-6 bg-kid-bg border-t border-kid-primary/10">
+      <footer className="kid-action-dock flex-shrink-0 p-4 md:p-6">
         <div className="max-w-xl mx-auto">
           {isLastStep ? (
             <Button
@@ -399,6 +407,6 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
           )}
         </div>
       </footer>
-    </div>
+    </AppShell>
   );
 }

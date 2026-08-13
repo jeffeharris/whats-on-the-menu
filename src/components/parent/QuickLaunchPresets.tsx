@@ -1,5 +1,6 @@
 import { Sunrise, Cookie, Moon, Sun, Play, Pencil, Plus, ChevronRight } from 'lucide-react';
 import { Button } from '../common/Button';
+import { SectionHeading } from '../common/SectionHeading';
 import { useMenu } from '../../contexts/MenuContext';
 import type { PresetSlot } from '../../types';
 import { PRESET_CONFIG } from '../../types';
@@ -74,12 +75,7 @@ export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps
   if (presetsError) {
     return (
       <div className="mb-6">
-        <div className="mb-4 flex items-center gap-3">
-          <h2 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>
-            Quick Launch
-          </h2>
-          <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
-        </div>
+        <SectionHeading className="mb-4">Quick Launch</SectionHeading>
         <div className="rounded-xl border border-gray-200 bg-white px-4 py-5 text-center">
           <p className="text-sm text-gray-500">Couldn't load your saved menus.</p>
           <p className="text-xs text-gray-400 mt-1">They're still saved — we just couldn't reach them.</p>
@@ -94,12 +90,7 @@ export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps
   if (presetsLoading) {
     return (
       <div className="mb-6">
-        <div className="mb-4 flex items-center gap-3">
-          <h2 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>
-            Quick Launch
-          </h2>
-          <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
-        </div>
+        <SectionHeading className="mb-4">Quick Launch</SectionHeading>
         <div className="flex flex-col gap-2.5">
           {[1, 2, 3, 4].map((i) => (
             <div
@@ -115,12 +106,7 @@ export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps
 
   return (
     <div className="mb-6">
-      <div className="mb-4 flex items-center gap-3">
-        <h2 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'var(--font-heading)' }}>
-          Quick Launch
-        </h2>
-        <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
-      </div>
+      <SectionHeading className="mb-4">Quick Launch</SectionHeading>
       <div className="flex flex-col gap-2.5">
         {PRESET_SLOTS.map((slot, index) => {
           const Icon = PRESET_ICONS[slot];

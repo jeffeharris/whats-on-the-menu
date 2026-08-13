@@ -46,7 +46,7 @@ export function LandingPage() {
             </Link>
             <Link
               to="/signup"
-              className="hidden rounded-xl bg-[var(--color-parent-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5 sm:inline-flex"
+              className="hidden rounded-xl bg-[var(--color-parent-primary-deep)] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5 sm:inline-flex"
             >
               Get Started
             </Link>
@@ -55,11 +55,33 @@ export function LandingPage() {
       </header>
 
       <main>
-        <section className="relative isolate overflow-hidden">
+        <section className="relative isolate flex min-h-[520px] items-center overflow-hidden lg:min-h-[540px]">
           <div className="absolute -left-28 top-16 -z-10 h-64 w-64 rounded-full bg-[var(--color-kid-secondary)]/10 blur-3xl" />
           <div className="absolute -right-24 top-4 -z-10 h-80 w-80 rounded-full bg-[var(--color-kid-primary)]/10 blur-3xl" />
-          <div className="mx-auto grid max-w-6xl items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[0.82fr_1.18fr] lg:gap-12 lg:py-20 xl:max-w-7xl">
-            <div className="text-center lg:text-left">
+
+          {/* The family scene is decorative hero atmosphere rather than a
+              second content column. Keeping it absolutely positioned lets the
+              copy define the layout while the artwork can scale independently. */}
+          <div className="pointer-events-none absolute inset-0 -z-10 mx-auto w-full max-w-7xl" aria-hidden="true">
+            <img
+              src="/brand/hero-family.svg"
+              alt=""
+              width="1280"
+              height="832"
+              fetchPriority="high"
+              className="absolute left-1/2 top-1/2 w-[50rem] max-w-none -translate-x-1/2 -translate-y-1/2 opacity-[0.16] sm:w-[58rem] sm:opacity-20 lg:left-auto lg:right-[-12rem] lg:w-[64rem] lg:translate-x-0 lg:opacity-100"
+            />
+            <div className="absolute inset-0 bg-brand-cream/70 lg:hidden" />
+            <div
+              className="absolute inset-0 hidden lg:block"
+              style={{
+                background: 'linear-gradient(90deg, var(--color-brand-cream) 0%, var(--color-brand-cream) 38%, rgb(255 249 240 / 0.92) 52%, transparent 76%)',
+              }}
+            />
+          </div>
+
+          <div className="relative z-10 mx-auto w-full max-w-6xl px-[15px] py-10 xl:max-w-7xl">
+            <div className="max-w-xl text-center lg:text-left">
               <div className="mb-5 inline-flex items-center rounded-full border border-[var(--color-kid-secondary)]/25 bg-white/75 px-3 py-1.5 text-sm font-semibold text-teal-700 shadow-sm">
                 Parent-approved <span className="mx-2 text-teal-300">•</span> Kid-powered
               </div>
@@ -73,7 +95,7 @@ export function LandingPage() {
               <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row lg:justify-start">
                 <Link
                   to="/signup"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--color-parent-primary)] px-6 py-3 font-semibold text-white shadow-[0_12px_30px_rgba(91,141,238,0.28)] transition-transform hover:-translate-y-0.5"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--color-parent-primary-deep)] px-6 py-3 font-semibold text-white shadow-[0_12px_30px_rgba(46,99,214,0.24)] transition-transform hover:-translate-y-0.5"
                 >
                   Get Started Free
                   <ArrowRight className="h-4 w-4" />
@@ -85,18 +107,6 @@ export function LandingPage() {
                   Sign In
                 </Link>
               </div>
-            </div>
-
-            <div className="relative mx-auto w-full max-w-3xl">
-              <div className="absolute inset-x-10 bottom-1 h-20 rounded-full bg-[var(--color-parent-primary)]/10 blur-2xl" />
-              <img
-                src="/brand/hero-family.svg"
-                alt="A parent and two children choosing foods together for a family meal"
-                width="1280"
-                height="832"
-                fetchPriority="high"
-                className="relative h-auto w-full"
-              />
             </div>
           </div>
         </section>

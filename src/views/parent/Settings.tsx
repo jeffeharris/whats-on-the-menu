@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, KeyRound, Info, Users, UserPlus, Crown, X, Mail, Loader2, LogOut, Coffee } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
+import { AppShell } from '../../components/common/AppShell';
 import { Modal } from '../../components/common/Modal';
 import { useAppState } from '../../contexts/AppStateContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -113,11 +114,11 @@ export function Settings({ onBack }: SettingsProps) {
   };
 
   return (
-    <div className="h-full bg-parent-bg flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
+    <AppShell mode="parent" className="h-full flex flex-col overflow-hidden">
+      <header className="app-header flex-shrink-0 flex items-center gap-4 p-4 md:p-6 max-w-3xl mx-auto w-full">
         <button
           onClick={onBack}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="ui-icon-button"
           aria-label="Go back"
         >
           <ArrowLeft className="w-6 h-6 text-gray-600" />
@@ -307,6 +308,21 @@ export function Settings({ onBack }: SettingsProps) {
               </div>
             </Card>
           )}
+
+          <Card className="fade-up-in" style={{ animationDelay: '375ms' }}>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <LogOut className="w-5 h-5 text-gray-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-semibold text-gray-800 font-heading">Account</h2>
+                <p className="text-sm text-gray-500 truncate">{user?.email}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={logout}>
+                Sign out
+              </Button>
+            </div>
+          </Card>
         </div>
       </main>
 
@@ -332,6 +348,6 @@ export function Settings({ onBack }: SettingsProps) {
           </div>
         </div>
       </Modal>
-    </div>
+    </AppShell>
   );
 }
