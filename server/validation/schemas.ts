@@ -83,7 +83,7 @@ const kidSelectionSchema = z.object({
 
 const kidMealReviewSchema = z.object({
   kidId: z.string().min(1),
-  completions: z.record(z.string(), z.enum(['all', 'some', 'none']).nullable()),
+  completions: z.record(z.string(), z.enum(['all', 'some', 'tried', 'none']).nullable()),
   earnedStar: z.boolean().optional(),
 });
 

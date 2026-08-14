@@ -237,6 +237,47 @@
     opacity: 0.46;
   }
 
+  .kid-food-card[data-variant='full-bleed'] {
+    aspect-ratio: 3 / 4;
+    border-color: transparent;
+    box-shadow: 0 6px 0 rgb(35 48 71 / 0.1), 0 14px 30px rgb(35 48 71 / 0.14);
+  }
+
+  .kid-food-card[data-variant='full-bleed'][data-selected='true'] {
+    border-color: var(--color-kid-secondary-deep);
+    box-shadow: 0 0 0 4px rgb(78 205 196 / 0.28), 0 14px 30px rgb(35 48 71 / 0.18);
+  }
+
+  .kid-food-card-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .kid-food-card-caption {
+    position: absolute;
+    inset: auto 0 0 0;
+    padding: 1.75rem 0.75rem 0.75rem;
+    background: linear-gradient(to top, rgb(20 26 38 / 0.82), rgb(20 26 38 / 0));
+    color: white;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.0625rem;
+    line-height: 1.15;
+  }
+
+  .kid-food-card-add-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dotted rgb(255 255 255 / 0.85);
+    border-radius: 999px;
+    color: white;
+    background: rgb(20 26 38 / 0.28);
+  }
+
   .kid-selection-badge {
     display: flex;
     width: 2.25rem;
@@ -253,6 +294,31 @@
   .kid-progress {
     border-bottom: 1px solid color-mix(in srgb, var(--ui-color-border) 72%, transparent);
     background: color-mix(in srgb, var(--ui-color-canvas) 84%, transparent);
+  }
+
+  .kid-progress[data-compact='true'] {
+    justify-content: flex-end;
+    padding: 0;
+    border-bottom: 0;
+    background: transparent;
+  }
+
+  .kid-progress-pill {
+    width: 1rem;
+    height: 0.4375rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-color-border) 65%, transparent);
+    transition: width 220ms var(--ease-ui), background-color 180ms ease;
+  }
+
+  .kid-progress-pill[data-state='completed'] {
+    background: var(--color-kid-secondary-deep);
+  }
+
+  .kid-progress-pill[data-state='current'] {
+    width: 2rem;
+    background: var(--ui-color-action);
   }
 
   .kid-progress-step {
@@ -283,10 +349,232 @@
     box-shadow: 0 0 0 4px rgb(255 107 107 / 0.2), 0 5px 14px rgb(35 48 71 / 0.16);
   }
 
+  /* Step header: a visible title paired with a row of "slot" chips showing
+     what's required vs. optional for this pick — one chip per config.max. */
+  .kid-select-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 0.625rem;
+  }
+
+  .kid-select-header--center {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .kid-select-title {
+    margin: 0;
+    color: var(--ui-color-text);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.375rem;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+  }
+
+  .kid-select-chips {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.4375rem;
+    margin-left: auto;
+  }
+
+  .kid-select-header--center .kid-select-chips {
+    margin-left: 0;
+  }
+
+  .kid-select-chip {
+    display: flex;
+    width: 2.125rem;
+    height: 2.125rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 3px dashed color-mix(in srgb, var(--ui-color-action) 55%, white);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-color-surface) 60%, transparent);
+  }
+
+  .kid-select-chip[data-filled='true'] {
+    border-style: solid;
+    border-color: var(--color-kid-secondary-deep);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-kid-secondary) 28%, transparent);
+  }
+
+  .kid-select-chip[data-optional='true'] {
+    width: 1.625rem;
+    height: 1.625rem;
+    border-width: 2px;
+    border-style: dotted;
+    border-color: var(--ui-color-hint);
+    background: color-mix(in srgb, white 55%, transparent);
+    color: var(--ui-color-hint-icon);
+  }
+
+  .kid-select-chip[data-optional='true'][data-filled='true'] {
+    border-style: solid;
+    border-color: var(--color-kid-secondary-deep);
+    color: transparent;
+  }
+
   .kid-action-dock {
     border-top: 1px solid color-mix(in srgb, var(--ui-color-border) 72%, transparent);
     background: color-mix(in srgb, var(--ui-color-canvas) 92%, transparent);
     box-shadow: 0 -8px 28px rgb(35 48 71 / 0.05);
     backdrop-filter: blur(14px);
   }
+
+  .kid-view-toggle {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid color-mix(in srgb, var(--ui-color-border) 70%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-color-accent-soft) 70%, white);
+  }
+
+  .kid-view-toggle-option {
+    display: flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: var(--ui-color-text-muted);
+    transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .kid-view-toggle-option[data-active='true'] {
+    color: var(--ui-color-action);
+    background: white;
+    box-shadow: 0 2px 6px rgb(35 48 71 / 0.12);
+  }
+
+  .kid-carousel {
+    display: flex;
+    height: 100%;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+  }
+
+  /* A real swipeable carousel: native scroll + snap points, so a drag tracks the
+     finger with momentum instead of teleporting between items on tap. */
+  .kid-carousel-track {
+    --kid-carousel-item-width: min(68vw, 17rem);
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-block: 0.5rem;
+    padding-inline: calc((100% - var(--kid-carousel-item-width)) / 2);
+  }
+
+  .kid-carousel-track::-webkit-scrollbar { display: none; }
+
+  .kid-carousel-item {
+    flex: 0 0 var(--kid-carousel-item-width);
+    width: var(--kid-carousel-item-width);
+    box-sizing: border-box;
+    padding: 0 0.625rem;
+    scroll-snap-align: center;
+  }
+
+  .kid-carousel-card {
+    overflow: hidden;
+    border: 2px solid white;
+    border-radius: 2rem;
+    background: var(--ui-color-surface);
+    box-shadow: 0 8px 0 rgb(35 48 71 / 0.12), 0 22px 44px rgb(35 48 71 / 0.18);
+    opacity: 0.5;
+    transform: scale(0.9);
+    transition: opacity 220ms ease, transform 220ms var(--ease-ui);
+  }
+
+  .kid-carousel-item[data-active='true'] .kid-carousel-card {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .kid-carousel-card[data-disabled='true'] { opacity: 0.4; }
+
+  .kid-carousel-item[data-active='true'] .kid-carousel-card[data-disabled='true'] {
+    opacity: 0.4;
+  }
+
+  .kid-carousel-card-photo {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    object-fit: cover;
+    background: color-mix(in srgb, var(--ui-color-border) 30%, white);
+  }
+
+  .kid-carousel-card-name {
+    padding: 0.875rem 0.75rem 1rem;
+    text-align: center;
+    color: var(--ui-color-text);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.375rem;
+    line-height: 1.15;
+  }
+
+  .kid-carousel-dots {
+    display: flex;
+    align-items: center;
+    gap: 0.4375rem;
+  }
+
+  .kid-carousel-dot {
+    width: 0.5625rem;
+    height: 0.5625rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-color-border) 85%, transparent);
+    transition: width 180ms var(--ease-ui), background-color 180ms ease;
+  }
+
+  .kid-carousel-dot[data-active='true'] {
+    width: 1.625rem;
+    background: var(--ui-color-action);
+  }
+
+  .kid-carousel-controls {
+    display: flex;
+    width: 100%;
+    max-width: 22rem;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .kid-carousel-skip {
+    display: flex;
+    width: 5.5rem;
+    min-height: 3.75rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid color-mix(in srgb, var(--ui-color-border) 85%, transparent);
+    border-radius: 999px;
+    color: var(--ui-color-text-muted);
+    background: color-mix(in srgb, white 70%, transparent);
+    transition: opacity 150ms ease, transform 150ms var(--ease-ui);
+  }
+
+  .kid-carousel-skip:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .kid-carousel-skip:not(:disabled):active { transform: scale(0.96); }
 }
