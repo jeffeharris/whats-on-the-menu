@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowLeft, ChevronDown, Star, ClipboardCheck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
+import { RingDotIcon } from '../../components/common/RingDotIcon';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { CompletionStatusSelector } from '../../components/parent/CompletionStatusSelector';
 import { getAllFoodIds, getCompletionCardColor, summarizeKidReview } from '../../utils/completionUtils';
@@ -15,16 +16,6 @@ import type { CompletionStatus, KidMealReview } from '../../types';
 interface MealReviewProps {
   onComplete: () => void;
   onBack: () => void;
-}
-
-/** Ring-and-dot icon used to mark the "Tried everything" badge. */
-function TriedEverythingIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
-      <circle cx="12" cy="12" r="3.6" fill="currentColor" />
-    </svg>
-  );
 }
 
 export function MealReview({ onComplete, onBack }: MealReviewProps) {
@@ -48,13 +39,23 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
     setOpenKids((prev) => ({ ...prev, [kidId]: !(prev[kidId] ?? true) }));
   };
 
+  // The star defaults to "every food marked All of it", but a parent can
+  // always award or revoke it by hand (e.g. forgive a couple of crumbs) —
+  // once they do, their call overrides the automatic one for this review.
+  const [starOverrides, setStarOverrides] = useState<{ [kidId: string]: boolean }>({});
+
+  const toggleStar = (kidId: string, currentEarnedStar: boolean) => {
+    setStarOverrides((prev) => ({ ...prev, [kidId]: !currentEarnedStar }));
+  };
+
   const buildReview = (kidId: string, foodIds: string[]): KidMealReview => {
     const completions = foodIds.reduce((acc, foodId) => {
       acc[foodId] = marks[kidId]?.[foodId] ?? null;
       return acc;
     }, {} as { [foodId: string]: CompletionStatus });
     const cleared = foodIds.length > 0 && foodIds.every((id) => completions[id] === 'all');
-    return { kidId, completions, earnedStar: cleared };
+    const earnedStar = starOverrides[kidId] ?? cleared;
+    return { kidId, completions, earnedStar };
   };
 
   const updateCompletion = (kidId: string, foodId: string, status: CompletionStatus, foodIds: string[]) => {
@@ -152,41 +153,50 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
                 className="overflow-hidden fade-up-in"
                 style={{ animationDelay: `${kidIndex * 100}ms` }}
               >
-                {/* Kid header — toggles the food list open/closed */}
-                <button
-                  onClick={() => toggleKidOpen(selection.kidId)}
-                  className="w-full flex items-center gap-3 p-3 min-h-11 text-left bg-transparent border-0 cursor-pointer"
-                  aria-expanded={isOpen}
-                >
-                  <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="font-semibold text-gray-800 text-[17px] truncate"
-                      style={{ fontFamily: 'var(--font-heading)' }}
-                    >
-                      {kid.name}'s plate
-                    </p>
-                    {summary.triedEverything ? (
-                      <span
-                        className="inline-flex items-center gap-1.5 mt-0.5 px-2 py-0.5 rounded-full bg-brand-teal-deep/10 text-brand-teal-deep text-[11px] font-bold"
+                {/* Kid header */}
+                <div className="w-full flex items-center gap-3 p-3">
+                  <button
+                    onClick={() => toggleKidOpen(selection.kidId)}
+                    className="flex-1 min-w-0 flex items-center gap-3 min-h-11 text-left bg-transparent border-0 cursor-pointer"
+                    aria-expanded={isOpen}
+                  >
+                    <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="font-semibold text-gray-800 text-[17px] truncate"
                         style={{ fontFamily: 'var(--font-heading)' }}
                       >
-                        <TriedEverythingIcon />
-                        Tried everything
-                      </span>
-                    ) : (
-                      <p className="text-xs text-gray-500">{summary.summaryText}</p>
-                    )}
-                  </div>
-                  <Star
-                    className={`w-5 h-5 flex-shrink-0 transition-colors ${summary.cleared ? 'text-yellow-400' : 'text-gray-200'}`}
-                    fill={summary.cleared ? 'currentColor' : 'none'}
-                    strokeWidth={summary.cleared ? 0 : 1.5}
-                  />
-                  <ChevronDown
-                    className={`w-5 h-5 flex-shrink-0 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
+                        {kid.name}'s plate
+                      </p>
+                      {summary.triedEverything ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 mt-0.5 px-2 py-0.5 rounded-full bg-brand-teal-deep/10 text-brand-teal-deep text-[11px] font-bold"
+                          style={{ fontFamily: 'var(--font-heading)' }}
+                        >
+                          <RingDotIcon size={13} dotRadius={3.6} strokeWidth={2} />
+                          Tried everything
+                        </span>
+                      ) : (
+                        <p className="text-xs text-gray-500">{summary.summaryText}</p>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`w-5 h-5 flex-shrink-0 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  <button
+                    onClick={() => toggleStar(selection.kidId, review.earnedStar ?? false)}
+                    className="flex-shrink-0 p-1 -m-1 rounded-lg hover:bg-gray-50 transition-colors"
+                    aria-pressed={review.earnedStar ?? false}
+                    aria-label={review.earnedStar ? `Remove ${kid.name}'s Happy Plate star` : `Award ${kid.name} a Happy Plate star`}
+                  >
+                    <Star
+                      className={`w-5 h-5 transition-colors ${review.earnedStar ? 'text-yellow-400' : 'text-gray-200'}`}
+                      fill={review.earnedStar ? 'currentColor' : 'none'}
+                      strokeWidth={review.earnedStar ? 0 : 1.5}
+                    />
+                  </button>
+                </div>
 
                 {/* Food items */}
                 {isOpen && (

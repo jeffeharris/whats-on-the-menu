@@ -1,3 +1,4 @@
+import { RingDotIcon } from '../common/RingDotIcon';
 import { COMPLETION_STEPS } from '../../utils/completionUtils';
 import type { CompletionStatus } from '../../types';
 
@@ -7,17 +8,6 @@ interface CompletionStatusSelectorProps {
   foodName: string;
 }
 
-/** Small ring-and-dot icon whose inner dot scales with `fill` (0-1), echoing a completion level. */
-function CompletionDotIcon({ fill }: { fill: number }) {
-  const radius = (7 * Math.sqrt(fill)).toFixed(2);
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.75" />
-      <circle cx="12" cy="12" r={radius} fill="currentColor" />
-    </svg>
-  );
-}
-
 export function CompletionStatusSelector({
   value,
   onChange,
@@ -25,7 +15,8 @@ export function CompletionStatusSelector({
 }: CompletionStatusSelectorProps) {
   return (
     <div
-      className="grid grid-cols-4 gap-1"
+      className="grid gap-1"
+      style={{ gridTemplateColumns: `repeat(${COMPLETION_STEPS.length}, minmax(0, 1fr))` }}
       role="group"
       aria-label={`Completion status for ${foodName}`}
     >
@@ -45,7 +36,7 @@ export function CompletionStatusSelector({
             aria-pressed={isSelected}
             aria-label={step.label}
           >
-            <CompletionDotIcon fill={step.fill} />
+            <RingDotIcon size={16} dotRadius={7 * Math.sqrt(step.fill)} />
             <span
               className={`text-[10px] leading-tight text-center font-heading ${isSelected ? 'font-bold' : 'font-medium'}`}
             >

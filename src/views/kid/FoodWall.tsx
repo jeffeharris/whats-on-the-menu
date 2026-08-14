@@ -3,6 +3,7 @@ import { ArrowLeft, UtensilsCrossed } from 'lucide-react';
 import { AppShell } from '../../components/common/AppShell';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { RingDotIcon } from '../../components/common/RingDotIcon';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
@@ -35,15 +36,6 @@ const STICKER_TILE = [
   { left: '68%', top: 380, size: 96, tilt: -3 },
 ];
 const TILE_HEIGHT = 500;
-
-function TriedDotIcon({ tried }: { tried: boolean }) {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
-      <circle cx="12" cy="12" r={tried ? 7 : 2.6} fill="currentColor" />
-    </svg>
-  );
-}
 
 function describeFood(item: FoodItem, tried: boolean, servedCount: number, lastServedAt: number | null): string {
   const timesText = servedCount === 1 ? 'once' : `${servedCount} times`;
@@ -190,7 +182,7 @@ export function FoodWall({ kidId, onBack, onSwitchKid }: FoodWallProps) {
                   }`}
                   style={{ fontFamily: 'var(--font-heading)' }}
                 >
-                  <TriedDotIcon tried={selected.tried} />
+                  <RingDotIcon size={13} dotRadius={selected.tried ? 7 : 2.6} strokeWidth={2} />
                   {selected.tried ? 'Tried it' : 'Not yet'}
                 </span>
               </div>
