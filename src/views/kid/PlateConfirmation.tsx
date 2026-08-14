@@ -1,5 +1,6 @@
 import { X, Check } from 'lucide-react';
 import { AppShell } from '../../components/common/AppShell';
+import { Button } from '../../components/common/Button';
 import { FoodCard } from '../../components/kid/FoodCard';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
@@ -16,14 +17,29 @@ interface PlateConfirmationProps {
 export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { currentMenu, getSelectionForKid, selectionsLocked } = useMenu();
+  const { activeMenu: currentMenu, getSelectionForKid, selectionsLocked } = useMenu();
 
   const kid = getProfile(kidId);
   const selection = getSelectionForKid(kidId);
   const { playPlaced } = useSound();
 
-  if (!kid || !selection || !currentMenu) {
+  if (!kid) {
     return null;
+  }
+
+  if (!selection || !currentMenu) {
+    return (
+      <AppShell mode="kid" className="h-full flex flex-col items-center justify-center px-6 text-center">
+        <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="lg" />
+        <h1 className="kid-hero-title text-3xl mt-5">No plate this time</h1>
+        <p className="text-gray-500 mt-2 mb-8 max-w-sm">
+          Your grown-up finished this round before you picked a plate.
+        </p>
+        <Button mode="kid" variant="primary" size="touch" onClick={onDone}>
+          Back to everyone
+        </Button>
+      </AppShell>
+    );
   }
 
   // Get items from the new selections structure, grouped by menu groups
@@ -31,7 +47,7 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
 
   if (selection.selections) {
     // New structure
-    currentMenu.groups
+    [...currentMenu.groups]
       .sort((a, b) => a.order - b.order)
       .forEach((group) => {
         const selectedIds = selection.selections[group.id] || [];

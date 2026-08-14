@@ -136,7 +136,7 @@ describe('Cross-household tenant isolation', () => {
     it("does not expose another household's preset slot", async () => {
       await seedTwoTenants();
       await request(app).put('/api/menus/presets/breakfast').set('Cookie', bob.cookie)
-        .send({ name: "Bob's Breakfast", groups: [menuGroup] }).expect(200);
+        .send({ name: "Bob's Breakfast", groups: [menuGroup], expectedUpdatedAt: null }).expect(200);
 
       const alicePresets = await request(app).get('/api/menus/presets').set('Cookie', alice.cookie).expect(200);
       expect(alicePresets.body.presets.breakfast).toBeNull();

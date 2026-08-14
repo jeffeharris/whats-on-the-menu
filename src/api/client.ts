@@ -1,4 +1,4 @@
-import type { FoodItem, KidProfile, AvatarColor, AvatarAnimal, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup, HouseholdMember, HouseholdInvitation, InviteInfo } from '../types';
+import type { FoodItem, KidProfile, AvatarColor, AvatarAnimal, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup, HouseholdMember, HouseholdInvitation, InviteInfo, SelectionStatus } from '../types';
 
 const API_BASE = '/api';
 
@@ -7,6 +7,11 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     ...options,
     credentials: 'include',
   });
+}
+
+async function getApiError(res: Response, fallback: string): Promise<Error> {
+  const body = await res.json().catch(() => null) as { error?: string } | null;
+  return new Error(body?.error || fallback);
 }
 
 // Foods API
@@ -110,7 +115,12 @@ export const menusApi = {
     if (!res.ok) throw new Error('Failed to delete menu');
   },
 
-  async getActive(): Promise<{ menu: SavedMenu | null; selections: KidSelection[] }> {
+  async getActive(): Promise<{
+    menu: SavedMenu | null;
+    selections: KidSelection[];
+    selectionStatus: SelectionStatus;
+    selectionRevision: number;
+  }> {
     const res = await apiFetch(`${API_BASE}/menus/active`);
     if (!res.ok) throw new Error('Failed to fetch active menu');
     return res.json();
@@ -125,14 +135,30 @@ export const menusApi = {
     if (!res.ok) throw new Error('Failed to set active menu');
   },
 
-  async addSelection(kidId: string, selections: GroupSelections): Promise<KidSelection> {
+  async addSelection(
+    kidId: string,
+    selections: GroupSelections,
+    menuId: string,
+    selectionRevision: number
+  ): Promise<KidSelection> {
     const res = await apiFetch(`${API_BASE}/menus/selections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kidId, selections }),
+      body: JSON.stringify({ kidId, selections, menuId, selectionRevision }),
     });
-    if (!res.ok) throw new Error('Failed to add selection');
+    if (!res.ok) throw await getApiError(res, 'Failed to save choices');
     return res.json();
+  },
+
+  async setSelectionStatus(status: SelectionStatus): Promise<SelectionStatus> {
+    const res = await apiFetch(`${API_BASE}/menus/selections/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw await getApiError(res, 'Failed to update choice approval');
+    const data = await res.json() as { selectionStatus: SelectionStatus };
+    return data.selectionStatus;
   },
 
   async clearSelections(): Promise<void> {
@@ -146,13 +172,18 @@ export const menusApi = {
     return res.json();
   },
 
-  async updatePreset(slot: PresetSlot, name: string, groups: MenuGroup[]): Promise<SavedMenu> {
+  async updatePreset(
+    slot: PresetSlot,
+    name: string,
+    groups: MenuGroup[],
+    expectedUpdatedAt: number | null
+  ): Promise<SavedMenu & { affectsActiveMenu: boolean }> {
     const res = await apiFetch(`${API_BASE}/menus/presets/${slot}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, groups }),
+      body: JSON.stringify({ name, groups, expectedUpdatedAt }),
     });
-    if (!res.ok) throw new Error('Failed to update preset');
+    if (!res.ok) throw await getApiError(res, 'Failed to update preset');
     return res.json();
   },
 
@@ -161,7 +192,10 @@ export const menusApi = {
     if (!res.ok) throw new Error('Failed to delete preset');
   },
 
-  async copyPreset(fromSlot: PresetSlot, toSlot: PresetSlot): Promise<SavedMenu> {
+  async copyPreset(
+    fromSlot: PresetSlot,
+    toSlot: PresetSlot
+  ): Promise<SavedMenu & { affectsActiveMenu: boolean }> {
     const res = await apiFetch(`${API_BASE}/menus/presets/${fromSlot}/copy/${toSlot}`, {
       method: 'POST',
     });

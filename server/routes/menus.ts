@@ -8,19 +8,23 @@ import {
   setActiveMenu,
   addSelection,
   clearSelections,
+  setSelectionStatus,
   getPresets,
   updatePreset,
   deletePreset,
   copyPreset,
   isValidPresetSlot,
+  MenuOperationError,
 } from '../db/queries/menus.js';
 import {
   createMenuSchema,
   updateMenuSchema,
   setActiveMenuSchema,
   addSelectionSchema,
+  selectionStatusSchema,
   updatePresetSchema,
 } from '../validation/schemas.js';
+import { publishMenuEvent } from '../realtime/menuEvents.js';
 
 const router = Router();
 
@@ -45,6 +49,7 @@ router.post('/', async (req, res) => {
     const { name, groups } = result.data;
 
     const menu = await createMenu(req.householdId!, name || 'Menu', groups);
+    publishMenuEvent(req.householdId!, { reason: 'active-menu-changed' });
     res.status(201).json(menu);
   } catch (error) {
     console.error('Error creating menu:', error);
@@ -82,6 +87,7 @@ router.put('/active', async (req, res) => {
     }
 
     await setActiveMenu(req.householdId!, menuId);
+    publishMenuEvent(req.householdId!, { reason: 'active-menu-changed' });
     res.json({ activeMenuId: menuId });
   } catch (error) {
     console.error('Error setting active menu:', error);
@@ -96,11 +102,21 @@ router.post('/selections', async (req, res) => {
     if (!result.success) {
       return res.status(400).json({ error: result.error.issues[0].message });
     }
-    const { kidId, selections } = result.data;
+    const { kidId, selections, menuId, selectionRevision } = result.data;
 
-    const selection = await addSelection(req.householdId!, kidId, selections || {});
+    const selection = await addSelection(
+      req.householdId!,
+      kidId,
+      selections,
+      menuId,
+      selectionRevision
+    );
+    publishMenuEvent(req.householdId!, { reason: 'selection-updated' });
     res.status(201).json(selection);
   } catch (error) {
+    if (error instanceof MenuOperationError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     console.error('Error adding selection:', error);
     res.status(500).json({ error: 'Failed to add selection' });
   }
@@ -110,10 +126,31 @@ router.post('/selections', async (req, res) => {
 router.delete('/selections', async (req, res) => {
   try {
     await clearSelections(req.householdId!);
+    publishMenuEvent(req.householdId!, { reason: 'selections-cleared' });
     res.status(204).send();
   } catch (error) {
     console.error('Error clearing selections:', error);
     res.status(500).json({ error: 'Failed to clear selections' });
+  }
+});
+
+// PUT /api/menus/selections/status - Approve or reopen the active choices
+router.put('/selections/status', async (req, res) => {
+  try {
+    const result = selectionStatusSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error.issues[0].message });
+    }
+
+    const selectionStatus = await setSelectionStatus(req.householdId!, result.data.status);
+    publishMenuEvent(req.householdId!, { reason: 'selection-status-changed' });
+    res.json({ selectionStatus });
+  } catch (error) {
+    if (error instanceof MenuOperationError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    console.error('Error changing selection status:', error);
+    res.status(500).json({ error: 'Failed to change selection status' });
   }
 });
 
@@ -141,16 +178,24 @@ router.put('/presets/:slot', async (req, res) => {
     if (!result.success) {
       return res.status(400).json({ error: result.error.issues[0].message });
     }
-    const { name, groups } = result.data;
+    const { name, groups, expectedUpdatedAt } = result.data;
 
-    const menu = await updatePreset(
+    const mutation = await updatePreset(
       req.householdId!,
       slot,
       name || slot.charAt(0).toUpperCase() + slot.slice(1),
-      groups
+      groups,
+      expectedUpdatedAt
     );
-    res.json(menu);
+    publishMenuEvent(req.householdId!, {
+      reason: 'preset-changed',
+      affectsActiveMenu: mutation.affectsActiveMenu,
+    });
+    res.json({ ...mutation.menu, affectsActiveMenu: mutation.affectsActiveMenu });
   } catch (error) {
+    if (error instanceof MenuOperationError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     console.error('Error updating preset:', error);
     res.status(500).json({ error: 'Failed to update preset' });
   }
@@ -165,11 +210,15 @@ router.delete('/presets/:slot', async (req, res) => {
       return res.status(400).json({ error: 'Invalid preset slot' });
     }
 
-    const deleted = await deletePreset(req.householdId!, slot);
-    if (!deleted) {
+    const mutation = await deletePreset(req.householdId!, slot);
+    if (!mutation.deleted) {
       return res.status(404).json({ error: 'Preset not found' });
     }
 
+    publishMenuEvent(req.householdId!, {
+      reason: 'preset-changed',
+      affectsActiveMenu: mutation.affectsActiveMenu,
+    });
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting preset:', error);
@@ -189,12 +238,16 @@ router.post('/presets/:fromSlot/copy/:toSlot', async (req, res) => {
       return res.status(400).json({ error: 'Invalid target preset slot' });
     }
 
-    const menu = await copyPreset(req.householdId!, fromSlot, toSlot);
-    if (!menu) {
+    const mutation = await copyPreset(req.householdId!, fromSlot, toSlot);
+    if (!mutation) {
       return res.status(404).json({ error: 'Source preset not found' });
     }
 
-    res.json(menu);
+    publishMenuEvent(req.householdId!, {
+      reason: 'preset-changed',
+      affectsActiveMenu: mutation.affectsActiveMenu,
+    });
+    res.json({ ...mutation.menu, affectsActiveMenu: mutation.affectsActiveMenu });
   } catch (error) {
     console.error('Error copying preset:', error);
     res.status(500).json({ error: 'Failed to copy preset' });
@@ -211,12 +264,15 @@ router.put('/:id', async (req, res) => {
     }
     const { name, groups } = result.data;
 
-    const updated = await updateMenu(req.householdId!, id, { name, groups });
-    if (!updated) {
+    const mutation = await updateMenu(req.householdId!, id, { name, groups });
+    if (!mutation) {
       return res.status(404).json({ error: 'Menu not found' });
     }
 
-    res.json(updated);
+    if (mutation.affectsActiveMenu) {
+      publishMenuEvent(req.householdId!, { reason: 'active-menu-changed' });
+    }
+    res.json(mutation.menu);
   } catch (error) {
     console.error('Error updating menu:', error);
     res.status(500).json({ error: 'Failed to update menu' });
@@ -233,6 +289,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Menu not found' });
     }
 
+    publishMenuEvent(req.householdId!, { reason: 'active-menu-changed' });
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting menu:', error);

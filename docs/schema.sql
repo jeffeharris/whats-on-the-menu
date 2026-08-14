@@ -28,6 +28,9 @@ CREATE TABLE households (
   name            TEXT NOT NULL DEFAULT 'My Household',
   grownup_check_enabled BOOLEAN NOT NULL DEFAULT false,  -- gate kid->parent mode behind a spelled-out challenge
   active_menu_id  UUID,           -- FK added below after menus table exists
+  selection_status TEXT NOT NULL DEFAULT 'open'
+    CHECK (selection_status IN ('open', 'approved')),
+  selection_revision BIGINT NOT NULL DEFAULT 0,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -221,7 +224,8 @@ CREATE TABLE kid_selections (
   household_id    UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   kid_id          UUID NOT NULL REFERENCES kid_profiles(id) ON DELETE CASCADE,
   selections      JSONB NOT NULL DEFAULT '{}',   -- { [groupId]: foodId[] }
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- One selection per kid per household (upsert pattern)

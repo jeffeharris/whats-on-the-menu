@@ -21,7 +21,7 @@ interface MealReviewProps {
 export function MealReview({ onComplete, onBack }: MealReviewProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { currentMenu, selections, unlockAndClearSelections } = useMenu();
+  const { activeMenu: currentMenu, selections, unlockAndClearSelections } = useMenu();
   const { addMeal } = useMealHistory();
 
   // Only the marks a parent has actually made, keyed by kid then food.
