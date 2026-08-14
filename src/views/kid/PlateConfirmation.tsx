@@ -72,6 +72,8 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
     }
   }
 
+  const totalCount = groupedItems.reduce((sum, group) => sum + group.items.length, 0);
+
   return (
     <AppShell mode="kid" className="h-full flex flex-col overflow-hidden">
       {/* Header - fixed at top */}
@@ -82,33 +84,31 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
             {kid.name}'s Plate
           </h1>
           <p className="text-gray-500 text-sm">
-            Yummy choices!
+            {totalCount === 1 ? 'Your yummy pick!' : `All ${totalCount} of your yummy picks`}
           </p>
         </div>
       </header>
 
       {/* Scrollable content */}
       <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col overflow-y-auto px-4 md:px-8">
-        {/* Selected items by group */}
-        <div className="flex-1 pt-2">
-          {groupedItems.map((group, idx) => (
-            <div key={idx} className="mb-4">
-              <h2 className="kid-hero-title text-xl mb-3 text-center">
-                {group.label}
-              </h2>
-              <div className="flex justify-center gap-4 md:gap-6 flex-wrap">
-                {group.items.map((item) => item && (
-                  <FoodCard
-                    key={item.id}
-                    name={item.name}
-                    imageUrl={item.imageUrl}
-                    selected
-                    size={group.items.length === 1 ? 'lg' : 'md'}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+        {/* All selected items in one grid, grouped by their menu group via a caption label */}
+        <div className="flex-1 pt-2 pb-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
+            {groupedItems.flatMap((group) =>
+              group.items.map((item) => item && (
+                <FoodCard
+                  key={item.id}
+                  name={item.name}
+                  imageUrl={item.imageUrl}
+                  groupLabel={group.label}
+                  selected
+                  variant="full-bleed"
+                  responsive
+                  className="w-full h-auto"
+                />
+              ))
+            )}
+          </div>
         </div>
 
       </div>
