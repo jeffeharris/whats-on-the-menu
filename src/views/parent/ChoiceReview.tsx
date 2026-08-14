@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, ArrowLeft, CheckCircle2, ClipboardCheck, LockKeyhole, RotateCcw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, LockKeyhole, RotateCcw } from 'lucide-react';
 import { AppShell } from '../../components/common/AppShell';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
@@ -11,9 +11,10 @@ import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 
 interface ChoiceReviewProps {
   onBack: () => void;
+  onContinueToMealReview: () => void;
 }
 
-export function ChoiceReview({ onBack }: ChoiceReviewProps) {
+export function ChoiceReview({ onBack, onContinueToMealReview }: ChoiceReviewProps) {
   const {
     getItem,
     loading: foodsLoading,
@@ -52,7 +53,7 @@ export function ChoiceReview({ onBack }: ChoiceReviewProps) {
   };
 
   return (
-    <AppShell mode="parent" className="h-full flex flex-col overflow-hidden">
+    <AppShell mode="parent" className="relative h-full flex flex-col overflow-hidden">
       <header className="app-header flex-shrink-0">
         <div className="flex items-center gap-3 p-4 md:px-6 md:py-5 max-w-3xl mx-auto w-full">
           <button onClick={onBack} className="ui-icon-button" aria-label="Go back">
@@ -169,24 +170,10 @@ export function ChoiceReview({ onBack }: ChoiceReviewProps) {
                 })}
               </div>
 
-              <div className="max-w-md mx-auto mt-6 pb-4">
-                {selectionStatus === 'approved' ? (
-                  <div className="rounded-2xl bg-success/10 border border-success/20 p-4 text-center">
-                    <CheckCircle2 className="w-9 h-9 text-success mx-auto mb-2" />
-                    <h2 className="font-semibold text-brand-ink font-heading">Choices approved</h2>
-                    <p className="text-sm text-gray-600 mt-1 mb-4">The kids' plates are locked on every device.</p>
-                    <Button
-                      variant="secondary"
-                      fullWidth
-                      className="gap-2"
-                      disabled={saving}
-                      onClick={() => void changeStatus('unlock')}
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      {saving ? 'Unlocking…' : 'Unlock choices'}
-                    </Button>
-                  </div>
-                ) : (
+              {selectionStatus === 'approved' ? (
+                <div className="h-56" aria-hidden="true" />
+              ) : (
+                <div className="max-w-md mx-auto mt-6 pb-4">
                   <Button
                     variant="primary"
                     size="lg"
@@ -198,13 +185,57 @@ export function ChoiceReview({ onBack }: ChoiceReviewProps) {
                     <LockKeyhole className="w-5 h-5" />
                     {saving ? 'Approving…' : 'Approve & lock choices'}
                   </Button>
-                )}
-                {error && <p className="text-sm text-danger text-center mt-3" role="alert">{error}</p>}
-              </div>
+                  {error && <p className="text-sm text-danger text-center mt-3" role="alert">{error}</p>}
+                </div>
+              )}
             </>
           )}
         </div>
       </main>
+
+      {!reviewDataLoading && !reviewDataError && selections.length > 0 && currentMenu && selectionStatus === 'approved' && (
+        <footer
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-4 pt-10 md:px-6"
+          style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        >
+          <div
+            className="absolute inset-0 -z-10"
+            style={{
+              background: 'linear-gradient(to top, var(--ui-color-canvas) 0%, color-mix(in srgb, var(--ui-color-canvas) 90%, transparent) 72%, transparent 100%)',
+            }}
+          />
+          <div className="pointer-events-auto max-w-md mx-auto rounded-2xl bg-success/10 border border-success/20 p-4 text-center backdrop-blur-md shadow-lg">
+            <div role="status" aria-live="polite">
+              <CheckCircle2 className="w-9 h-9 text-success mx-auto mb-2" />
+              <h2 className="font-semibold text-brand-ink font-heading">Choices approved</h2>
+              <p className="text-sm text-gray-600 mt-1 mb-4">The kids' plates are locked on every device.</p>
+            </div>
+            <div className="space-y-2">
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                className="gap-2"
+                onClick={onContinueToMealReview}
+              >
+                Continue to meal review
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                fullWidth
+                className="gap-2"
+                disabled={saving}
+                onClick={() => void changeStatus('unlock')}
+              >
+                <RotateCcw className="w-4 h-4" />
+                {saving ? 'Unlocking…' : 'Unlock choices'}
+              </Button>
+            </div>
+            {error && <p className="text-sm text-danger text-center mt-3" role="alert">{error}</p>}
+          </div>
+        </footer>
+      )}
     </AppShell>
   );
 }

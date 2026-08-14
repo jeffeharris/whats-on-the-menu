@@ -5,6 +5,7 @@ import { AppShell } from '../../components/common/AppShell';
 import { BrandMark } from '../../components/common/BrandMark';
 import { SectionHeading } from '../../components/common/SectionHeading';
 import { QuickLaunchPresets } from '../../components/parent/QuickLaunchPresets';
+import { MealResponseNotice } from '../../components/parent/MealResponseNotice';
 import { useAppState } from '../../contexts/AppStateContext';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
@@ -15,7 +16,7 @@ import { CoachMarksOverlay } from '../../components/coachmarks/CoachMarksOverlay
 import { DASHBOARD_STEPS } from '../../components/coachmarks/steps';
 import {
   UtensilsCrossed, Users, ClipboardList, Clock, Share2,
-  Settings as SettingsIcon, ChevronRight, ArrowRightLeft, CheckCircle2, ClipboardCheck,
+  Settings as SettingsIcon, ChevronRight, ArrowRightLeft,
 } from 'lucide-react';
 import type { PresetSlot } from '../../types';
 
@@ -39,7 +40,7 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
   const { logoutParent, setMode } = useAppState();
   const { items, loading: itemsLoading, error: itemsError } = useFoodLibrary();
   const { profiles, loading: profilesLoading, error: profilesError } = useKidProfiles();
-  const { activeMenu: currentMenu, selections, selectionStatus, loadPresetAsActive, loadPreset, presets, presetsLoading } = useMenu();
+  const { activeMenu: currentMenu, selections, selectionStatus, loadPresetAsActive, loadPreset, clearMenu, presets, presetsLoading } = useMenu();
   const { meals, loading: mealsLoading, error: mealsError } = useMealHistory();
 
   /**
@@ -59,15 +60,6 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
     return `${n} ${n === 1 ? singular : plural}`;
   };
   const coachMarks = useCoachMarks();
-  const selectedKidNames = selections
-    .map((selection) => profiles.find((profile) => profile.id === selection.kidId)?.name)
-    .filter((name): name is string => Boolean(name));
-  const fallbackPlateSummary = `${selections.length} ${selections.length === 1 ? 'plate is' : 'plates are'} ready`;
-  const selectionSummary = selectedKidNames.length === 0
-    ? fallbackPlateSummary
-    : selectedKidNames.length === 1
-      ? `${selectedKidNames[0]} has picked`
-      : `${selectedKidNames.slice(0, -1).join(', ')} and ${selectedKidNames.at(-1)} have picked`;
 
   // Start coach marks if presets exist (seeded) and user hasn't seen them
   useEffect(() => {
@@ -88,6 +80,10 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
   const handleQuickEdit = (slot: PresetSlot) => {
     loadPreset(slot);
     onNavigate('menu-builder');
+  };
+
+  const handleQuickPause = async () => {
+    await clearMenu();
   };
 
   const features: {
@@ -176,54 +172,23 @@ export function ParentDashboard({ onNavigate }: ParentDashboardProps) {
         </div>
       </header>
 
+      <MealResponseNotice
+        profiles={profiles}
+        selections={selections}
+        selectionStatus={selectionStatus}
+        onReviewChoices={() => onNavigate('choice-review')}
+      />
+
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="max-w-lg md:max-w-2xl mx-auto">
           <div data-coach-mark="quick-launch">
-            <QuickLaunchPresets onLaunch={handleQuickLaunch} onEdit={handleQuickEdit} />
+            <QuickLaunchPresets
+              activeMenuId={currentMenu?.id ?? null}
+              onLaunch={handleQuickLaunch}
+              onPause={handleQuickPause}
+              onEdit={handleQuickEdit}
+            />
           </div>
-
-          {selections.length > 0 && (
-            <section className="mb-6">
-              <SectionHeading className="mb-3">Today's choices</SectionHeading>
-              <Card className={selectionStatus === 'approved' ? 'border border-success/20 bg-success/5' : 'border border-parent-primary/20'}>
-                <div className="flex items-start gap-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${selectionStatus === 'approved' ? 'bg-success/15' : 'bg-parent-primary/10'}`}>
-                    {selectionStatus === 'approved' ? (
-                      <CheckCircle2 className="w-6 h-6 text-success" />
-                    ) : (
-                      <ClipboardCheck className="w-6 h-6 text-parent-primary" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="font-semibold text-brand-ink font-heading">
-                      {selectionStatus === 'approved' ? 'Choices approved' : 'Choices ready to review'}
-                    </h2>
-                    <p className="text-sm text-gray-600 mt-0.5">
-                      {selectionStatus === 'approved'
-                        ? selectedKidNames.length > 0
-                          ? `${selectedKidNames.join(' and ')} ${selectedKidNames.length === 1 ? 'is' : 'are'} all set`
-                          : fallbackPlateSummary
-                        : selectionSummary}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 mt-4">
-                  <Button
-                    variant={selectionStatus === 'approved' ? 'secondary' : 'primary'}
-                    fullWidth
-                    onClick={() => onNavigate('choice-review')}
-                  >
-                    {selectionStatus === 'approved' ? 'View choices' : 'Review choices'}
-                  </Button>
-                  {selectionStatus === 'approved' && (
-                    <Button variant="primary" fullWidth onClick={() => onNavigate('meal-review')}>
-                      Review after eating
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            </section>
-          )}
 
           <SectionHeading className="mb-3 mt-2">Manage</SectionHeading>
 

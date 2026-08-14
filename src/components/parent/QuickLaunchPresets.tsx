@@ -1,4 +1,4 @@
-import { Sunrise, Cookie, Moon, Sun, Play, Pencil, Plus, ChevronRight } from 'lucide-react';
+import { Sunrise, Cookie, Moon, Sun, Play, Pause, Pencil, Plus, ChevronRight } from 'lucide-react';
 import { Button } from '../common/Button';
 import { SectionHeading } from '../common/SectionHeading';
 import { useMenu } from '../../contexts/MenuContext';
@@ -62,11 +62,13 @@ const PRESET_COLORS: Record<PresetSlot, {
 const PRESET_SLOTS: PresetSlot[] = ['breakfast', 'snack', 'dinner', 'custom'];
 
 interface QuickLaunchPresetsProps {
+  activeMenuId: string | null;
   onLaunch: (slot: PresetSlot) => void;
+  onPause: () => void;
   onEdit: (slot: PresetSlot) => void;
 }
 
-export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps) {
+export function QuickLaunchPresets({ activeMenuId, onLaunch, onPause, onEdit }: QuickLaunchPresetsProps) {
   const { presets, presetsLoading, presetsError, reloadPresets } = useMenu();
 
   // Never fall through to the slot grid on a failed load: every slot would
@@ -116,6 +118,7 @@ export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps
           const displayName = preset?.name || PRESET_CONFIG[slot].label;
           const groupCount = preset?.groups.length || 0;
           const itemCount = preset?.groups.reduce((acc, g) => acc + g.foodIds.length, 0) || 0;
+          const isActive = preset?.id === activeMenuId;
 
           if (isEmpty) {
             return (
@@ -151,7 +154,7 @@ export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps
             <div
               key={slot}
               className={`
-                flex items-center gap-3 p-3 pr-2.5 rounded-xl border ${colors.border} ${colors.bg}
+                flex items-center gap-3 p-3 pr-2.5 rounded-xl border ${isActive ? 'border-success/50 ring-2 ring-success/10' : colors.border} ${colors.bg}
                 card-pop-in transition-all duration-150
               `}
               style={{ animationDelay: `${index * 60}ms` }}
@@ -163,9 +166,16 @@ export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps
                 <p className="text-sm font-semibold text-gray-800 truncate" style={{ fontFamily: 'var(--font-heading)' }}>
                   {displayName}
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {groupCount} {groupCount === 1 ? 'group' : 'groups'} · {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                </p>
+                {isActive ? (
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-success mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-success" aria-hidden="true" />
+                    Live on kids' screens
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {groupCount} {groupCount === 1 ? 'group' : 'groups'} · {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
@@ -179,14 +189,19 @@ export function QuickLaunchPresets({ onLaunch, onEdit }: QuickLaunchPresetsProps
                   <Pencil className="w-[18px] h-[18px]" />
                 </button>
                 <button
-                  onClick={() => onLaunch(slot)}
+                  onClick={() => isActive ? onPause() : onLaunch(slot)}
                   className={`w-11 h-11 flex items-center justify-center rounded-xl
-                              ${colors.accent} ${colors.accentHover} text-white shadow-sm
+                              ${isActive ? 'bg-success hover:bg-success/90' : `${colors.accent} ${colors.accentHover}`} text-white shadow-sm
                               transition-all duration-150 hover:scale-105 hover:shadow-md active:scale-95`}
-                  title="Start meal"
-                  aria-label={`Launch ${displayName}`}
+                  title={isActive ? 'Cancel menu' : 'Start meal'}
+                  aria-label={isActive ? `Stop showing ${displayName} on kids' screens` : `Launch ${displayName}`}
+                  aria-pressed={isActive}
                 >
-                  <Play className="w-5 h-5 fill-current" />
+                  {isActive ? (
+                    <Pause className="w-5 h-5 fill-current" />
+                  ) : (
+                    <Play className="w-5 h-5 fill-current" />
+                  )}
                 </button>
               </div>
             </div>

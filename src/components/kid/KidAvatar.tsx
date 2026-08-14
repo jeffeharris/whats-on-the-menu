@@ -6,6 +6,8 @@ interface KidAvatarProps {
   color: AvatarColor;
   avatarAnimal?: AvatarAnimal;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  /** Uses a thinner frame and full-bleed artwork in dense navigation chrome. */
+  compact?: boolean;
   selected?: boolean;
   onClick?: () => void;
   /** Overrides the default "Select {name}" / "{name}" label, e.g. for a switcher trigger. */
@@ -31,7 +33,16 @@ const sizeStyles = {
   '2xl': 'w-40 h-40 text-6xl',
 };
 
-export function KidAvatar({ name, color, avatarAnimal, size = 'md', selected = false, onClick, ariaLabel }: KidAvatarProps) {
+export function KidAvatar({
+  name,
+  color,
+  avatarAnimal,
+  size = 'md',
+  compact = false,
+  selected = false,
+  onClick,
+  ariaLabel,
+}: KidAvatarProps) {
   const initial = name.charAt(0).toUpperCase();
   const isClickable = !!onClick;
 
@@ -47,6 +58,7 @@ export function KidAvatar({ name, color, avatarAnimal, size = 'md', selected = f
       `}
       data-interactive={isClickable}
       data-selected={selected}
+      data-compact={compact}
       onClick={onClick}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
@@ -66,7 +78,7 @@ export function KidAvatar({ name, color, avatarAnimal, size = 'md', selected = f
         <img
           src={getAvatarImagePath(avatarAnimal)}
           alt={avatarAnimal}
-          className="w-[85%] h-[85%] object-contain"
+          className={compact ? 'h-full w-full object-cover' : 'h-[85%] w-[85%] object-contain'}
           draggable={false}
         />
       ) : (

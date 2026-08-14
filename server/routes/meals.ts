@@ -1,6 +1,13 @@
 import { Router } from 'express';
-import { getAllMeals, getMeal, createMeal, deleteMeal } from '../db/queries/meals.js';
+import {
+  getAllMeals,
+  getMeal,
+  createMeal,
+  deleteMeal,
+  MealOperationError,
+} from '../db/queries/meals.js';
 import { createMealSchema } from '../validation/schemas.js';
+import { publishMenuEvent } from '../realtime/menuEvents.js';
 
 const router = Router();
 
@@ -40,8 +47,12 @@ router.post('/', async (req, res) => {
     const { menuId, selections, reviews } = result.data;
 
     const newMeal = await createMeal(req.householdId!, menuId, selections, reviews);
+    publishMenuEvent(req.householdId!, { reason: 'active-menu-changed' });
     res.status(201).json(newMeal);
   } catch (error) {
+    if (error instanceof MealOperationError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     console.error('Error creating meal:', error);
     res.status(500).json({ error: 'Failed to create meal' });
   }

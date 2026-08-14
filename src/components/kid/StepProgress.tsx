@@ -30,24 +30,45 @@ export function StepProgress({
   const { playPlaced } = useSound();
 
   if (compact) {
-    // A slim dot/pill rail: the current step reads as a wide coral bar, done
-    // steps as a short teal bar, everything else as a muted pending bar.
+    // The selection header uses a thumbnail trail: every completed section
+    // shows its first pick, while current and pending sections retain a clear
+    // numbered fallback.
     return (
-      <div className="kid-progress flex items-center gap-1.5" data-compact>
+      <div
+        className="kid-progress"
+        data-compact
+        data-single={totalSteps === 1}
+        style={{ gridTemplateColumns: `repeat(${Math.max(totalSteps, 1)}, minmax(0, 1fr))` }}
+      >
         {Array.from({ length: totalSteps }).map((_, idx) => {
           const isCompleted = idx < completedSelections.length && completedSelections[idx]?.items.length > 0;
           const isCurrent = idx === currentStep;
           const completedGroup = completedSelections[idx];
+          const firstItem = completedGroup?.items[0];
 
           return (
             <button
               key={idx}
               onClick={() => { playPlaced(); onStepClick(idx); }}
-              className="kid-progress-pill"
+              className="kid-progress-thumbnail"
               data-state={isCurrent ? 'current' : isCompleted ? 'completed' : 'pending'}
+              style={{ zIndex: isCurrent ? totalSteps + 1 : idx + 1 }}
               aria-current={isCurrent ? 'step' : undefined}
               aria-label={stepLabel(idx, isCurrent, isCompleted, completedGroup)}
-            />
+            >
+              {isCompleted && firstItem?.imageUrl ? (
+                <img
+                  src={firstItem.imageUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
+              ) : isCompleted ? (
+                <Check className="h-5 w-5 text-kid-secondary-deep" strokeWidth={3} />
+              ) : (
+                <span className="text-sm font-bold">{idx + 1}</span>
+              )}
+            </button>
           );
         })}
       </div>

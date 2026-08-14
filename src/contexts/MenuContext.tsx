@@ -30,6 +30,7 @@ interface MenuContextType {
   refreshActiveMenu: () => Promise<SavedMenu | null>;
   // Original menu methods
   createMenu: (groups: MenuGroup[]) => Promise<Menu>;
+  activateMenu: (menuId: string) => Promise<void>;
   clearMenu: () => Promise<void>;
   addSelection: (
     kidId: string,
@@ -278,6 +279,11 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     return newMenu;
   }, [refreshActiveMenu]);
 
+  const activateMenu = useCallback(async (menuId: string) => {
+    await menusApi.setActive(menuId);
+    await refreshActiveMenu();
+  }, [refreshActiveMenu]);
+
   const clearMenu = useCallback(async () => {
     await menusApi.setActive(null);
     setCurrentMenu(null);
@@ -506,6 +512,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         currentPresetSlot,
         presetsLoading,
         createMenu,
+        activateMenu,
         clearMenu,
         addSelection,
         getSelectionForKid,
