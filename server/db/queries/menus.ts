@@ -1,5 +1,6 @@
 import pool from '../pool.js';
 import { logger } from '../../logger.js';
+import { isDeepStrictEqual } from 'node:util';
 
 // ============================================================
 // Types
@@ -7,6 +8,14 @@ import { logger } from '../../logger.js';
 
 type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3';
 type PresetSlot = 'breakfast' | 'snack' | 'dinner' | 'custom';
+export type SelectionStatus = 'open' | 'approved';
+
+export class MenuOperationError extends Error {
+  constructor(message: string, readonly statusCode: number) {
+    super(message);
+    this.name = 'MenuOperationError';
+  }
+}
 
 interface MenuGroup {
   id: string;
@@ -25,6 +34,11 @@ interface SavedMenu {
   createdAt: number;
   updatedAt: number;
   presetSlot?: PresetSlot;
+}
+
+export interface MenuMutationResult {
+  menu: SavedMenu;
+  affectsActiveMenu: boolean;
 }
 
 interface GroupSelections {
@@ -49,7 +63,7 @@ interface MenuRow {
 interface KidSelectionRow {
   kid_id: string;
   selections: GroupSelections;
-  created_at: string;
+  updated_at: string;
 }
 
 // ============================================================
@@ -74,7 +88,7 @@ function rowToKidSelection(row: KidSelectionRow): KidSelection {
   return {
     kidId: row.kid_id,
     selections: row.selections,
-    timestamp: new Date(row.created_at).getTime(),
+    timestamp: new Date(row.updated_at).getTime(),
   };
 }
 
@@ -112,7 +126,9 @@ export async function createMenu(
 
     // Set as active menu
     await client.query(
-      'UPDATE households SET active_menu_id = $2 WHERE id = $1',
+      `UPDATE households
+       SET active_menu_id = $2, selection_status = 'open'
+       WHERE id = $1`,
       [householdId, menu.id]
     );
 
@@ -137,7 +153,8 @@ export async function updateMenu(
   householdId: string,
   id: string,
   updates: Partial<{ name: string; groups: MenuGroup[] }>
-): Promise<SavedMenu | null> {
+): Promise<MenuMutationResult | null> {
+  const client = await pool.connect();
   const setClauses: string[] = [];
   const values: unknown[] = [];
   let paramIndex = 1;
@@ -151,26 +168,62 @@ export async function updateMenu(
     values.push(JSON.stringify(updates.groups));
   }
 
-  if (setClauses.length === 0) {
-    const { rows } = await pool.query<MenuRow>(
-      `SELECT ${MENU_COLUMNS} FROM menus WHERE id = $1 AND household_id = $2`,
+  try {
+    await client.query('BEGIN');
+    const { rows: householdRows } = await client.query<{ active_menu_id: string | null }>(
+      'SELECT active_menu_id FROM households WHERE id = $1 FOR UPDATE',
+      [householdId]
+    );
+    const { rows: existingRows } = await client.query<MenuRow>(
+      `SELECT ${MENU_COLUMNS}
+       FROM menus
+       WHERE id = $1 AND household_id = $2
+       FOR UPDATE`,
       [id, householdId]
     );
-    return rows.length > 0 ? rowToSavedMenu(rows[0]) : null;
+    if (existingRows.length === 0) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const groupsChanged = updates.groups !== undefined
+      && !isDeepStrictEqual(existingRows[0].groups, updates.groups);
+    let row = existingRows[0];
+
+    if (setClauses.length > 0) {
+      const idParam = paramIndex++;
+      const householdParam = paramIndex++;
+      values.push(id, householdId);
+      const { rows } = await client.query<MenuRow>(
+        `UPDATE menus
+         SET ${setClauses.join(', ')}
+         WHERE id = $${idParam} AND household_id = $${householdParam}
+         RETURNING ${MENU_COLUMNS}`,
+        values
+      );
+      row = rows[0];
+    }
+
+    const affectsActiveMenu = householdRows[0]?.active_menu_id === id && groupsChanged;
+    if (affectsActiveMenu) {
+      await client.query(
+        `UPDATE households SET selection_status = 'open' WHERE id = $1`,
+        [householdId]
+      );
+      await client.query(
+        'DELETE FROM kid_selections WHERE household_id = $1',
+        [householdId]
+      );
+    }
+
+    await client.query('COMMIT');
+    return { menu: rowToSavedMenu(row), affectsActiveMenu };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  const idParam = paramIndex++;
-  const householdParam = paramIndex++;
-  values.push(id, householdId);
-
-  const { rows } = await pool.query<MenuRow>(
-    `UPDATE menus
-     SET ${setClauses.join(', ')}
-     WHERE id = $${idParam} AND household_id = $${householdParam}
-     RETURNING ${MENU_COLUMNS}`,
-    values
-  );
-  return rows.length > 0 ? rowToSavedMenu(rows[0]) : null;
 }
 
 export async function deleteMenu(
@@ -183,7 +236,7 @@ export async function deleteMenu(
 
     // Check if this is the active menu
     const { rows: householdRows } = await client.query<{ active_menu_id: string | null }>(
-      'SELECT active_menu_id FROM households WHERE id = $1',
+      'SELECT active_menu_id FROM households WHERE id = $1 FOR UPDATE',
       [householdId]
     );
     const wasActive = householdRows.length > 0 && householdRows[0].active_menu_id === id;
@@ -202,7 +255,9 @@ export async function deleteMenu(
     // If deleted menu was active, clear active menu and selections
     if (wasActive) {
       await client.query(
-        'UPDATE households SET active_menu_id = NULL WHERE id = $1',
+        `UPDATE households
+         SET active_menu_id = NULL, selection_status = 'open'
+         WHERE id = $1`,
         [householdId]
       );
       await client.query(
@@ -228,18 +283,26 @@ export async function deleteMenu(
 
 export async function getActiveMenu(
   householdId: string
-): Promise<{ menu: SavedMenu | null; selections: KidSelection[] }> {
+): Promise<{ menu: SavedMenu | null; selections: KidSelection[]; selectionStatus: SelectionStatus }> {
   // Get active_menu_id from households
-  const { rows: householdRows } = await pool.query<{ active_menu_id: string | null }>(
-    'SELECT active_menu_id FROM households WHERE id = $1',
+  const { rows: householdRows } = await pool.query<{
+    active_menu_id: string | null;
+    selection_status: SelectionStatus;
+  }>(
+    'SELECT active_menu_id, selection_status FROM households WHERE id = $1',
     [householdId]
   );
 
   if (householdRows.length === 0 || !householdRows[0].active_menu_id) {
-    return { menu: null, selections: [] };
+    return {
+      menu: null,
+      selections: [],
+      selectionStatus: householdRows[0]?.selection_status ?? 'open',
+    };
   }
 
   const activeMenuId = householdRows[0].active_menu_id;
+  const selectionStatus = householdRows[0].selection_status;
 
   // Get the menu and selections in parallel
   const [menuResult, selectionsResult] = await Promise.all([
@@ -248,7 +311,10 @@ export async function getActiveMenu(
       [activeMenuId, householdId]
     ),
     pool.query<KidSelectionRow>(
-      'SELECT kid_id, selections, created_at FROM kid_selections WHERE household_id = $1',
+      `SELECT kid_id, selections, updated_at
+       FROM kid_selections
+       WHERE household_id = $1
+       ORDER BY updated_at`,
       [householdId]
     ),
   ]);
@@ -256,6 +322,7 @@ export async function getActiveMenu(
   return {
     menu: menuResult.rows.length > 0 ? rowToSavedMenu(menuResult.rows[0]) : null,
     selections: selectionsResult.rows.map(rowToKidSelection),
+    selectionStatus,
   };
 }
 
@@ -263,15 +330,26 @@ export async function setActiveMenu(
   householdId: string,
   menuId: string | null
 ): Promise<void> {
-  await pool.query(
-    'UPDATE households SET active_menu_id = $2 WHERE id = $1',
-    [householdId, menuId]
-  );
-  // Clear selections when changing active menu
-  await pool.query(
-    'DELETE FROM kid_selections WHERE household_id = $1',
-    [householdId]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE households
+       SET active_menu_id = $2, selection_status = 'open'
+       WHERE id = $1`,
+      [householdId, menuId]
+    );
+    await client.query(
+      'DELETE FROM kid_selections WHERE household_id = $1',
+      [householdId]
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ============================================================
@@ -283,22 +361,117 @@ export async function addSelection(
   kidId: string,
   selections: GroupSelections
 ): Promise<KidSelection> {
-  const { rows } = await pool.query<KidSelectionRow>(
-    `INSERT INTO kid_selections (household_id, kid_id, selections)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (household_id, kid_id) DO UPDATE
-     SET selections = $3
-     RETURNING kid_id, selections, created_at`,
-    [householdId, kidId, JSON.stringify(selections)]
-  );
-  return rowToKidSelection(rows[0]);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Serialize kid edits with parent approval. Whichever obtains this row lock
+    // first completes, and the second operation observes the resulting state.
+    const { rows: householdRows } = await client.query<{
+      active_menu_id: string | null;
+      selection_status: SelectionStatus;
+    }>(
+      `SELECT active_menu_id, selection_status
+       FROM households
+       WHERE id = $1
+       FOR UPDATE`,
+      [householdId]
+    );
+    const household = householdRows[0];
+    if (!household?.active_menu_id) {
+      throw new MenuOperationError('There is no active menu', 409);
+    }
+    if (household.selection_status === 'approved') {
+      throw new MenuOperationError('Choices have already been approved', 409);
+    }
+
+    const kid = await client.query(
+      'SELECT 1 FROM kid_profiles WHERE id = $1 AND household_id = $2',
+      [kidId, householdId]
+    );
+    if (kid.rowCount === 0) {
+      throw new MenuOperationError('Kid profile not found', 404);
+    }
+
+    const { rows } = await client.query<KidSelectionRow>(
+      `INSERT INTO kid_selections (household_id, kid_id, selections)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (household_id, kid_id) DO UPDATE
+       SET selections = EXCLUDED.selections, updated_at = now()
+       RETURNING kid_id, selections, updated_at`,
+      [householdId, kidId, JSON.stringify(selections)]
+    );
+    await client.query('COMMIT');
+    return rowToKidSelection(rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function clearSelections(householdId: string): Promise<void> {
-  await pool.query(
-    'DELETE FROM kid_selections WHERE household_id = $1',
-    [householdId]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE households SET selection_status = 'open' WHERE id = $1`,
+      [householdId]
+    );
+    await client.query(
+      'DELETE FROM kid_selections WHERE household_id = $1',
+      [householdId]
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function setSelectionStatus(
+  householdId: string,
+  status: SelectionStatus
+): Promise<SelectionStatus> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: householdRows } = await client.query<{ active_menu_id: string | null }>(
+      `SELECT active_menu_id
+       FROM households
+       WHERE id = $1
+       FOR UPDATE`,
+      [householdId]
+    );
+    if (!householdRows[0]?.active_menu_id) {
+      throw new MenuOperationError('There is no active menu', 409);
+    }
+
+    if (status === 'approved') {
+      const selectionCount = await client.query(
+        'SELECT 1 FROM kid_selections WHERE household_id = $1 LIMIT 1',
+        [householdId]
+      );
+      if (selectionCount.rowCount === 0) {
+        throw new MenuOperationError('There are no choices to approve', 409);
+      }
+    }
+
+    await client.query(
+      'UPDATE households SET selection_status = $2 WHERE id = $1',
+      [householdId, status]
+    );
+    await client.query('COMMIT');
+    return status;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ============================================================
@@ -342,34 +515,70 @@ export async function updatePreset(
   slot: PresetSlot,
   name: string,
   groups: MenuGroup[]
-): Promise<SavedMenu> {
-  // Try to update existing preset first
-  const { rows: updateRows } = await pool.query<MenuRow>(
-    `UPDATE menus
-     SET name = $3, groups = $4
-     WHERE household_id = $1 AND preset_slot = $2
-     RETURNING ${MENU_COLUMNS}`,
-    [householdId, slot, name, JSON.stringify(groups)]
-  );
+): Promise<MenuMutationResult> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: householdRows } = await client.query<{ active_menu_id: string | null }>(
+      'SELECT active_menu_id FROM households WHERE id = $1 FOR UPDATE',
+      [householdId]
+    );
+    const { rows: existingRows } = await client.query<MenuRow>(
+      `SELECT ${MENU_COLUMNS}
+       FROM menus
+       WHERE household_id = $1 AND preset_slot = $2
+       FOR UPDATE`,
+      [householdId, slot]
+    );
 
-  if (updateRows.length > 0) {
-    return rowToSavedMenu(updateRows[0]);
+    let row: MenuRow;
+    let groupsChanged = false;
+    if (existingRows.length > 0) {
+      groupsChanged = !isDeepStrictEqual(existingRows[0].groups, groups);
+      const { rows } = await client.query<MenuRow>(
+        `UPDATE menus
+         SET name = $3, groups = $4
+         WHERE household_id = $1 AND preset_slot = $2
+         RETURNING ${MENU_COLUMNS}`,
+        [householdId, slot, name, JSON.stringify(groups)]
+      );
+      row = rows[0];
+    } else {
+      const { rows } = await client.query<MenuRow>(
+        `INSERT INTO menus (household_id, name, groups, preset_slot)
+         VALUES ($1, $2, $3, $4)
+         RETURNING ${MENU_COLUMNS}`,
+        [householdId, name, JSON.stringify(groups), slot]
+      );
+      row = rows[0];
+    }
+
+    const affectsActiveMenu = householdRows[0]?.active_menu_id === row.id && groupsChanged;
+    if (affectsActiveMenu) {
+      await client.query(
+        `UPDATE households SET selection_status = 'open' WHERE id = $1`,
+        [householdId]
+      );
+      await client.query(
+        'DELETE FROM kid_selections WHERE household_id = $1',
+        [householdId]
+      );
+    }
+
+    await client.query('COMMIT');
+    return { menu: rowToSavedMenu(row), affectsActiveMenu };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  // Create new preset
-  const { rows: insertRows } = await pool.query<MenuRow>(
-    `INSERT INTO menus (household_id, name, groups, preset_slot)
-     VALUES ($1, $2, $3, $4)
-     RETURNING ${MENU_COLUMNS}`,
-    [householdId, name, JSON.stringify(groups), slot]
-  );
-  return rowToSavedMenu(insertRows[0]);
 }
 
 export async function deletePreset(
   householdId: string,
   slot: PresetSlot
-): Promise<boolean> {
+): Promise<{ deleted: boolean; affectsActiveMenu: boolean }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -382,14 +591,14 @@ export async function deletePreset(
 
     if (presetRows.length === 0) {
       await client.query('ROLLBACK');
-      return false;
+      return { deleted: false, affectsActiveMenu: false };
     }
 
     const presetId = presetRows[0].id;
 
     // Check if this preset is the active menu
     const { rows: householdRows } = await client.query<{ active_menu_id: string | null }>(
-      'SELECT active_menu_id FROM households WHERE id = $1',
+      'SELECT active_menu_id FROM households WHERE id = $1 FOR UPDATE',
       [householdId]
     );
     const wasActive = householdRows.length > 0 && householdRows[0].active_menu_id === presetId;
@@ -403,7 +612,9 @@ export async function deletePreset(
     // If deleted preset was active, clear active menu and selections
     if (wasActive) {
       await client.query(
-        'UPDATE households SET active_menu_id = NULL WHERE id = $1',
+        `UPDATE households
+         SET active_menu_id = NULL, selection_status = 'open'
+         WHERE id = $1`,
         [householdId]
       );
       await client.query(
@@ -413,7 +624,7 @@ export async function deletePreset(
     }
 
     await client.query('COMMIT');
-    return true;
+    return { deleted: true, affectsActiveMenu: wasActive };
   } catch (err) {
     await client.query('ROLLBACK');
     logger.error({ err, householdId, slot }, 'Transaction failed in deletePreset');
@@ -508,38 +719,74 @@ export async function copyPreset(
   householdId: string,
   fromSlot: PresetSlot,
   toSlot: PresetSlot
-): Promise<SavedMenu | null> {
-  // Get source preset
-  const { rows: sourceRows } = await pool.query<MenuRow>(
-    `SELECT ${MENU_COLUMNS} FROM menus WHERE household_id = $1 AND preset_slot = $2`,
-    [householdId, fromSlot]
-  );
+): Promise<MenuMutationResult | null> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: householdRows } = await client.query<{ active_menu_id: string | null }>(
+      'SELECT active_menu_id FROM households WHERE id = $1 FOR UPDATE',
+      [householdId]
+    );
+    const { rows: sourceRows } = await client.query<MenuRow>(
+      `SELECT ${MENU_COLUMNS}
+       FROM menus
+       WHERE household_id = $1 AND preset_slot = $2`,
+      [householdId, fromSlot]
+    );
+    if (sourceRows.length === 0) {
+      await client.query('ROLLBACK');
+      return null;
+    }
 
-  if (sourceRows.length === 0) {
-    return null;
+    const source = sourceRows[0];
+    const { rows: targetRows } = await client.query<MenuRow>(
+      `SELECT ${MENU_COLUMNS}
+       FROM menus
+       WHERE household_id = $1 AND preset_slot = $2
+       FOR UPDATE`,
+      [householdId, toSlot]
+    );
+
+    let row: MenuRow;
+    let groupsChanged = false;
+    if (targetRows.length > 0) {
+      groupsChanged = !isDeepStrictEqual(targetRows[0].groups, source.groups);
+      const { rows } = await client.query<MenuRow>(
+        `UPDATE menus
+         SET name = $3, groups = $4
+         WHERE household_id = $1 AND preset_slot = $2
+         RETURNING ${MENU_COLUMNS}`,
+        [householdId, toSlot, source.name, JSON.stringify(source.groups)]
+      );
+      row = rows[0];
+    } else {
+      const { rows } = await client.query<MenuRow>(
+        `INSERT INTO menus (household_id, name, groups, preset_slot)
+         VALUES ($1, $2, $3, $4)
+         RETURNING ${MENU_COLUMNS}`,
+        [householdId, source.name, JSON.stringify(source.groups), toSlot]
+      );
+      row = rows[0];
+    }
+
+    const affectsActiveMenu = householdRows[0]?.active_menu_id === row.id && groupsChanged;
+    if (affectsActiveMenu) {
+      await client.query(
+        `UPDATE households SET selection_status = 'open' WHERE id = $1`,
+        [householdId]
+      );
+      await client.query(
+        'DELETE FROM kid_selections WHERE household_id = $1',
+        [householdId]
+      );
+    }
+
+    await client.query('COMMIT');
+    return { menu: rowToSavedMenu(row), affectsActiveMenu };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  const source = sourceRows[0];
-
-  // Try to update existing target preset first
-  const { rows: updateRows } = await pool.query<MenuRow>(
-    `UPDATE menus
-     SET name = $3, groups = $4
-     WHERE household_id = $1 AND preset_slot = $2
-     RETURNING ${MENU_COLUMNS}`,
-    [householdId, toSlot, source.name, JSON.stringify(source.groups)]
-  );
-
-  if (updateRows.length > 0) {
-    return rowToSavedMenu(updateRows[0]);
-  }
-
-  // Create new preset in target slot
-  const { rows: insertRows } = await pool.query<MenuRow>(
-    `INSERT INTO menus (household_id, name, groups, preset_slot)
-     VALUES ($1, $2, $3, $4)
-     RETURNING ${MENU_COLUMNS}`,
-    [householdId, source.name, JSON.stringify(source.groups), toSlot]
-  );
-  return rowToSavedMenu(insertRows[0]);
 }

@@ -88,6 +88,8 @@ export interface KidSelection {
   sideIds?: string[];
 }
 
+export type SelectionStatus = 'open' | 'approved';
+
 export type AppMode = 'kid' | 'parent';
 
 /**
@@ -114,6 +116,7 @@ export interface KidProfilesState {
 export interface MenuState {
   currentMenu: Menu | null;
   selections: KidSelection[];
+  selectionStatus: SelectionStatus;
   selectionsLocked: boolean;
 }
 

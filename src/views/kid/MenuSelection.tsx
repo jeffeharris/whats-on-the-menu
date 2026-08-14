@@ -33,7 +33,7 @@ interface MenuSelectionProps {
 export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { currentMenu, addSelection, getSelectionForKid } = useMenu();
+  const { activeMenu: currentMenu, addSelection, getSelectionForKid, selectionsLocked } = useMenu();
 
   const kid = getProfile(kidId);
   const existingSelection = getSelectionForKid(kidId);
@@ -57,6 +57,8 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   const [slideDirection, setSlideDirection] = useState<'right' | 'left' | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [celebrateText, setCelebrateText] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -184,6 +186,12 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     };
   }, []);
 
+  // Approval can arrive from the parent phone while this screen is open.
+  // Return to the shared home, which now explains that choices are locked.
+  useEffect(() => {
+    if (selectionsLocked) onBack();
+  }, [onBack, selectionsLocked]);
+
   // Early return AFTER all hooks
   if (!currentMenu || !kid) {
     return null;
@@ -239,8 +247,15 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
 
   const handleConfirm = async () => {
     playPlaced();
-    await addSelection(kidId, selections);
-    onComplete();
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await addSelection(kidId, selections);
+      onComplete();
+    } catch (err) {
+      setSubmitError((err as Error).message || 'We could not save your choices. Try again!');
+      setSubmitting(false);
+    }
   };
 
   const isLastStep = currentStep === totalSteps - 1;
@@ -306,7 +321,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
                   name={item.name}
                   imageUrl={item.imageUrl}
                   selected={isSelected}
-                  disabled={isSelectedElsewhere}
+                  disabled={selectionsLocked || isSelectedElsewhere}
                   onClick={stepIndex === currentStep ? () => handleFoodSelect(group.id, item.id) : undefined}
                   responsive
                   className={`w-full min-w-[140px] h-auto aspect-[10/13] ${isSelected ? 'selection-celebrate' : ''}`}
@@ -386,9 +401,9 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
               size="touch"
               fullWidth
               onClick={handleConfirm}
-              disabled={!canConfirm}
+              disabled={!canConfirm || submitting}
             >
-              {canConfirm ? "All done!" : getRequirementsMessage()}
+              {submitting ? 'Saving…' : canConfirm ? "This is my plate!" : getRequirementsMessage()}
             </Button>
           ) : (
             <Button
@@ -404,6 +419,9 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
                 : `Pick ${presetConfig ? presetConfig.min - currentGroupSelections.length : 0} more!`
               }
             </Button>
+          )}
+          {submitError && (
+            <p className="text-center text-danger font-medium mt-3" role="alert">{submitError}</p>
           )}
         </div>
       </footer>

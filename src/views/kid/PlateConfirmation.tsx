@@ -16,7 +16,7 @@ interface PlateConfirmationProps {
 export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { currentMenu, getSelectionForKid, selectionsLocked } = useMenu();
+  const { activeMenu: currentMenu, getSelectionForKid, selectionsLocked } = useMenu();
 
   const kid = getProfile(kidId);
   const selection = getSelectionForKid(kidId);

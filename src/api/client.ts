@@ -1,4 +1,4 @@
-import type { FoodItem, KidProfile, AvatarColor, AvatarAnimal, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup, HouseholdMember, HouseholdInvitation, InviteInfo } from '../types';
+import type { FoodItem, KidProfile, AvatarColor, AvatarAnimal, SavedMenu, KidSelection, MealRecord, KidMealReview, MenuGroup, GroupSelections, PresetSlot, SharedMenu, SharedMenuResponse, SharedMenuGroup, HouseholdMember, HouseholdInvitation, InviteInfo, SelectionStatus } from '../types';
 
 const API_BASE = '/api';
 
@@ -7,6 +7,11 @@ async function apiFetch(url: string, options: RequestInit = {}): Promise<Respons
     ...options,
     credentials: 'include',
   });
+}
+
+async function getApiError(res: Response, fallback: string): Promise<Error> {
+  const body = await res.json().catch(() => null) as { error?: string } | null;
+  return new Error(body?.error || fallback);
 }
 
 // Foods API
@@ -110,7 +115,11 @@ export const menusApi = {
     if (!res.ok) throw new Error('Failed to delete menu');
   },
 
-  async getActive(): Promise<{ menu: SavedMenu | null; selections: KidSelection[] }> {
+  async getActive(): Promise<{
+    menu: SavedMenu | null;
+    selections: KidSelection[];
+    selectionStatus: SelectionStatus;
+  }> {
     const res = await apiFetch(`${API_BASE}/menus/active`);
     if (!res.ok) throw new Error('Failed to fetch active menu');
     return res.json();
@@ -131,8 +140,19 @@ export const menusApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kidId, selections }),
     });
-    if (!res.ok) throw new Error('Failed to add selection');
+    if (!res.ok) throw await getApiError(res, 'Failed to save choices');
     return res.json();
+  },
+
+  async setSelectionStatus(status: SelectionStatus): Promise<SelectionStatus> {
+    const res = await apiFetch(`${API_BASE}/menus/selections/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw await getApiError(res, 'Failed to update choice approval');
+    const data = await res.json() as { selectionStatus: SelectionStatus };
+    return data.selectionStatus;
   },
 
   async clearSelections(): Promise<void> {

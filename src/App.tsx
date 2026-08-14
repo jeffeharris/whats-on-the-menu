@@ -25,6 +25,7 @@ import { KidProfiles } from './views/parent/KidProfiles';
 import { MenuBuilder } from './views/parent/MenuBuilder';
 import { Settings } from './views/parent/Settings';
 import { MealReview } from './views/parent/MealReview';
+import { ChoiceReview } from './views/parent/ChoiceReview';
 import { MealHistoryList } from './views/parent/MealHistoryList';
 import { MealHistoryDetail } from './views/parent/MealHistoryDetail';
 import { SharedMenusList } from './views/parent/SharedMenusList';
@@ -54,6 +55,7 @@ function ParentDashboardRoute() {
       'menu-builder': '/menu-builder',
       'settings': '/settings',
       'meal-review': '/meal-review',
+      'choice-review': '/review-choices',
       'meal-history-list': '/meal-history',
       'shared-menus-list': '/shared-menus',
     };
@@ -89,6 +91,11 @@ function MealReviewRoute() {
       onBack={() => navigate('/')}
     />
   );
+}
+
+function ChoiceReviewRoute() {
+  const navigate = useNavigate();
+  return <ChoiceReview onBack={() => navigate('/')} />;
 }
 
 function MealHistoryListRoute() {
@@ -181,11 +188,7 @@ function KidModeHomeRoute() {
     }
   };
 
-  const handleConfirmSelections = () => {
-    navigate('/meal-review');
-  };
-
-  return <KidModeHome onSelectKid={handleSelectKid} onConfirmSelections={handleConfirmSelections} onNavigateToStars={() => navigate('/kid/stars')} />;
+  return <KidModeHome onSelectKid={handleSelectKid} onNavigateToStars={() => navigate('/kid/stars')} />;
 }
 
 function FamilyStarsRoute() {
@@ -296,6 +299,7 @@ function AppRoutes() {
               <Route path="/menu-builder" element={<MenuBuilderRoute />} />
               <Route path="/settings" element={<SettingsRoute />} />
               <Route path="/meal-review" element={<MealReviewRoute />} />
+              <Route path="/review-choices" element={<ChoiceReviewRoute />} />
               <Route path="/meal-history" element={<MealHistoryListRoute />} />
               <Route path="/meal-history/:mealId" element={<MealHistoryDetailRoute />} />
               {FEATURE_SHARED_MENUS && (
@@ -314,7 +318,6 @@ function AppRoutes() {
               <Route path="/kid/stars" element={<FamilyStarsRoute />} />
               <Route path="/kid/select/:kidId" element={<MenuSelectionRoute />} />
               <Route path="/kid/confirm/:kidId" element={<PlateConfirmationRoute />} />
-              <Route path="/meal-review" element={<MealReviewRoute />} />
               <Route path="*" element={<KidModeHomeRoute />} />
             </>
           )}

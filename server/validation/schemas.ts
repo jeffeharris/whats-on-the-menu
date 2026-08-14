@@ -125,6 +125,10 @@ export const addSelectionSchema = z.object({
   selections: groupSelectionsSchema.optional(),
 });
 
+export const selectionStatusSchema = z.object({
+  status: z.enum(['open', 'approved']),
+});
+
 export const updatePresetSchema = z.object({
   name: z.string().optional(),
   groups: z.array(menuGroupSchema),

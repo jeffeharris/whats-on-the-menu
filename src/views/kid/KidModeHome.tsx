@@ -14,18 +14,16 @@ import { useSound } from '../../hooks/useSound';
 
 interface KidModeHomeProps {
   onSelectKid: (kidId: string) => void;
-  onConfirmSelections?: () => void;
   onNavigateToStars?: () => void;
 }
 
-export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStars }: KidModeHomeProps) {
+export function KidModeHome({ onSelectKid, onNavigateToStars }: KidModeHomeProps) {
   const { enterParentMode, grownUpCheckEnabled } = useAppState();
   const { profiles, error: profilesError, reload: reloadProfiles } = useKidProfiles();
-  const { currentMenu, hasKidSelected, selections, selectionsLocked, lockSelections, getSelectionForKid } = useMenu();
+  const { activeMenu, hasKidSelected, selections, selectionsLocked, getSelectionForKid } = useMenu();
   const { getStarCountForKid, getTotalFamilyStars } = useMealHistory();
   const totalStars = getTotalFamilyStars();
   const [showPinModal, setShowPinModal] = useState(false);
-  const [showConfirmPinModal, setShowConfirmPinModal] = useState(false);
   const { playPlaced } = useSound();
 
   const hasAnySelections = selections.length > 0;
@@ -43,25 +41,8 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
     enterParentMode();
   };
 
-  const handleConfirmSelections = () => {
-    if (!grownUpCheckEnabled) {
-      enterParentMode();
-      lockSelections();
-      onConfirmSelections?.();
-    } else {
-      setShowConfirmPinModal(true);
-    }
-  };
-
-  const handleConfirmGatePassed = () => {
-    setShowConfirmPinModal(false);
-    enterParentMode();
-    lockSelections();
-    onConfirmSelections?.();
-  };
-
   // No menu set
-  if (!currentMenu) {
+  if (!activeMenu) {
     return (
       <AppShell mode="kid" className="h-full flex flex-col items-center justify-center p-6 overflow-hidden">
         <div className="text-center max-w-md">
@@ -137,7 +118,7 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
     <AppShell mode="kid" className="h-full flex flex-col p-4 md:p-8 overflow-hidden">
       {/* Header with parent access */}
       <header className="flex-shrink-0 flex justify-between items-center mb-4">
-        {totalStars > 0 ? (
+        {totalStars > 0 || selectionsLocked ? (
           <button
             onClick={onNavigateToStars}
             className="ui-chip hover:-translate-y-0.5 transition-transform"
@@ -161,10 +142,10 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center">
         <h1 className="kid-hero-title text-4xl md:text-5xl mb-2 text-center">
-          Who's hungry?
+          {selectionsLocked ? 'Enjoy your meal!' : "Who's hungry?"}
         </h1>
         <p className="text-lg md:text-xl text-gray-600 mb-8 md:mb-12 text-center">
-          {selectionsLocked ? 'Selections are locked!' : 'Tap your name to pick your food!'}
+          {selectionsLocked ? "Here's what everyone picked." : 'Tap your name to pick your food!'}
         </p>
 
         {/* Kid avatars */}
@@ -203,7 +184,9 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
                 {hasSelected && selection && (
                   <>
                     <SelectionThumbnails selection={selection} />
-                    <span className="text-sm text-success font-medium mt-1">Done!</span>
+                    <span className="text-sm text-success font-medium mt-1">
+                      {selectionsLocked ? 'Plate ready!' : 'Done!'}
+                    </span>
                   </>
                 )}
               </div>
@@ -212,18 +195,22 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
         </div>
       </div>
 
-      {/* Confirm Selections Button */}
-      {hasAnySelections && !selectionsLocked && (
+      {/* Cross-device handoff status */}
+      {hasAnySelections && (
         <div className="kid-action-dock -mx-4 -mb-4 mt-6 p-4 md:-mx-8 md:-mb-8 md:p-6">
-          <Button
-            mode="kid"
-            variant="primary"
-            size="touch"
-            fullWidth
-            onClick={handleConfirmSelections}
-          >
-            Confirm Selections
-          </Button>
+          <div className="max-w-xl mx-auto flex items-center justify-center gap-3 text-center" role="status" aria-live="polite">
+            <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${selectionsLocked ? 'bg-success' : 'bg-kid-secondary-deep'}`}>
+              <Check className="w-6 h-6 text-white" strokeWidth={3} />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-brand-ink font-heading">
+                {selectionsLocked ? 'A grown-up approved your plates!' : 'Your choices are saved!'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {selectionsLocked ? 'Tap a name to see the whole plate.' : 'Tell your grown-up they can review them on their phone.'}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -232,15 +219,6 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
         <GrownUpGate
           onSuccess={handleGatePassed}
           onCancel={() => setShowPinModal(false)}
-        />
-      </Modal>
-
-      {/* Confirm Selections PIN Modal */}
-      <Modal isOpen={showConfirmPinModal} onClose={() => setShowConfirmPinModal(false)} mode="kid">
-        <GrownUpGate
-          onSuccess={handleConfirmGatePassed}
-          onCancel={() => setShowConfirmPinModal(false)}
-          title="Ask a grown-up to finish"
         />
       </Modal>
     </AppShell>

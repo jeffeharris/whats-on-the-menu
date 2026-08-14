@@ -36,7 +36,7 @@ function getAllFoodIds(selection: KidSelection): string[] {
 export function MealReview({ onComplete, onBack }: MealReviewProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { currentMenu, selections, unlockAndClearSelections } = useMenu();
+  const { activeMenu: currentMenu, selections, unlockAndClearSelections } = useMenu();
   const { addMeal } = useMealHistory();
 
   // Initialize reviews state for all kids with selections

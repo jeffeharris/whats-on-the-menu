@@ -19,6 +19,7 @@ import uploadsRouter, { UPLOADS_DIR } from './routes/uploads.js';
 import sharedMenusRouter, { publicSharedMenusRouter } from './routes/shared-menus.js';
 import imageGenerationRouter from './routes/image-generation.js';
 import householdRouter, { publicHouseholdRouter } from './routes/household.js';
+import menuEventsRouter from './routes/menu-events.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -103,6 +104,7 @@ export function createApp() {
   app.use('/api/foods', foodsRouter);
   app.use('/api/profiles', profilesRouter);
   app.use('/api/menus', menusRouter);
+  app.use('/api/menu-events', menuEventsRouter);
   app.use('/api/meals', mealsRouter);
   app.use('/api/uploads', uploadsRouter);
   app.use('/api/shared-menus', sharedMenusRouter);
