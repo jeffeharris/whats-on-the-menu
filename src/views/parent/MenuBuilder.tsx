@@ -88,12 +88,11 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
 
-    // Get the preset's current saved state
+    // Compare against the editor snapshot, not the live preset cache. A remote
+    // refresh must never make an untouched local editor look dirty and auto-save
+    // its older groups back over the newer preset.
     const savedPreset = presets[currentPresetSlot];
-    const savedGroups = savedPreset?.groups;
-
-    // Check if there are actual changes
-    if (savedGroups && JSON.stringify(groups) === JSON.stringify(savedGroups)) {
+    if (currentMenu && JSON.stringify(groups) === JSON.stringify(currentMenu.groups)) {
       return; // No changes, don't save
     }
 
@@ -123,7 +122,7 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [groups, currentPresetSlot, presets, saveCurrentAsPreset]);
+  }, [groups, currentMenu, currentPresetSlot, presets, saveCurrentAsPreset]);
 
   // Memoized updaters to prevent infinite loops in child useEffect
   // Each group gets a stable callback reference that only changes when groups array changes
@@ -169,14 +168,9 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
 
   // Check if there are changes from the saved menu/preset
   const hasChanges = useMemo(() => {
-    if (currentPresetSlot) {
-      const savedPreset = presets[currentPresetSlot];
-      if (!savedPreset) return groups.some((g) => g.foodIds.length > 0);
-      return JSON.stringify(groups) !== JSON.stringify(savedPreset.groups);
-    }
     if (!currentMenu) return true;
     return JSON.stringify(groups) !== JSON.stringify(currentMenu.groups);
-  }, [groups, currentMenu, currentPresetSlot, presets]);
+  }, [groups, currentMenu]);
 
   const handleSave = async () => {
     if (currentPresetSlot) {
@@ -289,7 +283,7 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
           ) : (
             <>
               {/* Menu groups */}
-              {groups
+              {[...groups]
                 .sort((a, b) => a.order - b.order)
                 .map((group) => (
                   <div key={group.id} className="animate-fade-up-in" style={{ animationDelay: `${group.order * 60}ms` }}>

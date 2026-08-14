@@ -122,12 +122,19 @@ export const setActiveMenuSchema = z.object({
 
 export const addSelectionSchema = z.object({
   kidId: z.string().min(1, 'kidId is required'),
-  selections: groupSelectionsSchema.optional(),
+  selections: groupSelectionsSchema,
+  menuId: z.string().min(1, 'menuId is required'),
+  selectionRevision: z.number().int().nonnegative(),
+});
+
+export const selectionStatusSchema = z.object({
+  status: z.enum(['open', 'approved']),
 });
 
 export const updatePresetSchema = z.object({
   name: z.string().optional(),
   groups: z.array(menuGroupSchema),
+  expectedUpdatedAt: z.number().int().nonnegative().nullable(),
 });
 
 // ============================================================

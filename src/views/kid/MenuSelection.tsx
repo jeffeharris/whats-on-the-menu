@@ -36,7 +36,13 @@ interface MenuSelectionProps {
 export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { currentMenu, addSelection, getSelectionForKid } = useMenu();
+  const {
+    activeMenu: currentMenu,
+    addSelection,
+    getSelectionForKid,
+    selectionRevision,
+    selectionsLocked,
+  } = useMenu();
 
   const kid = getProfile(kidId);
   const existingSelection = getSelectionForKid(kidId);
@@ -72,9 +78,14 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   const [slideDirection, setSlideDirection] = useState<'right' | 'left' | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [celebrateText, setCelebrateText] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roundRef = useRef<{ menuId: string; selectionRevision: number } | null>(
+    currentMenu ? { menuId: currentMenu.id, selectionRevision } : null
+  );
   const contentRef = useRef<HTMLDivElement>(null);
   const carouselTrackRef = useRef<HTMLDivElement>(null);
   const carouselScrollFrame = useRef<number | null>(null);
@@ -238,6 +249,31 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     };
   }, []);
 
+  // Approval can arrive from the parent phone while this screen is open.
+  // Return to the shared home, which now explains that choices are locked.
+  useEffect(() => {
+    if (selectionsLocked) onBack();
+  }, [onBack, selectionsLocked]);
+
+  // Keep the draft tied to the exact menu round it started from. If a parent
+  // changes or clears the active menu on another device, discard this stale
+  // wizard instead of allowing it to repopulate the new round.
+  useEffect(() => {
+    if (!roundRef.current && currentMenu) {
+      roundRef.current = { menuId: currentMenu.id, selectionRevision };
+      return;
+    }
+    const round = roundRef.current;
+    if (
+      round
+      && (!currentMenu
+        || currentMenu.id !== round.menuId
+        || selectionRevision !== round.selectionRevision)
+    ) {
+      onBack();
+    }
+  }, [currentMenu, onBack, selectionRevision]);
+
   // Early return AFTER all hooks
   if (!currentMenu || !kid) {
     return null;
@@ -294,8 +330,17 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
 
   const handleConfirm = async () => {
     playPlaced();
-    await addSelection(kidId, selections);
-    onComplete();
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const round = roundRef.current;
+      if (!round) throw new Error('The menu is still loading. Please try again.');
+      await addSelection(kidId, selections, round.menuId, round.selectionRevision);
+      onComplete();
+    } catch (err) {
+      setSubmitError((err as Error).message || 'We could not save your choices. Try again!');
+      setSubmitting(false);
+    }
   };
 
   const isLastStep = currentStep === totalSteps - 1;
@@ -377,7 +422,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
               name={item.name}
               imageUrl={item.imageUrl}
               selected={isSelected}
-              disabled={isSelectedElsewhere}
+              disabled={selectionsLocked || isSelectedElsewhere}
               onClick={stepIndex === currentStep ? () => handleFoodSelect(groupId, item.id) : undefined}
               responsive
               variant="full-bleed"
@@ -414,7 +459,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
 
             return (
               <div key={item.id} className="kid-carousel-item" data-active={idx === index}>
-                <div className="kid-carousel-card" data-disabled={itemDisabledElsewhere}>
+                <div className="kid-carousel-card" data-disabled={selectionsLocked || itemDisabledElsewhere}>
                   <img
                     src={item.imageUrl || getPlaceholderImageUrl()}
                     alt={item.name}
@@ -452,7 +497,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
             variant={isSelected ? 'secondary' : 'primary'}
             size="touch"
             fullWidth
-            disabled={!isActive || isSelectedElsewhere}
+            disabled={selectionsLocked || !isActive || isSelectedElsewhere}
             onClick={() => handleFoodSelect(groupId, current.id)}
           >
             {isSelectedElsewhere ? (
@@ -586,10 +631,10 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
               size="touch"
               fullWidth
               onClick={handleConfirm}
-              disabled={!canConfirm}
+              disabled={!canConfirm || submitting}
             >
-              <span>{canConfirm ? 'All done!' : getRequirementsMessage()}</span>
-              {canConfirm && <Check className="ml-2 h-7 w-7" strokeWidth={3} aria-hidden="true" />}
+              <span>{submitting ? 'Saving…' : canConfirm ? 'This is my plate!' : getRequirementsMessage()}</span>
+              {canConfirm && !submitting && <Check className="ml-2 h-7 w-7" strokeWidth={3} aria-hidden="true" />}
             </Button>
           ) : (
             <Button
@@ -608,6 +653,9 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
               </span>
               {canProceedFromStep && <ArrowRight className="ml-2 h-7 w-7" strokeWidth={3} aria-hidden="true" />}
             </Button>
+          )}
+          {submitError && (
+            <p className="text-center text-danger font-medium mt-3" role="alert">{submitError}</p>
           )}
         </div>
       </footer>
