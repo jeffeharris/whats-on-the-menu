@@ -26,7 +26,10 @@ async function sendMagicLinkEmail(email: string, token: string): Promise<void> {
   const url = `${APP_URL}/auth/verify?token=${token}`;
 
   if (resend) {
-    await resend.emails.send({
+    // The SDK never throws on API errors — it resolves { data, error } even
+    // on failure — so a failed send would otherwise pass silently and the
+    // caller would report success despite no email going out.
+    const { error } = await resend.emails.send({
       from: EMAIL_FROM,
       to: email,
       subject: 'Your login link',
@@ -39,6 +42,9 @@ async function sendMagicLinkEmail(email: string, token: string): Promise<void> {
         footnote: 'This link expires in 15 minutes.',
       }),
     });
+    if (error) {
+      console.error('Resend failed to send magic link email:', error);
+    }
   } else {
     console.log(`\n  Magic link for ${email}: ${url}\n`);
   }
