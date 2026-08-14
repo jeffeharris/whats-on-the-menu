@@ -15,6 +15,8 @@ interface FoodCardProps {
   variant?: 'stacked' | 'full-bleed';
   /** Full-bleed only: shows a dashed "+" badge to hint room remains for another pick. */
   showAddBadge?: boolean;
+  /** Full-bleed only: small uppercase label (e.g. the menu group) shown above the name. */
+  groupLabel?: string;
 }
 
 export function FoodCard({
@@ -28,6 +30,7 @@ export function FoodCard({
   className = '',
   variant = 'stacked',
   showAddBadge = false,
+  groupLabel,
 }: FoodCardProps) {
   const [imageError, setImageError] = useState(false);
   const isClickable = !!onClick && !disabled;
@@ -80,7 +83,10 @@ export function FoodCard({
           className="kid-food-card-photo"
           onError={() => setImageError(true)}
         />
-        <span className="kid-food-card-caption">{name}</span>
+        <span className="kid-food-card-caption">
+          {groupLabel && <span className="kid-food-card-caption-label">{groupLabel}</span>}
+          {name}
+        </span>
 
         {selected && (
           <div className="kid-selection-badge absolute top-2 right-2">
