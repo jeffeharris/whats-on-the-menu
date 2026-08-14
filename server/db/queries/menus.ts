@@ -66,6 +66,60 @@ interface KidSelectionRow {
   updated_at: string;
 }
 
+interface HouseholdActiveRow {
+  active_menu_id: string | null;
+  selection_status: SelectionStatus;
+  selection_revision: string | number;
+}
+
+const SELECTION_LIMITS: Record<SelectionPreset, { min: number; max: number }> = {
+  'pick-1': { min: 1, max: 1 },
+  'pick-1-2': { min: 1, max: 2 },
+  'pick-2': { min: 2, max: 2 },
+  'pick-2-3': { min: 2, max: 3 },
+};
+
+function validateSelections(
+  groups: MenuGroup[],
+  selections: GroupSelections,
+  statusCode = 400
+): void {
+  const groupsById = new Map(groups.map((group) => [group.id, group]));
+  const selectedFoodIds = new Set<string>();
+
+  for (const groupId of Object.keys(selections)) {
+    if (!groupsById.has(groupId)) {
+      throw new MenuOperationError('Choices include a group that is not on the active menu', statusCode);
+    }
+  }
+
+  for (const group of groups) {
+    const selected = selections[group.id] ?? [];
+    const limits = SELECTION_LIMITS[group.selectionPreset];
+    if (selected.length < limits.min || selected.length > limits.max) {
+      throw new MenuOperationError(
+        `Choices for ${group.label} must include between ${limits.min} and ${limits.max} item(s)`,
+        statusCode
+      );
+    }
+
+    if (new Set(selected).size !== selected.length) {
+      throw new MenuOperationError(`Choices for ${group.label} contain a duplicate item`, statusCode);
+    }
+
+    const allowedFoodIds = new Set(group.foodIds);
+    for (const foodId of selected) {
+      if (!allowedFoodIds.has(foodId)) {
+        throw new MenuOperationError(`A choice for ${group.label} is not on the active menu`, statusCode);
+      }
+      if (selectedFoodIds.has(foodId)) {
+        throw new MenuOperationError('The same food cannot be selected in more than one group', statusCode);
+      }
+      selectedFoodIds.add(foodId);
+    }
+  }
+}
+
 // ============================================================
 // Row → API mapping
 // ============================================================
@@ -127,7 +181,9 @@ export async function createMenu(
     // Set as active menu
     await client.query(
       `UPDATE households
-       SET active_menu_id = $2, selection_status = 'open'
+       SET active_menu_id = $2,
+           selection_status = 'open',
+           selection_revision = selection_revision + 1
        WHERE id = $1`,
       [householdId, menu.id]
     );
@@ -207,7 +263,10 @@ export async function updateMenu(
     const affectsActiveMenu = householdRows[0]?.active_menu_id === id && groupsChanged;
     if (affectsActiveMenu) {
       await client.query(
-        `UPDATE households SET selection_status = 'open' WHERE id = $1`,
+        `UPDATE households
+         SET selection_status = 'open',
+             selection_revision = selection_revision + 1
+         WHERE id = $1`,
         [householdId]
       );
       await client.query(
@@ -256,7 +315,9 @@ export async function deleteMenu(
     if (wasActive) {
       await client.query(
         `UPDATE households
-         SET active_menu_id = NULL, selection_status = 'open'
+         SET active_menu_id = NULL,
+             selection_status = 'open',
+             selection_revision = selection_revision + 1
          WHERE id = $1`,
         [householdId]
       );
@@ -283,13 +344,17 @@ export async function deleteMenu(
 
 export async function getActiveMenu(
   householdId: string
-): Promise<{ menu: SavedMenu | null; selections: KidSelection[]; selectionStatus: SelectionStatus }> {
+): Promise<{
+  menu: SavedMenu | null;
+  selections: KidSelection[];
+  selectionStatus: SelectionStatus;
+  selectionRevision: number;
+}> {
   // Get active_menu_id from households
-  const { rows: householdRows } = await pool.query<{
-    active_menu_id: string | null;
-    selection_status: SelectionStatus;
-  }>(
-    'SELECT active_menu_id, selection_status FROM households WHERE id = $1',
+  const { rows: householdRows } = await pool.query<HouseholdActiveRow>(
+    `SELECT active_menu_id, selection_status, selection_revision
+     FROM households
+     WHERE id = $1`,
     [householdId]
   );
 
@@ -298,6 +363,7 @@ export async function getActiveMenu(
       menu: null,
       selections: [],
       selectionStatus: householdRows[0]?.selection_status ?? 'open',
+      selectionRevision: Number(householdRows[0]?.selection_revision ?? 0),
     };
   }
 
@@ -323,6 +389,7 @@ export async function getActiveMenu(
     menu: menuResult.rows.length > 0 ? rowToSavedMenu(menuResult.rows[0]) : null,
     selections: selectionsResult.rows.map(rowToKidSelection),
     selectionStatus,
+    selectionRevision: Number(householdRows[0].selection_revision),
   };
 }
 
@@ -335,7 +402,9 @@ export async function setActiveMenu(
     await client.query('BEGIN');
     await client.query(
       `UPDATE households
-       SET active_menu_id = $2, selection_status = 'open'
+       SET active_menu_id = $2,
+           selection_status = 'open',
+           selection_revision = selection_revision + 1
        WHERE id = $1`,
       [householdId, menuId]
     );
@@ -359,7 +428,9 @@ export async function setActiveMenu(
 export async function addSelection(
   householdId: string,
   kidId: string,
-  selections: GroupSelections
+  selections: GroupSelections,
+  menuId: string,
+  selectionRevision: number
 ): Promise<KidSelection> {
   const client = await pool.connect();
   try {
@@ -367,11 +438,8 @@ export async function addSelection(
 
     // Serialize kid edits with parent approval. Whichever obtains this row lock
     // first completes, and the second operation observes the resulting state.
-    const { rows: householdRows } = await client.query<{
-      active_menu_id: string | null;
-      selection_status: SelectionStatus;
-    }>(
-      `SELECT active_menu_id, selection_status
+    const { rows: householdRows } = await client.query<HouseholdActiveRow>(
+      `SELECT active_menu_id, selection_status, selection_revision
        FROM households
        WHERE id = $1
        FOR UPDATE`,
@@ -381,9 +449,26 @@ export async function addSelection(
     if (!household?.active_menu_id) {
       throw new MenuOperationError('There is no active menu', 409);
     }
+    if (
+      household.active_menu_id !== menuId
+      || Number(household.selection_revision) !== selectionRevision
+    ) {
+      throw new MenuOperationError('The menu changed while these choices were being made', 409);
+    }
     if (household.selection_status === 'approved') {
       throw new MenuOperationError('Choices have already been approved', 409);
     }
+
+    const { rows: menuRows } = await client.query<MenuRow>(
+      `SELECT ${MENU_COLUMNS}
+       FROM menus
+       WHERE id = $1 AND household_id = $2`,
+      [household.active_menu_id, householdId]
+    );
+    if (menuRows.length === 0) {
+      throw new MenuOperationError('The active menu is no longer available', 409);
+    }
+    validateSelections(menuRows[0].groups, selections);
 
     const kid = await client.query(
       'SELECT 1 FROM kid_profiles WHERE id = $1 AND household_id = $2',
@@ -416,7 +501,10 @@ export async function clearSelections(householdId: string): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(
-      `UPDATE households SET selection_status = 'open' WHERE id = $1`,
+      `UPDATE households
+       SET selection_status = 'open',
+           selection_revision = selection_revision + 1
+       WHERE id = $1`,
       [householdId]
     );
     await client.query(
@@ -451,12 +539,28 @@ export async function setSelectionStatus(
     }
 
     if (status === 'approved') {
-      const selectionCount = await client.query(
-        'SELECT 1 FROM kid_selections WHERE household_id = $1 LIMIT 1',
+      const { rows: menuRows } = await client.query<MenuRow>(
+        `SELECT ${MENU_COLUMNS}
+         FROM menus
+         WHERE id = $1 AND household_id = $2`,
+        [householdRows[0].active_menu_id, householdId]
+      );
+      if (menuRows.length === 0) {
+        throw new MenuOperationError('The active menu is no longer available', 409);
+      }
+
+      const { rows: selectionRows } = await client.query<KidSelectionRow>(
+        `SELECT kid_id, selections, updated_at
+         FROM kid_selections
+         WHERE household_id = $1
+         FOR UPDATE`,
         [householdId]
       );
-      if (selectionCount.rowCount === 0) {
+      if (selectionRows.length === 0) {
         throw new MenuOperationError('There are no choices to approve', 409);
+      }
+      for (const selectionRow of selectionRows) {
+        validateSelections(menuRows[0].groups, selectionRow.selections, 409);
       }
     }
 
@@ -514,7 +618,8 @@ export async function updatePreset(
   householdId: string,
   slot: PresetSlot,
   name: string,
-  groups: MenuGroup[]
+  groups: MenuGroup[],
+  expectedUpdatedAt?: number | null
 ): Promise<MenuMutationResult> {
   const client = await pool.connect();
   try {
@@ -534,6 +639,13 @@ export async function updatePreset(
     let row: MenuRow;
     let groupsChanged = false;
     if (existingRows.length > 0) {
+      if (
+        expectedUpdatedAt !== undefined
+        && (expectedUpdatedAt === null
+          || new Date(existingRows[0].updated_at).getTime() !== expectedUpdatedAt)
+      ) {
+        throw new MenuOperationError('This preset was changed on another device. Reload it before saving.', 409);
+      }
       groupsChanged = !isDeepStrictEqual(existingRows[0].groups, groups);
       const { rows } = await client.query<MenuRow>(
         `UPDATE menus
@@ -544,6 +656,9 @@ export async function updatePreset(
       );
       row = rows[0];
     } else {
+      if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== null) {
+        throw new MenuOperationError('This preset was changed on another device. Reload it before saving.', 409);
+      }
       const { rows } = await client.query<MenuRow>(
         `INSERT INTO menus (household_id, name, groups, preset_slot)
          VALUES ($1, $2, $3, $4)
@@ -556,7 +671,10 @@ export async function updatePreset(
     const affectsActiveMenu = householdRows[0]?.active_menu_id === row.id && groupsChanged;
     if (affectsActiveMenu) {
       await client.query(
-        `UPDATE households SET selection_status = 'open' WHERE id = $1`,
+        `UPDATE households
+         SET selection_status = 'open',
+             selection_revision = selection_revision + 1
+         WHERE id = $1`,
         [householdId]
       );
       await client.query(
@@ -613,7 +731,9 @@ export async function deletePreset(
     if (wasActive) {
       await client.query(
         `UPDATE households
-         SET active_menu_id = NULL, selection_status = 'open'
+         SET active_menu_id = NULL,
+             selection_status = 'open',
+             selection_revision = selection_revision + 1
          WHERE id = $1`,
         [householdId]
       );
@@ -772,7 +892,10 @@ export async function copyPreset(
     const affectsActiveMenu = householdRows[0]?.active_menu_id === row.id && groupsChanged;
     if (affectsActiveMenu) {
       await client.query(
-        `UPDATE households SET selection_status = 'open' WHERE id = $1`,
+        `UPDATE households
+         SET selection_status = 'open',
+             selection_revision = selection_revision + 1
+         WHERE id = $1`,
         [householdId]
       );
       await client.query(

@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from '
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppStateProvider, useAppState } from './contexts/AppStateContext';
 import { FoodLibraryProvider } from './contexts/FoodLibraryContext';
-import { KidProfilesProvider } from './contexts/KidProfilesContext';
+import { KidProfilesProvider, useKidProfiles } from './contexts/KidProfilesContext';
 import { MenuProvider, useMenu } from './contexts/MenuContext';
 import { MealHistoryProvider } from './contexts/MealHistoryContext';
 import { SharedMenuProvider } from './contexts/SharedMenuContext';
@@ -37,6 +37,7 @@ import { KidModeHome } from './views/kid/KidModeHome';
 import { MenuSelection } from './views/kid/MenuSelection';
 import { PlateConfirmation } from './views/kid/PlateConfirmation';
 import { FamilyStars } from './views/kid/FamilyStars';
+import { FoodWall } from './views/kid/FoodWall';
 
 // Public views
 import { SharedMenuView } from './views/public/SharedMenuView';
@@ -176,24 +177,51 @@ function SharedMenuViewRoute() {
 // Kid mode route components
 function KidModeHomeRoute() {
   const navigate = useNavigate();
-  const { selectKid } = useAppState();
+  const { selectKid, selectedKidId } = useAppState();
   const { hasKidSelected, selectionsLocked } = useMenu();
+  const { profiles } = useKidProfiles();
 
   const handleSelectKid = (kidId: string) => {
     selectKid(kidId);
-    if (selectionsLocked || hasKidSelected(kidId)) {
+    if (hasKidSelected(kidId)) {
       navigate(`/kid/confirm/${kidId}`);
-    } else {
+    } else if (!selectionsLocked) {
       navigate(`/kid/select/${kidId}`);
     }
   };
 
-  return <KidModeHome onSelectKid={handleSelectKid} onNavigateToStars={() => navigate('/kid/stars')} />;
+  const defaultFoodWallKidId = selectedKidId ?? profiles[0]?.id;
+
+  return (
+    <KidModeHome
+      onSelectKid={handleSelectKid}
+      onNavigateToStars={() => navigate('/kid/stars')}
+      onNavigateToFoodWall={defaultFoodWallKidId ? () => navigate(`/kid/foods/${defaultFoodWallKidId}`) : undefined}
+    />
+  );
 }
 
 function FamilyStarsRoute() {
   const navigate = useNavigate();
   return <FamilyStars onBack={() => navigate('/')} />;
+}
+
+function FoodWallRoute() {
+  const navigate = useNavigate();
+  const { kidId } = useParams<{ kidId: string }>();
+
+  if (!kidId) {
+    navigate('/');
+    return null;
+  }
+
+  return (
+    <FoodWall
+      kidId={kidId}
+      onBack={() => navigate('/')}
+      onSwitchKid={(nextKidId) => navigate(`/kid/foods/${nextKidId}`, { replace: true })}
+    />
+  );
 }
 
 function MenuSelectionRoute() {
@@ -316,6 +344,7 @@ function AppRoutes() {
               {/* All existing kid routes */}
               <Route path="/" element={<KidModeHomeRoute />} />
               <Route path="/kid/stars" element={<FamilyStarsRoute />} />
+              <Route path="/kid/foods/:kidId" element={<FoodWallRoute />} />
               <Route path="/kid/select/:kidId" element={<MenuSelectionRoute />} />
               <Route path="/kid/confirm/:kidId" element={<PlateConfirmationRoute />} />
               <Route path="*" element={<KidModeHomeRoute />} />

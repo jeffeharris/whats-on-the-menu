@@ -102,9 +102,15 @@ router.post('/selections', async (req, res) => {
     if (!result.success) {
       return res.status(400).json({ error: result.error.issues[0].message });
     }
-    const { kidId, selections } = result.data;
+    const { kidId, selections, menuId, selectionRevision } = result.data;
 
-    const selection = await addSelection(req.householdId!, kidId, selections || {});
+    const selection = await addSelection(
+      req.householdId!,
+      kidId,
+      selections,
+      menuId,
+      selectionRevision
+    );
     publishMenuEvent(req.householdId!, { reason: 'selection-updated' });
     res.status(201).json(selection);
   } catch (error) {
@@ -172,20 +178,24 @@ router.put('/presets/:slot', async (req, res) => {
     if (!result.success) {
       return res.status(400).json({ error: result.error.issues[0].message });
     }
-    const { name, groups } = result.data;
+    const { name, groups, expectedUpdatedAt } = result.data;
 
     const mutation = await updatePreset(
       req.householdId!,
       slot,
       name || slot.charAt(0).toUpperCase() + slot.slice(1),
-      groups
+      groups,
+      expectedUpdatedAt
     );
     publishMenuEvent(req.householdId!, {
       reason: 'preset-changed',
       affectsActiveMenu: mutation.affectsActiveMenu,
     });
-    res.json(mutation.menu);
+    res.json({ ...mutation.menu, affectsActiveMenu: mutation.affectsActiveMenu });
   } catch (error) {
+    if (error instanceof MenuOperationError) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     console.error('Error updating preset:', error);
     res.status(500).json({ error: 'Failed to update preset' });
   }
@@ -237,7 +247,7 @@ router.post('/presets/:fromSlot/copy/:toSlot', async (req, res) => {
       reason: 'preset-changed',
       affectsActiveMenu: mutation.affectsActiveMenu,
     });
-    res.json(mutation.menu);
+    res.json({ ...mutation.menu, affectsActiveMenu: mutation.affectsActiveMenu });
   } catch (error) {
     console.error('Error copying preset:', error);
     res.status(500).json({ error: 'Failed to copy preset' });

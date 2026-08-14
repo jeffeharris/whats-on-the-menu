@@ -30,6 +30,7 @@ CREATE TABLE households (
   active_menu_id  UUID,           -- FK added below after menus table exists
   selection_status TEXT NOT NULL DEFAULT 'open'
     CHECK (selection_status IN ('open', 'approved')),
+  selection_revision BIGINT NOT NULL DEFAULT 0,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -268,7 +269,7 @@ CREATE TABLE meal_reviews (
   meal_id         UUID NOT NULL REFERENCES meal_records(id) ON DELETE CASCADE,
   kid_id          UUID REFERENCES kid_profiles(id) ON DELETE SET NULL,
   kid_name        TEXT NOT NULL,   -- snapshot: survives profile deletion
-  completions     JSONB NOT NULL DEFAULT '{}',   -- { [foodId]: 'all'|'some'|'none'|null }
+  completions     JSONB NOT NULL DEFAULT '{}',   -- { [foodId]: 'all'|'some'|'tried'|'none'|null }
   earned_star     BOOLEAN DEFAULT false,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );

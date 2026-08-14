@@ -120,7 +120,7 @@ export interface MenuState {
   selectionsLocked: boolean;
 }
 
-export type CompletionStatus = 'all' | 'some' | 'none' | null;
+export type CompletionStatus = 'all' | 'some' | 'tried' | 'none' | null;
 
 export interface KidMealReview {
   kidId: string;

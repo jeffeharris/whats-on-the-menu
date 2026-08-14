@@ -15,7 +15,7 @@ const app = createApp();
 const menuGroup = {
   id: 'main',
   label: 'Main',
-  foodIds: [],
+  foodIds: ['pizza', 'pasta'],
   selectionPreset: 'pick-1' as const,
   order: 0,
 };
@@ -36,10 +36,19 @@ async function createActiveRound(name = 'Family') {
 }
 
 async function submitAndApprove(cookie: string, kidId: string) {
+  const active = await request(app)
+    .get('/api/menus/active')
+    .set('Cookie', cookie)
+    .expect(200);
   await request(app)
     .post('/api/menus/selections')
     .set('Cookie', cookie)
-    .send({ kidId, selections: { main: ['pizza'] } })
+    .send({
+      kidId,
+      selections: { main: ['pizza'] },
+      menuId: active.body.menu.id,
+      selectionRevision: active.body.selectionRevision,
+    })
     .expect(201);
   await request(app)
     .put('/api/menus/selections/status')
@@ -61,7 +70,12 @@ describe('multi-device menu selection flow', () => {
     await request(app)
       .post('/api/menus/selections')
       .set('Cookie', tenant.cookie)
-      .send({ kidId, selections: { main: ['pizza'] } })
+      .send({
+        kidId,
+        selections: { main: ['pizza'] },
+        menuId: initial.body.menu.id,
+        selectionRevision: initial.body.selectionRevision,
+      })
       .expect(201);
 
     const approved = await request(app)
@@ -81,7 +95,12 @@ describe('multi-device menu selection flow', () => {
     const lockedEdit = await request(app)
       .post('/api/menus/selections')
       .set('Cookie', tenant.cookie)
-      .send({ kidId, selections: { main: ['pasta'] } })
+      .send({
+        kidId,
+        selections: { main: ['pasta'] },
+        menuId: active.body.menu.id,
+        selectionRevision: active.body.selectionRevision,
+      })
       .expect(409);
     expect(lockedEdit.body.error).toMatch(/approved/i);
 
@@ -94,7 +113,12 @@ describe('multi-device menu selection flow', () => {
     const revised = await request(app)
       .post('/api/menus/selections')
       .set('Cookie', tenant.cookie)
-      .send({ kidId, selections: { main: ['pasta'] } })
+      .send({
+        kidId,
+        selections: { main: ['pasta'] },
+        menuId: active.body.menu.id,
+        selectionRevision: active.body.selectionRevision,
+      })
       .expect(201);
     expect(revised.body.selections).toEqual({ main: ['pasta'] });
     expect(revised.body.timestamp).toEqual(expect.any(Number));
@@ -102,6 +126,11 @@ describe('multi-device menu selection flow', () => {
 
   it('requires a completed plate before approval and resets the round for a new active menu', async () => {
     const { tenant, kidId } = await createActiveRound();
+
+    const initial = await request(app)
+      .get('/api/menus/active')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
 
     await request(app)
       .put('/api/menus/selections/status')
@@ -112,7 +141,12 @@ describe('multi-device menu selection flow', () => {
     await request(app)
       .post('/api/menus/selections')
       .set('Cookie', tenant.cookie)
-      .send({ kidId, selections: { main: ['pizza'] } })
+      .send({
+        kidId,
+        selections: { main: ['pizza'] },
+        menuId: initial.body.menu.id,
+        selectionRevision: initial.body.selectionRevision,
+      })
       .expect(201);
     await request(app)
       .put('/api/menus/selections/status')
@@ -143,7 +177,7 @@ describe('multi-device menu selection flow', () => {
     await request(app)
       .put('/api/menus/presets/snack')
       .set('Cookie', tenant.cookie)
-      .send({ name: 'Snack', groups: [{ ...menuGroup, label: 'Snack' }] })
+      .send({ name: 'Snack', groups: [{ ...menuGroup, label: 'Snack' }], expectedUpdatedAt: null })
       .expect(200);
     unsubscribe();
 
@@ -167,7 +201,7 @@ describe('multi-device menu selection flow', () => {
     const preset = await request(app)
       .put('/api/menus/presets/dinner')
       .set('Cookie', tenant.cookie)
-      .send({ name: 'Dinner', groups: [menuGroup] })
+      .send({ name: 'Dinner', groups: [menuGroup], expectedUpdatedAt: null })
       .expect(200);
     await request(app)
       .put('/api/menus/active')
@@ -181,7 +215,11 @@ describe('multi-device menu selection flow', () => {
     await request(app)
       .put('/api/menus/presets/dinner')
       .set('Cookie', tenant.cookie)
-      .send({ name: 'Dinner', groups: [{ ...menuGroup, label: 'Entrée' }] })
+      .send({
+        name: 'Dinner',
+        groups: [{ ...menuGroup, label: 'Entrée' }],
+        expectedUpdatedAt: preset.body.updatedAt,
+      })
       .expect(200);
     unsubscribe();
 
@@ -205,7 +243,7 @@ describe('multi-device menu selection flow', () => {
     const preset = await request(app)
       .put('/api/menus/presets/dinner')
       .set('Cookie', tenant.cookie)
-      .send({ name: 'Dinner', groups: [menuGroup] })
+      .send({ name: 'Dinner', groups: [menuGroup], expectedUpdatedAt: null })
       .expect(200);
     await request(app)
       .put('/api/menus/active')
@@ -217,7 +255,11 @@ describe('multi-device menu selection flow', () => {
     await request(app)
       .put('/api/menus/presets/dinner')
       .set('Cookie', tenant.cookie)
-      .send({ name: 'Friday Dinner', groups: [menuGroup] })
+      .send({
+        name: 'Friday Dinner',
+        groups: [menuGroup],
+        expectedUpdatedAt: preset.body.updatedAt,
+      })
       .expect(200);
 
     const active = await request(app)
@@ -253,7 +295,15 @@ describe('multi-device menu selection flow', () => {
     await request(app)
       .post('/api/menus/selections')
       .set('Cookie', alice.tenant.cookie)
-      .send({ kidId: bob.kidId, selections: { main: ['pizza'] } })
+      .send({
+        kidId: bob.kidId,
+        selections: { main: ['pizza'] },
+        menuId: alice.menuId,
+        selectionRevision: (await request(app)
+          .get('/api/menus/active')
+          .set('Cookie', alice.tenant.cookie)
+          .expect(200)).body.selectionRevision,
+      })
       .expect(404);
 
     const aliceActive = await request(app)
@@ -261,6 +311,107 @@ describe('multi-device menu selection flow', () => {
       .set('Cookie', alice.tenant.cookie)
       .expect(200);
     expect(aliceActive.body.selections).toEqual([]);
+  });
+
+  it('rejects stale drafts after the active menu round changes', async () => {
+    const { tenant, kidId, menuId } = await createActiveRound('Stale draft');
+    const originalRound = await request(app)
+      .get('/api/menus/active')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
+
+    await request(app)
+      .put(`/api/menus/${menuId}`)
+      .set('Cookie', tenant.cookie)
+      .send({ groups: [{ ...menuGroup, label: 'New Main' }] })
+      .expect(200);
+
+    const stale = await request(app)
+      .post('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .send({
+        kidId,
+        selections: { main: ['pizza'] },
+        menuId,
+        selectionRevision: originalRound.body.selectionRevision,
+      })
+      .expect(409);
+    expect(stale.body.error).toMatch(/menu changed/i);
+
+    const active = await request(app)
+      .get('/api/menus/active')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
+    expect(active.body.selectionRevision).toBeGreaterThan(originalRound.body.selectionRevision);
+    expect(active.body.selections).toEqual([]);
+  });
+
+  it('validates every submitted plate against the active menu', async () => {
+    const { tenant, kidId, menuId } = await createActiveRound('Validation');
+    const active = await request(app)
+      .get('/api/menus/active')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
+    const round = { menuId, selectionRevision: active.body.selectionRevision };
+
+    await request(app)
+      .post('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .send({ kidId, selections: {}, ...round })
+      .expect(400);
+    await request(app)
+      .post('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .send({ kidId, selections: { main: ['not-on-menu'] }, ...round })
+      .expect(400);
+    await request(app)
+      .post('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .send({ kidId, selections: { main: ['pizza'], old: ['pasta'] }, ...round })
+      .expect(400);
+
+    await request(app)
+      .put('/api/menus/selections/status')
+      .set('Cookie', tenant.cookie)
+      .send({ status: 'approved' })
+      .expect(409);
+  });
+
+  it('does not overwrite a preset saved from a newer device snapshot', async () => {
+    const tenant = await createTenant('Preset concurrency');
+    const original = await request(app)
+      .put('/api/menus/presets/dinner')
+      .set('Cookie', tenant.cookie)
+      .send({ name: 'Dinner', groups: [menuGroup], expectedUpdatedAt: null })
+      .expect(200);
+
+    await request(app)
+      .put('/api/menus/presets/dinner')
+      .set('Cookie', tenant.cookie)
+      .send({
+        name: 'Newer Dinner',
+        groups: [{ ...menuGroup, label: 'Fresh Main' }],
+        expectedUpdatedAt: original.body.updatedAt,
+      })
+      .expect(200);
+
+    const staleSave = await request(app)
+      .put('/api/menus/presets/dinner')
+      .set('Cookie', tenant.cookie)
+      .send({
+        name: 'Stale Dinner',
+        groups: [{ ...menuGroup, label: 'Old Main' }],
+        expectedUpdatedAt: original.body.updatedAt,
+      })
+      .expect(409);
+    expect(staleSave.body.error).toMatch(/another device/i);
+
+    const presets = await request(app)
+      .get('/api/menus/presets')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
+    expect(presets.body.presets.dinner.name).toBe('Newer Dinner');
+    expect(presets.body.presets.dinner.groups[0].label).toBe('Fresh Main');
   });
 
   it('fans invalidation events out only within the target household', () => {

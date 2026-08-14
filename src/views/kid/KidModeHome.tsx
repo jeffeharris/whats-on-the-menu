@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star, Settings, Check } from 'lucide-react';
+import { Star, Settings, Check, UtensilsCrossed } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { AppShell } from '../../components/common/AppShell';
 import { Modal } from '../../components/common/Modal';
@@ -15,9 +15,10 @@ import { useSound } from '../../hooks/useSound';
 interface KidModeHomeProps {
   onSelectKid: (kidId: string) => void;
   onNavigateToStars?: () => void;
+  onNavigateToFoodWall?: () => void;
 }
 
-export function KidModeHome({ onSelectKid, onNavigateToStars }: KidModeHomeProps) {
+export function KidModeHome({ onSelectKid, onNavigateToStars, onNavigateToFoodWall }: KidModeHomeProps) {
   const { enterParentMode, grownUpCheckEnabled } = useAppState();
   const { profiles, error: profilesError, reload: reloadProfiles } = useKidProfiles();
   const { activeMenu, hasKidSelected, selections, selectionsLocked, getSelectionForKid } = useMenu();
@@ -117,19 +118,29 @@ export function KidModeHome({ onSelectKid, onNavigateToStars }: KidModeHomeProps
   return (
     <AppShell mode="kid" className="h-full flex flex-col p-4 md:p-8 overflow-hidden">
       {/* Header with parent access */}
-      <header className="flex-shrink-0 flex justify-between items-center mb-4">
-        {totalStars > 0 || selectionsLocked ? (
-          <button
-            onClick={onNavigateToStars}
-            className="ui-chip hover:-translate-y-0.5 transition-transform"
-            aria-label="Our Stars"
-          >
-            <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-            <span className="text-sm font-bold text-yellow-700">Our Stars</span>
-          </button>
-        ) : (
-          <div />
-        )}
+      <header className="flex-shrink-0 flex justify-between items-center mb-4 gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {(totalStars > 0 || selectionsLocked) && (
+            <button
+              onClick={onNavigateToStars}
+              className="ui-chip hover:-translate-y-0.5 transition-transform"
+              aria-label="Our Stars"
+            >
+              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+              <span className="text-sm font-bold text-yellow-700">Our Stars</span>
+            </button>
+          )}
+          {onNavigateToFoodWall && (
+            <button
+              onClick={onNavigateToFoodWall}
+              className="ui-chip hover:-translate-y-0.5 transition-transform"
+              aria-label="My Foods"
+            >
+              <UtensilsCrossed className="w-4 h-4 text-brand-teal-deep" />
+              <span className="text-sm font-bold text-brand-ink">My Foods</span>
+            </button>
+          )}
+        </div>
         <button
           onClick={handleParentLogin}
           className="ui-icon-button"
@@ -145,7 +156,7 @@ export function KidModeHome({ onSelectKid, onNavigateToStars }: KidModeHomeProps
           {selectionsLocked ? 'Enjoy your meal!' : "Who's hungry?"}
         </h1>
         <p className="text-lg md:text-xl text-gray-600 mb-8 md:mb-12 text-center">
-          {selectionsLocked ? "Here's what everyone picked." : 'Tap your name to pick your food!'}
+          {selectionsLocked ? 'Here are the plates your grown-up approved.' : 'Tap your name to pick your food!'}
         </p>
 
         {/* Kid avatars */}
@@ -161,7 +172,12 @@ export function KidModeHome({ onSelectKid, onNavigateToStars }: KidModeHomeProps
                     color={profile.avatarColor}
                     avatarAnimal={profile.avatarAnimal}
                     size="2xl"
-                    onClick={() => { playPlaced(); onSelectKid(profile.id); }}
+                    onClick={selectionsLocked && !hasSelected
+                      ? undefined
+                      : () => { playPlaced(); onSelectKid(profile.id); }}
+                    ariaLabel={selectionsLocked && !hasSelected
+                      ? `${profile.name} has no plate this time`
+                      : undefined}
                   />
                   {hasSelected && (
                     <div className="absolute -top-2 -right-2 w-10 h-10 bg-success border-[3px] border-white rounded-full flex items-center justify-center shadow-lg">
@@ -188,6 +204,9 @@ export function KidModeHome({ onSelectKid, onNavigateToStars }: KidModeHomeProps
                       {selectionsLocked ? 'Plate ready!' : 'Done!'}
                     </span>
                   </>
+                )}
+                {selectionsLocked && !hasSelected && (
+                  <span className="text-sm text-gray-500 font-medium mt-2">No plate this time</span>
                 )}
               </div>
             );

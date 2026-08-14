@@ -1,3 +1,5 @@
+import { RingDotIcon } from '../common/RingDotIcon';
+import { COMPLETION_STEPS } from '../../utils/completionUtils';
 import type { CompletionStatus } from '../../types';
 
 interface CompletionStatusSelectorProps {
@@ -6,33 +8,40 @@ interface CompletionStatusSelectorProps {
   foodName: string;
 }
 
-const statusOptions: { value: NonNullable<CompletionStatus>; label: string; color: string }[] = [
-  { value: 'none', label: 'None', color: 'bg-gray-400 text-white' },
-  { value: 'some', label: 'Some', color: 'bg-warning text-white' },
-  { value: 'all', label: 'All', color: 'bg-success text-white' },
-];
-
 export function CompletionStatusSelector({
   value,
   onChange,
   foodName,
 }: CompletionStatusSelectorProps) {
   return (
-    <div className="flex gap-1 flex-shrink-0" role="group" aria-label={`Completion status for ${foodName}`}>
-      {statusOptions.map((option) => {
-        const isSelected = value === option.value;
+    <div
+      className="grid gap-1"
+      style={{ gridTemplateColumns: `repeat(${COMPLETION_STEPS.length}, minmax(0, 1fr))` }}
+      role="group"
+      aria-label={`Completion status for ${foodName}`}
+    >
+      {COMPLETION_STEPS.map((step) => {
+        const isSelected = value === step.value;
         return (
           <button
-            key={option.value}
-            onClick={() => onChange(isSelected ? null : option.value)}
+            key={step.value}
+            onClick={() => onChange(isSelected ? null : step.value)}
             className={`
-              px-2.5 py-1.5 text-xs font-medium rounded-lg
-              transition-all duration-150
-              ${isSelected ? option.color : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}
+              min-h-11 flex flex-col items-center justify-center gap-0.5 px-0.5 py-1
+              rounded-[10px] border transition-all duration-150
+              ${isSelected
+                ? `${step.solidClass} text-white border-transparent`
+                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}
             `}
             aria-pressed={isSelected}
+            aria-label={step.label}
           >
-            {option.label}
+            <RingDotIcon size={16} dotRadius={7 * Math.sqrt(step.fill)} />
+            <span
+              className={`text-[10px] leading-tight text-center font-heading ${isSelected ? 'font-bold' : 'font-medium'}`}
+            >
+              {step.shortLabel}
+            </span>
           </button>
         );
       })}

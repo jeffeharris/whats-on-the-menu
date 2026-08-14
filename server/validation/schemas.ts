@@ -83,7 +83,7 @@ const kidSelectionSchema = z.object({
 
 const kidMealReviewSchema = z.object({
   kidId: z.string().min(1),
-  completions: z.record(z.string(), z.enum(['all', 'some', 'none']).nullable()),
+  completions: z.record(z.string(), z.enum(['all', 'some', 'tried', 'none']).nullable()),
   earnedStar: z.boolean().optional(),
 });
 
@@ -122,7 +122,9 @@ export const setActiveMenuSchema = z.object({
 
 export const addSelectionSchema = z.object({
   kidId: z.string().min(1, 'kidId is required'),
-  selections: groupSelectionsSchema.optional(),
+  selections: groupSelectionsSchema,
+  menuId: z.string().min(1, 'menuId is required'),
+  selectionRevision: z.number().int().nonnegative(),
 });
 
 export const selectionStatusSchema = z.object({
@@ -132,6 +134,7 @@ export const selectionStatusSchema = z.object({
 export const updatePresetSchema = z.object({
   name: z.string().optional(),
   groups: z.array(menuGroupSchema),
+  expectedUpdatedAt: z.number().int().nonnegative().nullable(),
 });
 
 // ============================================================

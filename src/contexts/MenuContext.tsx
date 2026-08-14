@@ -13,6 +13,7 @@ interface MenuContextType {
   currentMenu: Menu | null;
   selections: KidSelection[];
   selectionStatus: SelectionStatus;
+  selectionRevision: number;
   selectionsLocked: boolean;
   loading: boolean;
   // Preset state
@@ -26,11 +27,16 @@ interface MenuContextType {
    */
   presetsError: boolean;
   reloadPresets: () => void;
-  refreshActiveMenu: () => Promise<void>;
+  refreshActiveMenu: () => Promise<SavedMenu | null>;
   // Original menu methods
   createMenu: (groups: MenuGroup[]) => Promise<Menu>;
   clearMenu: () => Promise<void>;
-  addSelection: (kidId: string, selections: GroupSelections) => Promise<void>;
+  addSelection: (
+    kidId: string,
+    selections: GroupSelections,
+    menuId: string,
+    selectionRevision: number
+  ) => Promise<void>;
   getSelectionForKid: (kidId: string) => KidSelection | undefined;
   clearSelections: () => Promise<void>;
   hasKidSelected: (kidId: string) => boolean;
@@ -82,6 +88,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   const [currentMenu, setCurrentMenu] = useState<Menu | null>(null);
   const [selections, setSelections] = useState<KidSelection[]>([]);
   const [selectionStatus, setSelectionStatus] = useState<SelectionStatus>('open');
+  const [selectionRevision, setSelectionRevision] = useState(0);
   const [loading, setLoading] = useState(isAuthenticated);
   const selectionsLocked = selectionStatus === 'approved';
 
@@ -97,6 +104,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   const [presetsError, setPresetsError] = useState(false);
   const [reloadCount, setReloadCount] = useState(0);
   const editorInitializedRef = useRef(false);
+  const editorPresetVersionRef = useRef<number | null>(null);
   const activeRefreshVersionRef = useRef(0);
   const presetsRefreshVersionRef = useRef(0);
 
@@ -120,17 +128,20 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       editorInitializedRef.current = true;
       setCurrentMenu(nextActiveMenu);
       setCurrentPresetSlot(activeData.menu?.presetSlot ?? null);
+      editorPresetVersionRef.current = activeData.menu?.updatedAt ?? null;
     }
     setSelections(activeData.selections);
     setSelectionStatus(activeData.selectionStatus);
+    setSelectionRevision(activeData.selectionRevision);
   }, []);
 
-  const refreshActiveMenu = useCallback(async () => {
-    if (!isAuthenticated) return;
+  const refreshActiveMenu = useCallback(async (): Promise<SavedMenu | null> => {
+    if (!isAuthenticated) return null;
     const refreshVersion = ++activeRefreshVersionRef.current;
     const activeData = await menusApi.getActive();
-    if (refreshVersion !== activeRefreshVersionRef.current) return;
+    if (refreshVersion !== activeRefreshVersionRef.current) return null;
     applyActiveMenuData(activeData);
+    return activeData.menu;
   }, [applyActiveMenuData, isAuthenticated]);
 
   const refreshPresets = useCallback(async () => {
@@ -141,10 +152,6 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     setPresets(presetData.presets);
     setPresetsError(false);
   }, [isAuthenticated]);
-
-  const invalidateActiveRefresh = useCallback(() => {
-    activeRefreshVersionRef.current += 1;
-  }, []);
 
   const invalidatePresetsRefresh = useCallback(() => {
     presetsRefreshVersionRef.current += 1;
@@ -197,7 +204,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     const source = new EventSource('/api/menu-events');
     let fallbackPoll: ReturnType<typeof setInterval> | null = null;
 
-    const runRefresh = (refresh: () => Promise<void>, label: string) => {
+    const runRefresh = (refresh: () => Promise<unknown>, label: string) => {
       void refresh().catch((error) => {
         console.error(`Failed to refresh ${label}:`, error);
       });
@@ -263,33 +270,31 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       id: savedMenu.id,
       groups: savedMenu.groups,
     };
-    invalidateActiveRefresh();
     editorInitializedRef.current = true;
-    setActiveMenu(newMenu);
+    editorPresetVersionRef.current = null;
     setCurrentMenu(newMenu);
-    setSelections([]);
-    setSelectionStatus('open');
+    setCurrentPresetSlot(null);
+    await refreshActiveMenu();
     return newMenu;
-  }, [invalidateActiveRefresh]);
+  }, [refreshActiveMenu]);
 
   const clearMenu = useCallback(async () => {
     await menusApi.setActive(null);
-    invalidateActiveRefresh();
-    setActiveMenu(null);
     setCurrentMenu(null);
-    setSelections([]);
-    setSelectionStatus('open');
     setCurrentPresetSlot(null);
-  }, [invalidateActiveRefresh]);
+    editorPresetVersionRef.current = null;
+    await refreshActiveMenu();
+  }, [refreshActiveMenu]);
 
-  const addSelection = useCallback(async (kidId: string, groupSelections: GroupSelections) => {
-    const newSelection = await menusApi.addSelection(kidId, groupSelections);
-    invalidateActiveRefresh();
-    setSelections((prev) => [
-      ...prev.filter((s) => s.kidId !== kidId),
-      newSelection,
-    ]);
-  }, [invalidateActiveRefresh]);
+  const addSelection = useCallback(async (
+    kidId: string,
+    groupSelections: GroupSelections,
+    menuId: string,
+    roundRevision: number
+  ) => {
+    await menusApi.addSelection(kidId, groupSelections, menuId, roundRevision);
+    await refreshActiveMenu();
+  }, [refreshActiveMenu]);
 
   const getSelectionForKid = useCallback((kidId: string): KidSelection | undefined => {
     return selections.find((s) => s.kidId === kidId);
@@ -297,33 +302,27 @@ export function MenuProvider({ children }: { children: ReactNode }) {
 
   const clearSelections = useCallback(async () => {
     await menusApi.clearSelections();
-    invalidateActiveRefresh();
-    setSelections([]);
-    setSelectionStatus('open');
-  }, [invalidateActiveRefresh]);
+    await refreshActiveMenu();
+  }, [refreshActiveMenu]);
 
   const hasKidSelected = useCallback((kidId: string): boolean => {
     return selections.some((s) => s.kidId === kidId);
   }, [selections]);
 
   const approveSelections = useCallback(async () => {
-    const status = await menusApi.setSelectionStatus('approved');
-    invalidateActiveRefresh();
-    setSelectionStatus(status);
-  }, [invalidateActiveRefresh]);
+    await menusApi.setSelectionStatus('approved');
+    await refreshActiveMenu();
+  }, [refreshActiveMenu]);
 
   const unlockSelections = useCallback(async () => {
-    const status = await menusApi.setSelectionStatus('open');
-    invalidateActiveRefresh();
-    setSelectionStatus(status);
-  }, [invalidateActiveRefresh]);
+    await menusApi.setSelectionStatus('open');
+    await refreshActiveMenu();
+  }, [refreshActiveMenu]);
 
   const unlockAndClearSelections = useCallback(async () => {
     await menusApi.clearSelections();
-    invalidateActiveRefresh();
-    setSelections([]);
-    setSelectionStatus('open');
-  }, [invalidateActiveRefresh]);
+    await refreshActiveMenu();
+  }, [refreshActiveMenu]);
 
   // Local state updates for menu building (before saving)
   const updateMenuGroup = useCallback((groupId: string, updates: Partial<MenuGroup>) => {
@@ -378,6 +377,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
 
     const preset = presets[slot];
     if (preset) {
+      editorPresetVersionRef.current = preset.updatedAt;
       setCurrentMenu({
         id: preset.id,
         groups: JSON.parse(JSON.stringify(preset.groups)), // Deep clone to avoid mutations
@@ -385,6 +385,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       setCurrentPresetSlot(slot);
     } else {
       // Empty preset - start with default groups
+      editorPresetVersionRef.current = null;
       setCurrentMenu({
         id: `new-${slot}`,
         groups: JSON.parse(JSON.stringify(DEFAULT_GROUPS)),
@@ -394,15 +395,13 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   }, [presets, presetsError]);
 
   const saveCurrentAsPreset = useCallback(async (slot: PresetSlot, name: string, groups: MenuGroup[]) => {
-    // The enforcement point for the presetsError contract. updatePreset issues
-    // an unconditional UPDATE keyed on slot, so writing while `presets` holds
-    // values we never read would clobber the real menu — including renaming it,
-    // since callers derive `name` from the same unread data.
+    // Never write from an editor whose preset snapshot could not be loaded.
     if (presetsError) {
       throw new Error('Refusing to overwrite a preset that could not be loaded');
     }
 
-    const savedMenu = await menusApi.updatePreset(slot, name, groups);
+    const expectedUpdatedAt = editorPresetVersionRef.current;
+    const savedMenu = await menusApi.updatePreset(slot, name, groups, expectedUpdatedAt);
     invalidatePresetsRefresh();
     setPresets((prev) => ({
       ...prev,
@@ -413,7 +412,9 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       groups: savedMenu.groups,
     });
     setCurrentPresetSlot(slot);
-  }, [invalidatePresetsRefresh, presetsError]);
+    editorPresetVersionRef.current = savedMenu.updatedAt;
+    if (savedMenu.affectsActiveMenu) await refreshActiveMenu();
+  }, [invalidatePresetsRefresh, presetsError, refreshActiveMenu]);
 
   const clearPreset = useCallback(async (slot: PresetSlot) => {
     const clearedMenuId = presets[slot]?.id;
@@ -427,14 +428,12 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     if (currentPresetSlot === slot) {
       setCurrentMenu(null);
       setCurrentPresetSlot(null);
+      editorPresetVersionRef.current = null;
     }
     if (clearedActiveMenu) {
-      invalidateActiveRefresh();
-      setActiveMenu(null);
-      setSelections([]);
-      setSelectionStatus('open');
+      await refreshActiveMenu();
     }
-  }, [activeMenu, currentPresetSlot, invalidateActiveRefresh, invalidatePresetsRefresh, presets]);
+  }, [activeMenu, currentPresetSlot, invalidatePresetsRefresh, presets, refreshActiveMenu]);
 
   const copyPreset = useCallback(async (fromSlot: PresetSlot, toSlot: PresetSlot) => {
     const copiedMenu = await menusApi.copyPreset(fromSlot, toSlot);
@@ -443,39 +442,46 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       ...prev,
       [toSlot]: copiedMenu,
     }));
-  }, [invalidatePresetsRefresh]);
+    if (copiedMenu.affectsActiveMenu) await refreshActiveMenu();
+  }, [invalidatePresetsRefresh, refreshActiveMenu]);
 
   const renamePreset = useCallback(async (slot: PresetSlot, name: string) => {
     const preset = presets[slot];
     if (!preset) return;
-    const savedMenu = await menusApi.updatePreset(slot, name, preset.groups);
+    const editorWasCurrent = currentPresetSlot === slot
+      && editorPresetVersionRef.current === preset.updatedAt;
+    const savedMenu = await menusApi.updatePreset(slot, name, preset.groups, preset.updatedAt);
     invalidatePresetsRefresh();
     setPresets((prev) => ({
       ...prev,
       [slot]: savedMenu,
     }));
-  }, [invalidatePresetsRefresh, presets]);
+    if (editorWasCurrent) {
+      editorPresetVersionRef.current = savedMenu.updatedAt;
+    }
+  }, [currentPresetSlot, invalidatePresetsRefresh, presets]);
 
   const loadPresetAsActive = useCallback(async (slot: PresetSlot) => {
     const preset = presets[slot];
     if (!preset) return;
 
     await menusApi.setActive(preset.id);
-    const nextActiveMenu = {
-      id: preset.id,
-      groups: preset.groups,
-    };
-    invalidateActiveRefresh();
     editorInitializedRef.current = true;
-    setActiveMenu(nextActiveMenu);
-    setCurrentMenu(nextActiveMenu);
-    setSelections([]);
-    setSelectionStatus('open');
+    if (currentPresetSlot !== slot) {
+      setCurrentMenu({ id: preset.id, groups: preset.groups });
+      editorPresetVersionRef.current = preset.updatedAt;
+    }
     setCurrentPresetSlot(slot);
-  }, [invalidateActiveRefresh, presets]);
+    const launchedMenu = await refreshActiveMenu();
+    if (launchedMenu) {
+      setCurrentMenu({ id: launchedMenu.id, groups: launchedMenu.groups });
+      editorPresetVersionRef.current = launchedMenu.updatedAt;
+    }
+  }, [currentPresetSlot, presets, refreshActiveMenu]);
 
   const startScratchMenu = useCallback(() => {
     editorInitializedRef.current = true;
+    editorPresetVersionRef.current = null;
     setCurrentMenu({
       id: 'scratch',
       groups: JSON.parse(JSON.stringify(DEFAULT_GROUPS)),
@@ -490,6 +496,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         currentMenu,
         selections,
         selectionStatus,
+        selectionRevision,
         selectionsLocked,
         loading,
         presets,

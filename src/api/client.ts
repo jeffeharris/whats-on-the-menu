@@ -119,6 +119,7 @@ export const menusApi = {
     menu: SavedMenu | null;
     selections: KidSelection[];
     selectionStatus: SelectionStatus;
+    selectionRevision: number;
   }> {
     const res = await apiFetch(`${API_BASE}/menus/active`);
     if (!res.ok) throw new Error('Failed to fetch active menu');
@@ -134,11 +135,16 @@ export const menusApi = {
     if (!res.ok) throw new Error('Failed to set active menu');
   },
 
-  async addSelection(kidId: string, selections: GroupSelections): Promise<KidSelection> {
+  async addSelection(
+    kidId: string,
+    selections: GroupSelections,
+    menuId: string,
+    selectionRevision: number
+  ): Promise<KidSelection> {
     const res = await apiFetch(`${API_BASE}/menus/selections`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kidId, selections }),
+      body: JSON.stringify({ kidId, selections, menuId, selectionRevision }),
     });
     if (!res.ok) throw await getApiError(res, 'Failed to save choices');
     return res.json();
@@ -166,13 +172,18 @@ export const menusApi = {
     return res.json();
   },
 
-  async updatePreset(slot: PresetSlot, name: string, groups: MenuGroup[]): Promise<SavedMenu> {
+  async updatePreset(
+    slot: PresetSlot,
+    name: string,
+    groups: MenuGroup[],
+    expectedUpdatedAt: number | null
+  ): Promise<SavedMenu & { affectsActiveMenu: boolean }> {
     const res = await apiFetch(`${API_BASE}/menus/presets/${slot}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, groups }),
+      body: JSON.stringify({ name, groups, expectedUpdatedAt }),
     });
-    if (!res.ok) throw new Error('Failed to update preset');
+    if (!res.ok) throw await getApiError(res, 'Failed to update preset');
     return res.json();
   },
 
@@ -181,7 +192,10 @@ export const menusApi = {
     if (!res.ok) throw new Error('Failed to delete preset');
   },
 
-  async copyPreset(fromSlot: PresetSlot, toSlot: PresetSlot): Promise<SavedMenu> {
+  async copyPreset(
+    fromSlot: PresetSlot,
+    toSlot: PresetSlot
+  ): Promise<SavedMenu & { affectsActiveMenu: boolean }> {
     const res = await apiFetch(`${API_BASE}/menus/presets/${fromSlot}/copy/${toSlot}`, {
       method: 'POST',
     });

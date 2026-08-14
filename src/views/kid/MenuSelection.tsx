@@ -1,14 +1,17 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { AppShell } from '../../components/common/AppShell';
 import { FoodCard } from '../../components/kid/FoodCard';
 import { KidAvatar } from '../../components/kid/KidAvatar';
 import { StepProgress } from '../../components/kid/StepProgress';
+import { ViewModeToggle, type MenuViewMode } from '../../components/kid/ViewModeToggle';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useSound } from '../../hooks/useSound';
+import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 import type { GroupSelections } from '../../types';
 import { SELECTION_PRESET_CONFIG } from '../../types';
 
@@ -33,7 +36,13 @@ interface MenuSelectionProps {
 export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { activeMenu: currentMenu, addSelection, getSelectionForKid, selectionsLocked } = useMenu();
+  const {
+    activeMenu: currentMenu,
+    addSelection,
+    getSelectionForKid,
+    selectionRevision,
+    selectionsLocked,
+  } = useMenu();
 
   const kid = getProfile(kidId);
   const existingSelection = getSelectionForKid(kidId);
@@ -51,8 +60,20 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     return initial;
   });
 
+  // Layout preference: full-bleed grid vs. one-at-a-time carousel, remembered across visits
+  const [viewMode, setViewMode] = useLocalStorage<MenuViewMode>('kid-selection-view-mode', 'grid');
+
+  // Carousel browses one food at a time within a step; start over whenever the step or layout changes
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselResetKey, setCarouselResetKey] = useState('');
+
   // Step wizard state
   const [currentStep, setCurrentStep] = useState(0);
+  const nextCarouselResetKey = `${currentStep}:${viewMode}`;
+  if (nextCarouselResetKey !== carouselResetKey) {
+    setCarouselResetKey(nextCarouselResetKey);
+    setCarouselIndex(0);
+  }
   const [exitingStep, setExitingStep] = useState<number | null>(null);
   const [slideDirection, setSlideDirection] = useState<'right' | 'left' | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -62,7 +83,48 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roundRef = useRef<{ menuId: string; selectionRevision: number } | null>(
+    currentMenu ? { menuId: currentMenu.id, selectionRevision } : null
+  );
   const contentRef = useRef<HTMLDivElement>(null);
+  const carouselTrackRef = useRef<HTMLDivElement>(null);
+  const carouselScrollFrame = useRef<number | null>(null);
+
+  // Tracks which item is centered as the carousel is dragged/scrolled, so the
+  // dots, select button and peek styling stay in sync with the real motion.
+  const handleCarouselScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const track = e.currentTarget;
+    if (carouselScrollFrame.current !== null) cancelAnimationFrame(carouselScrollFrame.current);
+    carouselScrollFrame.current = requestAnimationFrame(() => {
+      const center = track.scrollLeft + track.clientWidth / 2;
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      Array.from(track.children).forEach((child, idx) => {
+        const el = child as HTMLElement;
+        const elCenter = el.offsetLeft + el.clientWidth / 2;
+        const dist = Math.abs(elCenter - center);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = idx;
+        }
+      });
+      setCarouselIndex((prev) => (prev === closestIdx ? prev : closestIdx));
+    });
+  }, []);
+
+  // Smoothly slides the track to center a given item, instead of jumping to it
+  const scrollCarouselToIndex = useCallback((idx: number) => {
+    const track = carouselTrackRef.current;
+    const item = track?.children[idx] as HTMLElement | undefined;
+    if (!track || !item) {
+      setCarouselIndex(idx);
+      return;
+    }
+    track.scrollTo({
+      left: item.offsetLeft - (track.clientWidth - item.clientWidth) / 2,
+      behavior: 'smooth',
+    });
+  }, []);
 
   // Sort groups by order (safe even if currentMenu is null)
   const sortedGroups = useMemo(
@@ -183,6 +245,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
       if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
       if (transitionTimer.current) clearTimeout(transitionTimer.current);
       if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
+      if (carouselScrollFrame.current !== null) cancelAnimationFrame(carouselScrollFrame.current);
     };
   }, []);
 
@@ -191,6 +254,25 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
   useEffect(() => {
     if (selectionsLocked) onBack();
   }, [onBack, selectionsLocked]);
+
+  // Keep the draft tied to the exact menu round it started from. If a parent
+  // changes or clears the active menu on another device, discard this stale
+  // wizard instead of allowing it to repopulate the new round.
+  useEffect(() => {
+    if (!roundRef.current && currentMenu) {
+      roundRef.current = { menuId: currentMenu.id, selectionRevision };
+      return;
+    }
+    const round = roundRef.current;
+    if (
+      round
+      && (!currentMenu
+        || currentMenu.id !== round.menuId
+        || selectionRevision !== round.selectionRevision)
+    ) {
+      onBack();
+    }
+  }, [currentMenu, onBack, selectionRevision]);
 
   // Early return AFTER all hooks
   if (!currentMenu || !kid) {
@@ -230,7 +312,8 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
         if (groupPreset.max === 1) {
           newSelections[groupId] = [foodId];
         } else {
-          newSelections[groupId] = [...prevGroupSels.slice(1), foodId];
+          // LIFO: swap out the most recently picked item, not the oldest one.
+          newSelections[groupId] = [...prevGroupSels.slice(0, -1), foodId];
         }
       } else {
         newSelections[groupId] = [...prevGroupSels, foodId];
@@ -250,7 +333,9 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await addSelection(kidId, selections);
+      const round = roundRef.current;
+      if (!round) throw new Error('The menu is still loading. Please try again.');
+      await addSelection(kidId, selections, round.menuId, round.selectionRevision);
       onComplete();
     } catch (err) {
       setSubmitError((err as Error).message || 'We could not save your choices. Try again!');
@@ -269,7 +354,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
         return `Pick ${needed} more ${group.label}!`;
       }
     }
-    return "All done!";
+    return 'All done!';
   };
 
   const getStepTitle = (stepIndex: number) => {
@@ -285,47 +370,33 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     return `Pick ${config.min}-${config.max} ${group.label}!`;
   };
 
-  const renderStepContent = (stepIndex: number, animClass: string) => {
+  // Visible title + a row of "slot" chips: one per required pick (bigger,
+  // coral dashed when empty) plus one per optional bonus pick (smaller,
+  // amber dotted with a "+" when empty). Filled slots show the photo.
+  const renderSelectHeader = (stepIndex: number, layout: 'grid' | 'carousel') => {
     const group = sortedGroups[stepIndex];
     if (!group) return null;
     const config = SELECTION_PRESET_CONFIG[group.selectionPreset];
     const groupSels = selections[group.id] || [];
-    const items = group.foodIds.map((id) => getItem(id)).filter(Boolean);
 
     return (
-      <div
-        key={`step-${stepIndex}`}
-        className={`${animClass ? 'absolute inset-0' : 'relative h-full'} p-4 md:p-6 overflow-y-auto ${animClass}`}
-      >
-        <div className="text-center mb-6 relative">
-          <h2 className="kid-hero-title text-4xl md:text-5xl">
-            {getStepTitle(stepIndex)}
-          </h2>
-          <p className="text-lg text-gray-500 mt-1">{config.label}</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 md:gap-6 justify-items-center max-w-lg mx-auto px-2">
-          {items.map((item, idx) => {
-            if (!item) return null;
-
-            const isSelected = groupSels.includes(item.id);
-            const isSelectedElsewhere = !isSelected && allSelectedFoodIds.has(item.id);
+      <div className={`kid-select-header ${layout === 'carousel' ? 'kid-select-header--center' : ''}`}>
+        <h2 className="kid-select-title">{getStepTitle(stepIndex)}</h2>
+        <div className="kid-select-chips" aria-hidden="true">
+          {Array.from({ length: config.max }).map((_, idx) => {
+            const isOptional = idx >= config.min;
+            const foodId = groupSels[idx];
+            const item = foodId ? getItem(foodId) : null;
 
             return (
-              <div
-                key={item.id}
-                className={`w-full ${stepIndex === currentStep && slideDirection ? 'card-pop-in' : ''}`}
-                style={stepIndex === currentStep && slideDirection ? { animationDelay: `${idx * CARD_STAGGER_DELAY_MS}ms` } : undefined}
-              >
-                <FoodCard
-                  name={item.name}
-                  imageUrl={item.imageUrl}
-                  selected={isSelected}
-                  disabled={selectionsLocked || isSelectedElsewhere}
-                  onClick={stepIndex === currentStep ? () => handleFoodSelect(group.id, item.id) : undefined}
-                  responsive
-                  className={`w-full min-w-[140px] h-auto aspect-[10/13] ${isSelected ? 'selection-celebrate' : ''}`}
-                />
+              <div key={idx} className="kid-select-chip" data-optional={isOptional} data-filled={!!item}>
+                {item?.imageUrl ? (
+                  <img src={item.imageUrl} alt="" className="h-full w-full object-cover" />
+                ) : item ? (
+                  <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                ) : isOptional ? (
+                  <Plus className="h-3 w-3" strokeWidth={3} />
+                ) : null}
               </div>
             );
           })}
@@ -334,38 +405,197 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     );
   };
 
-  return (
-    <AppShell mode="kid" className="h-full flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="app-header flex-shrink-0 flex items-center gap-3 px-4 py-3 max-w-3xl mx-auto w-full">
-        <button
-          onClick={currentStep > 0 ? goToPreviousStep : onBack}
-          className="ui-icon-button"
-          aria-label={currentStep > 0 ? 'Previous step' : 'Go back'}
+  const renderGridBody = (stepIndex: number, groupId: string, items: NonNullable<ReturnType<typeof getItem>>[], groupSels: string[], config: { min: number; max: number }) => (
+    <div className="mx-auto grid max-w-3xl grid-cols-2 justify-items-center gap-4 px-1 sm:grid-cols-3 md:gap-6 md:px-2">
+      {items.map((item, idx) => {
+        const isSelected = groupSels.includes(item.id);
+        const isSelectedElsewhere = !isSelected && allSelectedFoodIds.has(item.id);
+        const canAddMore = config.max > 1 && groupSels.length < config.max;
+
+        return (
+          <div
+            key={item.id}
+            className={`w-full ${stepIndex === currentStep && slideDirection ? 'card-pop-in' : ''}`}
+            style={stepIndex === currentStep && slideDirection ? { animationDelay: `${idx * CARD_STAGGER_DELAY_MS}ms` } : undefined}
+          >
+            <FoodCard
+              name={item.name}
+              imageUrl={item.imageUrl}
+              selected={isSelected}
+              disabled={selectionsLocked || isSelectedElsewhere}
+              onClick={stepIndex === currentStep ? () => handleFoodSelect(groupId, item.id) : undefined}
+              responsive
+              variant="full-bleed"
+              showAddBadge={canAddMore}
+              className={`w-full min-w-[140px] h-auto ${isSelected ? 'selection-celebrate' : ''}`}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  const renderCarouselBody = (stepIndex: number, groupId: string, items: NonNullable<ReturnType<typeof getItem>>[], groupSels: string[], config: { min: number; max: number }) => {
+    if (items.length === 0) return null;
+    const isActive = stepIndex === currentStep;
+    const index = Math.min(carouselIndex, items.length - 1);
+    const current = items[index];
+    const isSelected = groupSels.includes(current.id);
+    const isSelectedElsewhere = !isSelected && allSelectedFoodIds.has(current.id);
+    // Picking beyond min only reads as "adding" when more than one pick is allowed;
+    // for a max-1 group, selecting always swaps in the new choice.
+    const isAddingMore = config.max > 1 && groupSels.length >= config.min;
+
+    return (
+      <div className="kid-carousel">
+        <div
+          className="kid-carousel-track"
+          ref={isActive ? carouselTrackRef : undefined}
+          onScroll={isActive ? handleCarouselScroll : undefined}
         >
-          <ChevronLeft className="w-8 h-8 text-gray-600" />
-        </button>
-        <div className="flex items-center gap-3 flex-1">
-          <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="md" />
-          <div>
-            <p className="text-gray-500 text-sm">Picking for</p>
-            <h1 className="text-xl font-bold text-gray-800">{kid.name}</h1>
+          {items.map((item, idx) => {
+            const itemSelected = groupSels.includes(item.id);
+            const itemDisabledElsewhere = !itemSelected && allSelectedFoodIds.has(item.id);
+
+            return (
+              <div key={item.id} className="kid-carousel-item" data-active={idx === index}>
+                <div className="kid-carousel-card" data-disabled={selectionsLocked || itemDisabledElsewhere}>
+                  <img
+                    src={item.imageUrl || getPlaceholderImageUrl()}
+                    alt={item.name}
+                    className="kid-carousel-card-photo"
+                  />
+                  <div className="kid-carousel-card-name">{item.name}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="kid-carousel-dots" role="tablist" aria-label="Food options">
+          {items.map((item, idx) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={idx === index}
+              aria-label={`Show ${item.name}`}
+              data-active={idx === index}
+              className="kid-carousel-dot"
+              onClick={() => scrollCarouselToIndex(idx)}
+            />
+          ))}
+        </div>
+
+        {/* Swiping browses freely; this row is only for selecting the centered
+            item, plus a way to skip past it without picking (before the
+            group's minimum is met — once it is, "Add this too"/"Selected"
+            already cover browsing, and the bottom dock handles moving on). */}
+        <div className="kid-carousel-controls">
+          <Button
+            mode="kid"
+            variant={isSelected ? 'secondary' : 'primary'}
+            size="touch"
+            fullWidth
+            disabled={selectionsLocked || !isActive || isSelectedElsewhere}
+            onClick={() => handleFoodSelect(groupId, current.id)}
+          >
+            {isSelectedElsewhere ? (
+              <span>Picked already</span>
+            ) : isSelected ? (
+              <>
+                <span>Selected</span>
+                <Check className="ml-2 h-6 w-6" strokeWidth={3} aria-hidden="true" />
+              </>
+            ) : isAddingMore ? (
+              <>
+                <span>Add this too</span>
+                <Plus className="ml-2 h-6 w-6" strokeWidth={3} aria-hidden="true" />
+              </>
+            ) : (
+              <>
+                <span>This one</span>
+                <Check className="ml-2 h-6 w-6" strokeWidth={3} aria-hidden="true" />
+              </>
+            )}
+          </Button>
+
+          {!isSelected && !isAddingMore && (
+            <button
+              type="button"
+              className="kid-carousel-skip"
+              onClick={() => scrollCarouselToIndex(Math.min(items.length - 1, index + 1))}
+              disabled={index === items.length - 1}
+              aria-label="Skip without picking"
+            >
+              <ChevronRight className="h-6 w-6" strokeWidth={2.6} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderStepContent = (stepIndex: number, animClass: string) => {
+    const group = sortedGroups[stepIndex];
+    if (!group) return null;
+    const config = SELECTION_PRESET_CONFIG[group.selectionPreset];
+    const groupSels = selections[group.id] || [];
+    const items = group.foodIds.map((id) => getItem(id)).filter((item): item is NonNullable<typeof item> => item != null);
+
+    return (
+      <div
+        key={`step-${stepIndex}`}
+        className={`${animClass ? 'absolute inset-0' : 'relative h-full'} min-h-0 overflow-y-auto overscroll-contain px-4 pb-5 pt-3 md:px-6 md:pb-6 md:pt-4 ${animClass}`}
+      >
+        {renderSelectHeader(stepIndex, viewMode === 'grid' ? 'grid' : 'carousel')}
+
+        {viewMode === 'grid'
+          ? renderGridBody(stepIndex, group.id, items, groupSels, config)
+          : renderCarouselBody(stepIndex, group.id, items, groupSels, config)}
+      </div>
+    );
+  };
+
+  return (
+    <AppShell mode="kid" className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
+      {/* Identity and step progress share one compact header. */}
+      <header className="app-header flex-shrink-0 px-2 py-2 md:px-4">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-2">
+          <button
+            onClick={currentStep > 0 ? goToPreviousStep : onBack}
+            className="ui-icon-button flex-shrink-0"
+            aria-label={currentStep > 0 ? 'Previous step' : 'Go back'}
+          >
+            <ChevronLeft className="h-8 w-8 text-gray-600" />
+          </button>
+
+          <div className="flex min-w-0 flex-shrink items-center gap-2">
+            <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="sm" />
+            <h1 className="hidden max-w-28 truncate text-base font-bold text-gray-800 min-[480px]:block md:max-w-44">
+              {kid.name}
+            </h1>
+          </div>
+
+          <div className="ml-auto flex min-w-0 items-center gap-2">
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+            <div className="min-w-0 overflow-x-auto py-1 pr-1">
+              <StepProgress
+                currentStep={currentStep}
+                totalSteps={totalSteps}
+                completedSelections={completedSelections}
+                onStepClick={goToStep}
+                compact
+              />
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Step Progress */}
-      <StepProgress
-        currentStep={currentStep}
-        totalSteps={totalSteps}
-        completedSelections={completedSelections}
-        onStepClick={goToStep}
-      />
-
       {/* Step Content - Animated */}
       <main
         ref={contentRef}
-        className="flex-1 overflow-hidden relative"
+        className="relative min-h-0 flex-1 overflow-hidden"
       >
         {exitingStep !== null && slideDirection && renderStepContent(
           exitingStep,
@@ -392,7 +622,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
       )}
 
       {/* Footer */}
-      <footer className="kid-action-dock flex-shrink-0 p-4 md:p-6">
+      <footer className="kid-action-dock flex-shrink-0 px-4 pb-2 pt-2 md:px-6 md:pb-3 md:pt-3">
         <div className="max-w-xl mx-auto">
           {isLastStep ? (
             <Button
@@ -403,7 +633,8 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
               onClick={handleConfirm}
               disabled={!canConfirm || submitting}
             >
-              {submitting ? 'Saving…' : canConfirm ? "This is my plate!" : getRequirementsMessage()}
+              <span>{submitting ? 'Saving…' : canConfirm ? 'This is my plate!' : getRequirementsMessage()}</span>
+              {canConfirm && !submitting && <Check className="ml-2 h-7 w-7" strokeWidth={3} aria-hidden="true" />}
             </Button>
           ) : (
             <Button
@@ -414,10 +645,13 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
               onClick={goToNextStep}
               disabled={!canProceedFromStep}
             >
-              {canProceedFromStep
-                ? (presetConfig?.max === 1 ? 'Next...' : 'Next')
-                : `Pick ${presetConfig ? presetConfig.min - currentGroupSelections.length : 0} more!`
-              }
+              <span>
+                {canProceedFromStep
+                  ? (presetConfig?.max === 1 ? 'Next...' : 'Next')
+                  : `Pick ${presetConfig ? presetConfig.min - currentGroupSelections.length : 0} more!`
+                }
+              </span>
+              {canProceedFromStep && <ArrowRight className="ml-2 h-7 w-7" strokeWidth={3} aria-hidden="true" />}
             </Button>
           )}
           {submitError && (

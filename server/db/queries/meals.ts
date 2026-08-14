@@ -7,7 +7,7 @@ interface KidSelection {
   timestamp: number;
 }
 
-type CompletionStatus = 'all' | 'some' | 'none' | null;
+type CompletionStatus = 'all' | 'some' | 'tried' | 'none' | null;
 
 interface KidMealReview {
   kidId: string;
