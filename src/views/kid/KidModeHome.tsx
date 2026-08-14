@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star, Settings, Check } from 'lucide-react';
+import { Star, Settings, Check, UtensilsCrossed } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { AppShell } from '../../components/common/AppShell';
 import { Modal } from '../../components/common/Modal';
@@ -16,9 +16,10 @@ interface KidModeHomeProps {
   onSelectKid: (kidId: string) => void;
   onConfirmSelections?: () => void;
   onNavigateToStars?: () => void;
+  onNavigateToFoodWall?: () => void;
 }
 
-export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStars }: KidModeHomeProps) {
+export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStars, onNavigateToFoodWall }: KidModeHomeProps) {
   const { enterParentMode, grownUpCheckEnabled } = useAppState();
   const { profiles, error: profilesError, reload: reloadProfiles } = useKidProfiles();
   const { currentMenu, hasKidSelected, selections, selectionsLocked, lockSelections, getSelectionForKid } = useMenu();
@@ -136,19 +137,29 @@ export function KidModeHome({ onSelectKid, onConfirmSelections, onNavigateToStar
   return (
     <AppShell mode="kid" className="h-full flex flex-col p-4 md:p-8 overflow-hidden">
       {/* Header with parent access */}
-      <header className="flex-shrink-0 flex justify-between items-center mb-4">
-        {totalStars > 0 ? (
-          <button
-            onClick={onNavigateToStars}
-            className="ui-chip hover:-translate-y-0.5 transition-transform"
-            aria-label="Our Stars"
-          >
-            <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-            <span className="text-sm font-bold text-yellow-700">Our Stars</span>
-          </button>
-        ) : (
-          <div />
-        )}
+      <header className="flex-shrink-0 flex justify-between items-center mb-4 gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {totalStars > 0 && (
+            <button
+              onClick={onNavigateToStars}
+              className="ui-chip hover:-translate-y-0.5 transition-transform"
+              aria-label="Our Stars"
+            >
+              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+              <span className="text-sm font-bold text-yellow-700">Our Stars</span>
+            </button>
+          )}
+          {onNavigateToFoodWall && (
+            <button
+              onClick={onNavigateToFoodWall}
+              className="ui-chip hover:-translate-y-0.5 transition-transform"
+              aria-label="My Foods"
+            >
+              <UtensilsCrossed className="w-4 h-4 text-brand-teal-deep" />
+              <span className="text-sm font-bold text-brand-ink">My Foods</span>
+            </button>
+          )}
+        </div>
         <button
           onClick={handleParentLogin}
           className="ui-icon-button"

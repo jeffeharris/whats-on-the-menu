@@ -8,6 +8,8 @@ interface KidAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   selected?: boolean;
   onClick?: () => void;
+  /** Overrides the default "Select {name}" / "{name}" label, e.g. for a switcher trigger. */
+  ariaLabel?: string;
 }
 
 const colorStyles: Record<AvatarColor, string> = {
@@ -29,7 +31,7 @@ const sizeStyles = {
   '2xl': 'w-40 h-40 text-6xl',
 };
 
-export function KidAvatar({ name, color, avatarAnimal, size = 'md', selected = false, onClick }: KidAvatarProps) {
+export function KidAvatar({ name, color, avatarAnimal, size = 'md', selected = false, onClick, ariaLabel }: KidAvatarProps) {
   const initial = name.charAt(0).toUpperCase();
   const isClickable = !!onClick;
 
@@ -58,7 +60,7 @@ export function KidAvatar({ name, color, avatarAnimal, size = 'md', selected = f
             }
           : undefined
       }
-      aria-label={isClickable ? `Select ${name}` : name}
+      aria-label={ariaLabel ?? (isClickable ? `Select ${name}` : name)}
     >
       {avatarAnimal ? (
         <img
