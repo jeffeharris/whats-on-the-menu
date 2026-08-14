@@ -559,36 +559,42 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
 
   return (
     <AppShell mode="kid" className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
-      {/* Identity and step progress share one compact header. */}
+      {/* Keep identity on the left, the meal journey centered, and the layout
+          control in the upper-right without letting any one area shift another. */}
       <header className="app-header flex-shrink-0 px-2 py-2 md:px-4">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-2">
-          <button
-            onClick={currentStep > 0 ? goToPreviousStep : onBack}
-            className="ui-icon-button flex-shrink-0"
-            aria-label={currentStep > 0 ? 'Previous step' : 'Go back'}
-          >
-            <ChevronLeft className="h-8 w-8 text-gray-600" />
-          </button>
-
-          <div className="flex min-w-0 flex-shrink items-center gap-2">
-            <KidAvatar name={kid.name} color={kid.avatarColor} avatarAnimal={kid.avatarAnimal} size="sm" />
-            <h1 className="hidden max-w-28 truncate text-base font-bold text-gray-800 min-[480px]:block md:max-w-44">
-              {kid.name}
-            </h1>
+        <div className="mx-auto grid w-full max-w-3xl grid-cols-[5.75rem_minmax(0,1fr)_5.75rem] items-center">
+          <div className="flex items-center gap-1 justify-self-start">
+            <button
+              onClick={currentStep > 0 ? goToPreviousStep : onBack}
+              className="ui-icon-button"
+              aria-label={currentStep > 0 ? 'Previous step' : 'Go back'}
+            >
+              <ChevronLeft className="h-8 w-8 text-gray-600" />
+            </button>
+            <KidAvatar
+              name={kid.name}
+              color={kid.avatarColor}
+              avatarAnimal={kid.avatarAnimal}
+              size="sm"
+              compact
+            />
           </div>
 
-          <div className="ml-auto flex min-w-0 items-center gap-2">
+          <div className="kid-selection-progress-slot min-w-0 justify-self-center">
+            <StepProgress
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+              completedSelections={completedSelections}
+              onStepClick={goToStep}
+              compact
+            />
+          </div>
+
+          <div className="justify-self-end">
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
-            <div className="min-w-0 overflow-x-auto py-1 pr-1">
-              <StepProgress
-                currentStep={currentStep}
-                totalSteps={totalSteps}
-                completedSelections={completedSelections}
-                onStepClick={goToStep}
-                compact
-              />
-            </div>
           </div>
+
+          <h1 className="sr-only">{kid.name}'s menu choices</h1>
         </div>
       </header>
 

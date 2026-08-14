@@ -269,7 +269,7 @@ export const mealsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ menuId, selections, reviews }),
     });
-    if (!res.ok) throw new Error('Failed to create meal');
+    if (!res.ok) throw await getApiError(res, 'Failed to create meal');
     return res.json();
   },
 

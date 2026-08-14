@@ -24,6 +24,13 @@ interface MealRecord {
   completedAt: number;
 }
 
+export class MealOperationError extends Error {
+  constructor(message: string, public readonly statusCode: number) {
+    super(message);
+    this.name = 'MealOperationError';
+  }
+}
+
 /**
  * Reconstruct MealRecord objects from joined rows.
  * Each row has meal columns plus a meal_selection and meal_review joined.
@@ -139,6 +146,20 @@ export async function createMeal(
   try {
     await client.query('BEGIN');
 
+    // Completing a meal also ends the active round. Lock the household first
+    // so two parent devices cannot archive the same round twice, and so the
+    // history snapshot and kid-facing pause happen as one atomic transition.
+    const { rows: householdRows } = await client.query<{ active_menu_id: string | null }>(
+      `SELECT active_menu_id
+       FROM households
+       WHERE id = $1
+       FOR UPDATE`,
+      [householdId],
+    );
+    if (householdRows[0]?.active_menu_id !== menuId) {
+      throw new MealOperationError('This menu is no longer active', 409);
+    }
+
     // 1. Insert meal_record
     const now = new Date();
     const { rows: mealRows } = await client.query(
@@ -205,6 +226,21 @@ export async function createMeal(
       builtReviews.push(review);
     }
 
+    // 5. Pause the menu and clear the live round only after every historical
+    // snapshot has been written successfully.
+    await client.query(
+      `UPDATE households
+       SET active_menu_id = NULL,
+           selection_status = 'open',
+           selection_revision = selection_revision + 1
+       WHERE id = $1`,
+      [householdId],
+    );
+    await client.query(
+      'DELETE FROM kid_selections WHERE household_id = $1',
+      [householdId],
+    );
+
     await client.query('COMMIT');
 
     return {
@@ -217,7 +253,9 @@ export async function createMeal(
     };
   } catch (err) {
     await client.query('ROLLBACK');
-    logger.error({ err, householdId, menuId }, 'Transaction failed in createMeal');
+    if (!(err instanceof MealOperationError)) {
+      logger.error({ err, householdId, menuId }, 'Transaction failed in createMeal');
+    }
     throw err;
   } finally {
     client.release();

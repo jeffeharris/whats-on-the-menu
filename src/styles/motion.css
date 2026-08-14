@@ -67,6 +67,21 @@
 
 .fade-up-in { animation: fade-up-in 400ms var(--ease-ui) both; }
 
+/* Keep meal-review rows mounted while their card folds so the parent can see
+   the completed plate settle into its summary instead of disappearing. */
+.meal-review-items {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 480ms var(--ease-ui), opacity 320ms ease 80ms;
+}
+
+.meal-review-items[data-open='false'] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 480ms var(--ease-ui), opacity 220ms ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

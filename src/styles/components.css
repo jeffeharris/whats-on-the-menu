@@ -74,6 +74,7 @@
   .ui-card[data-interactive='true']:focus-visible,
   .ui-button:focus-visible,
   .kid-avatar[data-interactive='true']:focus-visible,
+  .kid-progress-thumbnail:focus-visible,
   .kid-food-card[data-interactive='true']:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--ui-color-focus) 42%, transparent);
     outline-offset: 3px;
@@ -204,6 +205,11 @@
     box-shadow: 0 0 0 4px var(--color-kid-accent), 0 0 0 7px white, var(--shadow-kid);
   }
 
+  .kid-avatar[data-compact='true'] {
+    border-width: 2px;
+    box-shadow: 0 3px 0 rgb(35 48 71 / 0.1), 0 7px 16px rgb(35 48 71 / 0.12);
+  }
+
   .kid-food-card {
     position: relative;
     display: flex;
@@ -308,28 +314,67 @@
   }
 
   .kid-progress[data-compact='true'] {
-    justify-content: flex-end;
+    position: relative;
+    display: grid;
+    width: 100%;
+    height: 2.75rem;
+    align-items: center;
     padding: 0;
     border-bottom: 0;
     background: transparent;
   }
 
-  .kid-progress-pill {
-    width: 1rem;
-    height: 0.4375rem;
+  .kid-progress[data-compact='true']::before {
+    position: absolute;
+    top: 50%;
+    right: 1.25rem;
+    left: 1.25rem;
+    height: 2px;
+    background: color-mix(in srgb, var(--color-kid-secondary-deep) 28%, var(--ui-color-border));
+    content: '';
+    transform: translateY(-50%);
+  }
+
+  .kid-progress[data-compact='true'][data-single='true']::before { display: none; }
+
+  .kid-progress-thumbnail {
+    display: flex;
+    width: 2.5rem;
+    height: 2.5rem;
     flex-shrink: 0;
+    justify-self: center;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2px solid var(--ui-color-border);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--ui-color-border) 65%, transparent);
-    transition: width 220ms var(--ease-ui), background-color 180ms ease;
+    color: var(--ui-color-text-muted);
+    background: color-mix(in srgb, var(--ui-color-surface) 78%, transparent);
+    box-shadow: 0 2px 8px rgb(35 48 71 / 0.08);
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms var(--ease-ui);
   }
 
-  .kid-progress-pill[data-state='completed'] {
-    background: var(--color-kid-secondary-deep);
+  .kid-progress-thumbnail:hover {
+    z-index: 20 !important;
+    transform: translateY(-2px);
   }
 
-  .kid-progress-pill[data-state='current'] {
-    width: 2rem;
+  .kid-progress-thumbnail[data-state='completed'] {
+    border-color: var(--color-kid-secondary-deep);
+    background: white;
+  }
+
+  .kid-progress-thumbnail[data-state='current'] {
+    border-color: white;
+    color: white;
     background: var(--ui-color-action);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-color-action) 24%, transparent),
+      0 4px 12px rgb(35 48 71 / 0.14);
+    transform: scale(1.06);
+  }
+
+  .kid-selection-progress-slot {
+    width: min(8.5rem, 100%);
   }
 
   .kid-progress-step {

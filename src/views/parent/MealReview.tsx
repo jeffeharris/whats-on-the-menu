@@ -21,7 +21,7 @@ interface MealReviewProps {
 export function MealReview({ onComplete, onBack }: MealReviewProps) {
   const { getItem } = useFoodLibrary();
   const { getProfile } = useKidProfiles();
-  const { activeMenu: currentMenu, selections, unlockAndClearSelections } = useMenu();
+  const { activeMenu: currentMenu, selections, refreshActiveMenu } = useMenu();
   const { addMeal } = useMealHistory();
 
   // Only the marks a parent has actually made, keyed by kid then food.
@@ -34,6 +34,7 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
   // Kid sections collapse to a summary line once every item is marked, but stay
   // manually toggleable either way — this only tracks an explicit override.
   const [openKids, setOpenKids] = useState<{ [kidId: string]: boolean }>({});
+  const [autoCollapsedKids, setAutoCollapsedKids] = useState<{ [kidId: string]: boolean }>({});
 
   const toggleKidOpen = (kidId: string) => {
     setOpenKids((prev) => ({ ...prev, [kidId]: !(prev[kidId] ?? true) }));
@@ -43,6 +44,8 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
   // always award or revoke it by hand (e.g. forgive a couple of crumbs) —
   // once they do, their call overrides the automatic one for this review.
   const [starOverrides, setStarOverrides] = useState<{ [kidId: string]: boolean }>({});
+  const [completing, setCompleting] = useState(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
 
   const toggleStar = (kidId: string, currentEarnedStar: boolean) => {
     setStarOverrides((prev) => ({ ...prev, [kidId]: !currentEarnedStar }));
@@ -58,35 +61,62 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
     return { kidId, completions, earnedStar };
   };
 
-  const updateCompletion = (kidId: string, foodId: string, status: CompletionStatus, foodIds: string[]) => {
+  const updateCompletion = (
+    kidId: string,
+    foodId: string,
+    status: CompletionStatus,
+    foodIds: string[],
+    allowAutoCollapse: boolean,
+  ) => {
     setMarks((prev) => ({
       ...prev,
       [kidId]: { ...prev[kidId], [foodId]: status },
     }));
 
-    // Auto-collapse the moment the last food is marked, same as the parent's
-    // last tap. Re-opening stays available via the header.
+    // Auto-collapse only on the first transition from incomplete to complete.
+    // Once a parent reopens the plate, later edits should never close it out
+    // from under them just because every food still has an answer.
+    const wasAllMarked = foodIds.length > 0 && foodIds.every((id) => marks[kidId]?.[id]);
     const updatedMarks = { ...marks[kidId], [foodId]: status };
     const allMarked = foodIds.length > 0 && foodIds.every((id) => updatedMarks[id]);
-    if (allMarked) {
+    if (allowAutoCollapse && !wasAllMarked && allMarked && !autoCollapsedKids[kidId]) {
+      setAutoCollapsedKids((prev) => ({ ...prev, [kidId]: true }));
       setOpenKids((prev) => ({ ...prev, [kidId]: false }));
     }
   };
 
   const handleComplete = async () => {
-    if (!currentMenu) return;
+    if (!currentMenu || completing) return;
 
     const reviews = selections.map((selection) => buildReview(selection.kidId, getAllFoodIds(selection)));
 
-    // Save to history
-    await addMeal(currentMenu.id, selections, reviews);
-
-    // Clear selections and unlock
-    await unlockAndClearSelections();
-
-    // Navigate back
-    onComplete();
+    setCompleting(true);
+    setCompletionError(null);
+    try {
+      // The server archives the meal and pauses the active round atomically.
+      await addMeal(currentMenu.id, selections, reviews);
+      try {
+        await refreshActiveMenu();
+      } catch (error) {
+        // The server transition already succeeded. Real-time reconciliation or
+        // focus polling will catch the local context up without inviting a
+        // duplicate meal submission from this screen.
+        console.error('Meal completed, but the active menu could not refresh:', error);
+      }
+      onComplete();
+    } catch (error) {
+      setCompletionError((error as Error).message || 'The meal could not be completed. Please try again.');
+      setCompleting(false);
+    }
   };
+
+  // Keep the final visible kid open so completing the review never leaves the
+  // parent looking at a wall of collapsed summaries. This also covers a meal
+  // with only one kid.
+  const lastVisibleKidId = selections.reduce<string | null>(
+    (lastKidId, selection) => getProfile(selection.kidId) ? selection.kidId : lastKidId,
+    null,
+  );
 
   if (selections.length === 0) {
     return (
@@ -181,7 +211,7 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
                       )}
                     </div>
                     <ChevronDown
-                      className={`w-5 h-5 flex-shrink-0 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                      className={`w-5 h-5 flex-shrink-0 text-gray-400 transition-transform duration-500 ${isOpen ? 'rotate-180' : ''}`}
                     />
                   </button>
                   <button
@@ -191,7 +221,7 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
                     aria-label={review.earnedStar ? `Remove ${kid.name}'s Happy Plate star` : `Award ${kid.name} a Happy Plate star`}
                   >
                     <Star
-                      className={`w-5 h-5 transition-colors ${review.earnedStar ? 'text-yellow-400' : 'text-gray-200'}`}
+                      className={`w-5 h-5 transition-all duration-300 ${review.earnedStar ? 'text-yellow-400 scale-110' : 'text-gray-200 scale-100'}`}
                       fill={review.earnedStar ? 'currentColor' : 'none'}
                       strokeWidth={review.earnedStar ? 0 : 1.5}
                     />
@@ -199,45 +229,58 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
                 </div>
 
                 {/* Food items */}
-                {isOpen && (
-                  <div className="px-3 pb-3 space-y-2">
-                    {foodItems.map((item) => {
-                      if (!item) return null;
-                      const completionStatus = review.completions[item.id] ?? null;
-                      const cardColor = getCompletionCardColor(completionStatus);
+                <div
+                  className="meal-review-items"
+                  data-open={isOpen}
+                  aria-hidden={!isOpen}
+                  inert={!isOpen}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="px-3 pb-3 space-y-2">
+                      {foodItems.map((item) => {
+                        if (!item) return null;
+                        const completionStatus = review.completions[item.id] ?? null;
+                        const cardColor = getCompletionCardColor(completionStatus);
 
-                      return (
-                        <div
-                          key={item.id}
-                          className={`p-2.5 rounded-xl transition-all duration-200 ${cardColor}`}
-                        >
-                          <div className="flex items-center gap-2.5 mb-2 min-w-0">
-                            <div className="w-9 h-9 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 shadow-sm">
-                              <img
-                                src={item.imageUrl || getPlaceholderImageUrl()}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                              />
+                        return (
+                          <div
+                            key={item.id}
+                            className={`p-2.5 rounded-xl transition-all duration-200 ${cardColor}`}
+                          >
+                            <div className="flex items-center gap-2.5 mb-2 min-w-0">
+                              <div className="w-9 h-9 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 shadow-sm">
+                                <img
+                                  src={item.imageUrl || getPlaceholderImageUrl()}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                {item.tags && item.tags.length > 0 && (
+                                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                                    {item.tags[0]}
+                                  </span>
+                                )}
+                                <p className="font-semibold text-gray-800 truncate text-sm">{item.name}</p>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              {item.tags && item.tags.length > 0 && (
-                                <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                                  {item.tags[0]}
-                                </span>
+                            <CompletionStatusSelector
+                              value={completionStatus}
+                              onChange={(status) => updateCompletion(
+                                selection.kidId,
+                                item.id,
+                                status,
+                                allFoodIds,
+                                selection.kidId !== lastVisibleKidId,
                               )}
-                              <p className="font-semibold text-gray-800 truncate text-sm">{item.name}</p>
-                            </div>
+                              foodName={item.name}
+                            />
                           </div>
-                          <CompletionStatusSelector
-                            value={completionStatus}
-                            onChange={(status) => updateCompletion(selection.kidId, item.id, status, allFoodIds)}
-                            foodName={item.name}
-                          />
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
+                </div>
               </Card>
             );
           })}
@@ -252,9 +295,15 @@ export function MealReview({ onComplete, onBack }: MealReviewProps) {
             size="lg"
             fullWidth
             onClick={handleComplete}
+            disabled={completing}
           >
-            Complete Meal
+            {completing ? 'Finishing…' : 'Complete Meal'}
           </Button>
+          {completionError && (
+            <p className="mt-3 text-center text-sm font-medium text-danger" role="alert">
+              {completionError}
+            </p>
+          )}
         </div>
       </footer>
     </div>

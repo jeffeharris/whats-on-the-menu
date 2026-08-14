@@ -58,6 +58,76 @@ async function submitAndApprove(cookie: string, kidId: string) {
 }
 
 describe('multi-device menu selection flow', () => {
+  it('archives a completed meal and atomically pauses the kid round', async () => {
+    const { tenant, kidId, menuId } = await createActiveRound('Completed');
+    await submitAndApprove(tenant.cookie, kidId);
+
+    const before = await request(app)
+      .get('/api/menus/active')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
+    const payload = {
+      menuId,
+      selections: before.body.selections,
+      reviews: [{
+        kidId,
+        completions: { pizza: 'all' },
+        earnedStar: true,
+      }],
+    };
+
+    const events: Array<{ reason: string }> = [];
+    const unsubscribe = subscribeToMenuEvents(tenant.householdId, (event) => events.push(event));
+    const completed = await request(app)
+      .post('/api/meals')
+      .set('Cookie', tenant.cookie)
+      .send(payload)
+      .expect(201);
+    unsubscribe();
+
+    expect(completed.body.menuId).toBe(menuId);
+    expect(completed.body.reviews[0]).toMatchObject({ kidId, earnedStar: true });
+    expect(events).toContainEqual({ reason: 'active-menu-changed' });
+
+    const after = await request(app)
+      .get('/api/menus/active')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
+    expect(after.body.menu).toBeNull();
+    expect(after.body.selections).toEqual([]);
+    expect(after.body.selectionStatus).toBe('open');
+    expect(after.body.selectionRevision).toBe(before.body.selectionRevision + 1);
+
+    // A second parent device cannot archive the same round twice after it has
+    // observed the locked household transition.
+    await request(app)
+      .post('/api/meals')
+      .set('Cookie', tenant.cookie)
+      .send(payload)
+      .expect(409);
+
+    const history = await request(app)
+      .get('/api/meals')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
+    expect(history.body.meals).toHaveLength(1);
+
+    // Completing a scratch-built menu pauses rather than deletes it, so the
+    // parent can launch the unchanged menu again for a later round.
+    await request(app)
+      .put('/api/menus/active')
+      .set('Cookie', tenant.cookie)
+      .send({ menuId })
+      .expect(200);
+    const relaunched = await request(app)
+      .get('/api/menus/active')
+      .set('Cookie', tenant.cookie)
+      .expect(200);
+    expect(relaunched.body.menu.id).toBe(menuId);
+    expect(relaunched.body.selections).toEqual([]);
+    expect(relaunched.body.selectionStatus).toBe('open');
+  });
+
   it('persists approval, locks edits, and allows a parent to reopen choices', async () => {
     const { tenant, kidId } = await createActiveRound();
 

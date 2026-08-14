@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from '
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppStateProvider, useAppState } from './contexts/AppStateContext';
 import { FoodLibraryProvider } from './contexts/FoodLibraryContext';
-import { KidProfilesProvider, useKidProfiles } from './contexts/KidProfilesContext';
+import { KidProfilesProvider } from './contexts/KidProfilesContext';
 import { MenuProvider, useMenu } from './contexts/MenuContext';
 import { MealHistoryProvider } from './contexts/MealHistoryContext';
 import { SharedMenuProvider } from './contexts/SharedMenuContext';
@@ -96,7 +96,12 @@ function MealReviewRoute() {
 
 function ChoiceReviewRoute() {
   const navigate = useNavigate();
-  return <ChoiceReview onBack={() => navigate('/')} />;
+  return (
+    <ChoiceReview
+      onBack={() => navigate('/')}
+      onContinueToMealReview={() => navigate('/meal-review')}
+    />
+  );
 }
 
 function MealHistoryListRoute() {
@@ -177,9 +182,8 @@ function SharedMenuViewRoute() {
 // Kid mode route components
 function KidModeHomeRoute() {
   const navigate = useNavigate();
-  const { selectKid, selectedKidId } = useAppState();
+  const { selectKid } = useAppState();
   const { hasKidSelected, selectionsLocked } = useMenu();
-  const { profiles } = useKidProfiles();
 
   const handleSelectKid = (kidId: string) => {
     selectKid(kidId);
@@ -190,13 +194,14 @@ function KidModeHomeRoute() {
     }
   };
 
-  const defaultFoodWallKidId = selectedKidId ?? profiles[0]?.id;
-
   return (
     <KidModeHome
       onSelectKid={handleSelectKid}
       onNavigateToStars={() => navigate('/kid/stars')}
-      onNavigateToFoodWall={defaultFoodWallKidId ? () => navigate(`/kid/foods/${defaultFoodWallKidId}`) : undefined}
+      onNavigateToFoodWall={(kidId) => {
+        selectKid(kidId);
+        navigate(`/kid/foods/${kidId}`);
+      }}
     />
   );
 }
@@ -257,6 +262,7 @@ function PlateConfirmationRoute() {
   const navigate = useNavigate();
   const { kidId } = useParams<{ kidId: string }>();
   const { selectKid } = useAppState();
+  const { activeMenu, loading: menuLoading } = useMenu();
 
   // Ensure kid is selected in context (must be in useEffect, not during render)
   useEffect(() => {
@@ -268,6 +274,13 @@ function PlateConfirmationRoute() {
   if (!kidId) {
     navigate('/');
     return null;
+  }
+
+  // Completing a meal pauses the active round on every device. Replace any
+  // open plate route with the between-meals home instead of briefly rendering
+  // the stale "No plate" fallback.
+  if (!menuLoading && !activeMenu) {
+    return <Navigate to="/" replace />;
   }
 
   return (

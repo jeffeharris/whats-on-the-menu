@@ -1,8 +1,9 @@
-import { createContext, useContext, useCallback } from 'react';
+import { createContext, useContext, useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { mealsApi } from '../api/client';
 import type { MealRecord, KidSelection, KidMealReview } from '../types';
 import { useAuthedResource } from '../hooks/useAuthedResource';
+import { useMenu } from './MenuContext';
 
 const NO_MEALS: MealRecord[] = [];
 
@@ -25,6 +26,7 @@ interface MealHistoryContextType {
 const MealHistoryContext = createContext<MealHistoryContextType | null>(null);
 
 export function MealHistoryProvider({ children }: { children: ReactNode }) {
+  const { activeMenu, loading: menuLoading } = useMenu();
   const {
     data: meals,
     setData: setMeals,
@@ -32,10 +34,31 @@ export function MealHistoryProvider({ children }: { children: ReactNode }) {
     error,
     reload,
   } = useAuthedResource('meals', () => mealsApi.getAll().then((d) => d.meals), NO_MEALS);
+  const previousActiveMenuId = useRef<string | null | undefined>(undefined);
+
+  // MenuContext receives the household's real-time menu events. When an
+  // active round becomes paused, refresh history so kid devices immediately
+  // see the review, new stars, and updated food-wall statuses that caused it.
+  useEffect(() => {
+    if (menuLoading) return;
+
+    const nextActiveMenuId = activeMenu?.id ?? null;
+    const previousId = previousActiveMenuId.current;
+    previousActiveMenuId.current = nextActiveMenuId;
+
+    // `undefined` means this is the first resolved menu snapshot. Reloading
+    // once when that snapshot is already paused closes the race where the
+    // initial history request read just before meal completion committed.
+    if (previousId !== null && nextActiveMenuId === null) {
+      reload();
+    }
+  }, [activeMenu, menuLoading, reload]);
 
   const addMeal = useCallback(async (menuId: string, selections: KidSelection[], reviews: KidMealReview[]): Promise<MealRecord> => {
     const newMeal = await mealsApi.create(menuId, selections, reviews);
-    setMeals((prev) => [newMeal, ...prev]);
+    // The real-time pause can trigger a canonical reload before this response
+    // resolves on the parent device, so replace by id instead of duplicating it.
+    setMeals((prev) => [newMeal, ...prev.filter((meal) => meal.id !== newMeal.id)]);
     return newMeal;
   }, [setMeals]);
 

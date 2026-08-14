@@ -42,7 +42,9 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
   const { items, addItem } = useFoodLibrary();
   const {
     currentMenu,
+    activeMenu,
     createMenu,
+    activateMenu,
     clearMenu,
     currentPresetSlot: activePresetSlot,
     presets,
@@ -190,9 +192,12 @@ export function MenuBuilder({ onBack }: MenuBuilderProps) {
       }
       await loadPresetAsActive(currentPresetSlot);
     } else {
-      // For scratch menus, create and launch
+      // For scratch menus, save changed drafts or reactivate the unchanged
+      // persisted menu after a completed meal paused it.
       if (hasChanges && isValidMenu) {
         await createMenu(groups);
+      } else if (currentMenu && activeMenu?.id !== currentMenu.id) {
+        await activateMenu(currentMenu.id);
       }
     }
     setMode('kid');
