@@ -2,12 +2,12 @@ import { ArrowLeft, Star, ClipboardCheck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { KidAvatar } from '../../components/kid/KidAvatar';
-import { getCompletionCardColor } from '../../utils/completionUtils';
+import { getAllFoodIds, getCompletionCardColor } from '../../utils/completionUtils';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMealHistory } from '../../contexts/MealHistoryContext';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
-import type { CompletionStatus, KidSelection } from '../../types';
+import type { CompletionStatus } from '../../types';
 
 interface MealHistoryDetailProps {
   mealId: string;
@@ -20,6 +20,7 @@ function CompletionBadge({ status }: { status: CompletionStatus }) {
   const styles: Record<NonNullable<CompletionStatus>, { bg: string; text: string; label: string }> = {
     all: { bg: 'bg-success/10', text: 'text-success', label: 'All eaten' },
     some: { bg: 'bg-warning/10', text: 'text-warning', label: 'Some eaten' },
+    tried: { bg: 'bg-parent-primary-deep/12', text: 'text-parent-primary-deep', label: 'Tried it' },
     none: { bg: 'bg-gray-100', text: 'text-gray-500', label: 'Not eaten' },
   };
 
@@ -30,20 +31,6 @@ function CompletionBadge({ status }: { status: CompletionStatus }) {
       {style.label}
     </span>
   );
-}
-
-// Helper to get all food IDs from a selection (handles both old and new format)
-function getAllFoodIds(selection: KidSelection): string[] {
-  const ids: string[] = [];
-  if (selection.selections) {
-    Object.values(selection.selections).forEach((groupIds) => {
-      ids.push(...groupIds);
-    });
-  } else {
-    if (selection.mainId) ids.push(selection.mainId);
-    if (selection.sideIds) ids.push(...selection.sideIds);
-  }
-  return ids;
 }
 
 export function MealHistoryDetail({ mealId, onBack }: MealHistoryDetailProps) {
