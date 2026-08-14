@@ -102,12 +102,28 @@ export function summarizeKidReview(
   const cleared = totalCount > 0 && vals.every((v) => v === 'all');
   const triedEverything = !cleared && totalCount > 0 && vals.every((v) => v !== null && v !== 'none');
   const eatenCount = vals.filter((v) => v === 'all' || v === 'some').length;
+  const triedOnlyCount = vals.filter((v) => v === 'tried').length;
 
-  const summaryText = cleared
-    ? 'Cleared the plate'
-    : markedCount === totalCount
-      ? `${eatenCount} of ${totalCount} eaten`
-      : `${markedCount} of ${totalCount} marked`;
+  let summaryText: string;
+  if (cleared) {
+    summaryText = 'Cleared the plate';
+  } else if (markedCount === totalCount) {
+    // Every food has a mark, but "eaten" (some/all) and "tried" (a taste, no
+    // more) mean different things — folding tried into eaten would make a
+    // plate of nothing but tastes read as "0 eaten" with the tries nowhere
+    // to be seen.
+    if (eatenCount > 0 && triedOnlyCount > 0) {
+      summaryText = `${eatenCount} of ${totalCount} eaten, ${triedOnlyCount} tried`;
+    } else if (eatenCount > 0) {
+      summaryText = `${eatenCount} of ${totalCount} eaten`;
+    } else if (triedOnlyCount > 0) {
+      summaryText = `${triedOnlyCount} of ${totalCount} tried`;
+    } else {
+      summaryText = `${markedCount} of ${totalCount} marked`;
+    }
+  } else {
+    summaryText = `${markedCount} of ${totalCount} marked`;
+  }
 
   return { markedCount, totalCount, cleared, triedEverything, summaryText };
 }
