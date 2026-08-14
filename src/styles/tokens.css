@@ -89,6 +89,8 @@
   --ui-color-secondary: #7447df;
   --ui-color-secondary-hover: #6437ca;
   --ui-color-focus: #2e63d6;
+  --ui-color-hint: #cbd5e1;
+  --ui-color-hint-icon: #94a3b8;
   --ui-card-radius: 1rem;
   --ui-card-shadow: var(--shadow-card);
   --ui-card-shadow-hover: var(--shadow-card-hover);
@@ -109,6 +111,8 @@
   --ui-color-secondary: #087f78;
   --ui-color-secondary-hover: #066b65;
   --ui-color-focus: #087f78;
+  --ui-color-hint: #d9c3a6;
+  --ui-color-hint-icon: #b39b7c;
   --ui-card-radius: 1.5rem;
   --ui-card-shadow: var(--shadow-kid);
   --ui-card-shadow-hover: 0 7px 0 rgb(35 48 71 / 0.12), 0 18px 34px rgb(35 48 71 / 0.16);

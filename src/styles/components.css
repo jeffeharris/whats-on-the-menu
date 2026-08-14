@@ -409,9 +409,9 @@
     height: 1.625rem;
     border-width: 2px;
     border-style: dotted;
-    border-color: #d9c3a6;
+    border-color: var(--ui-color-hint);
     background: color-mix(in srgb, white 55%, transparent);
-    color: #b39b7c;
+    color: var(--ui-color-hint-icon);
   }
 
   .kid-select-chip[data-optional='true'][data-filled='true'] {
