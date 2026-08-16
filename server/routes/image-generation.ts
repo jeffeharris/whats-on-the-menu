@@ -4,6 +4,7 @@ import sharp from 'sharp';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../logger.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
 import {
   UPLOADS_DIR,
   MAX_DIMENSION,
@@ -97,7 +98,7 @@ async function handleQuotaError(err: unknown, res: import('express').Response): 
 }
 
 // GET /api/image-generation/usage - This household's remaining daily allowance
-router.get('/usage', async (req, res) => {
+router.get('/usage', asyncHandler(async (req, res) => {
   const used = await countHouseholdGenerations(req.householdId!, GENERATION_WINDOW_MS);
   res.json({
     used,
@@ -105,10 +106,10 @@ router.get('/usage', async (req, res) => {
     remaining: Math.max(0, HOUSEHOLD_DAILY_LIMIT - used),
     enabled: GENERATION_ENABLED,
   });
-});
+}));
 
 // POST /api/image-generation/runware - Proxy to Runware API
-router.post('/runware', async (req, res) => {
+router.post('/runware', asyncHandler(async (req, res) => {
   const apiKey = process.env.RUNWARE_API_KEY;
 
   if (!apiKey) {
@@ -235,6 +236,6 @@ router.post('/runware', async (req, res) => {
     logger.error({ err: error }, 'Runware proxy error');
     return res.status(500).json({ error: 'Failed to generate image' });
   }
-});
+}, 'Failed to generate image'));
 
 export default router;
