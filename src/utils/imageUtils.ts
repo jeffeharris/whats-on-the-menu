@@ -1,11 +1,4 @@
 /**
- * Generate a unique ID
- */
-export function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
-
-/**
  * Get placeholder image URL for food items without images.
  * Warm cream background with utensils icon in soft amber.
  */
