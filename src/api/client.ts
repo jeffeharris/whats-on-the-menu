@@ -2,8 +2,8 @@ import type { FoodItem, KidProfile, AvatarColor, AvatarAnimal, SavedMenu, KidSel
 
 const API_BASE = '/api';
 
-async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  return fetch(url, {
+async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: 'include',
   });
@@ -14,105 +14,94 @@ async function getApiError(res: Response, fallback: string): Promise<Error> {
   return new Error(body?.error || fallback);
 }
 
+async function request(path: string, fallback: string, options: RequestInit = {}): Promise<Response> {
+  const res = await apiFetch(path, options);
+  if (!res.ok) throw await getApiError(res, fallback);
+  return res;
+}
+
+function jsonBody(method: string, body: unknown): RequestInit {
+  return {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+async function get<T>(path: string, fallback: string): Promise<T> {
+  const res = await request(path, fallback);
+  return res.json();
+}
+
+async function post<T>(path: string, fallback: string, body?: unknown): Promise<T> {
+  const res = await request(path, fallback, body === undefined ? { method: 'POST' } : jsonBody('POST', body));
+  return res.json();
+}
+
+async function put<T>(path: string, fallback: string, body: unknown): Promise<T> {
+  const res = await request(path, fallback, jsonBody('PUT', body));
+  return res.json();
+}
+
+async function del<T>(path: string, fallback: string): Promise<T> {
+  const res = await request(path, fallback, { method: 'DELETE' });
+  return res.json();
+}
+
 // Foods API
 export const foodsApi = {
   async getAll(): Promise<{ items: FoodItem[] }> {
-    const res = await apiFetch(`${API_BASE}/foods`);
-    if (!res.ok) throw new Error('Failed to fetch foods');
-    return res.json();
+    return get('/foods', 'Failed to fetch foods');
   },
 
   async create(name: string, tags: string[], imageUrl: string | null): Promise<FoodItem> {
-    const res = await apiFetch(`${API_BASE}/foods`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, tags, imageUrl }),
-    });
-    if (!res.ok) throw new Error('Failed to create food');
-    return res.json();
+    return post('/foods', 'Failed to create food', { name, tags, imageUrl });
   },
 
   async update(id: string, updates: Partial<Omit<FoodItem, 'id'>>): Promise<FoodItem> {
-    const res = await apiFetch(`${API_BASE}/foods/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) throw new Error('Failed to update food');
-    return res.json();
+    return put(`/foods/${id}`, 'Failed to update food', updates);
   },
 
   async delete(id: string): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/foods/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete food');
+    await request(`/foods/${id}`, 'Failed to delete food', { method: 'DELETE' });
   },
 };
 
 // Profiles API
 export const profilesApi = {
   async getAll(): Promise<{ profiles: KidProfile[] }> {
-    const res = await apiFetch(`${API_BASE}/profiles`);
-    if (!res.ok) throw new Error('Failed to fetch profiles');
-    return res.json();
+    return get('/profiles', 'Failed to fetch profiles');
   },
 
   async create(name: string, avatarColor: AvatarColor, avatarAnimal?: AvatarAnimal): Promise<KidProfile> {
-    const res = await apiFetch(`${API_BASE}/profiles`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, avatarColor, avatarAnimal }),
-    });
-    if (!res.ok) throw new Error('Failed to create profile');
-    return res.json();
+    return post('/profiles', 'Failed to create profile', { name, avatarColor, avatarAnimal });
   },
 
   async update(id: string, updates: Partial<Omit<KidProfile, 'id'>>): Promise<KidProfile> {
-    const res = await apiFetch(`${API_BASE}/profiles/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) throw new Error('Failed to update profile');
-    return res.json();
+    return put(`/profiles/${id}`, 'Failed to update profile', updates);
   },
 
   async delete(id: string): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/profiles/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete profile');
+    await request(`/profiles/${id}`, 'Failed to delete profile', { method: 'DELETE' });
   },
 };
 
 // Menus API
 export const menusApi = {
   async getAll(): Promise<{ menus: SavedMenu[] }> {
-    const res = await apiFetch(`${API_BASE}/menus`);
-    if (!res.ok) throw new Error('Failed to fetch menus');
-    return res.json();
+    return get('/menus', 'Failed to fetch menus');
   },
 
   async create(groups: MenuGroup[], name?: string): Promise<SavedMenu> {
-    const res = await apiFetch(`${API_BASE}/menus`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, groups }),
-    });
-    if (!res.ok) throw new Error('Failed to create menu');
-    return res.json();
+    return post('/menus', 'Failed to create menu', { name, groups });
   },
 
   async update(id: string, updates: Partial<Omit<SavedMenu, 'id' | 'createdAt' | 'updatedAt'>>): Promise<SavedMenu> {
-    const res = await apiFetch(`${API_BASE}/menus/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) throw new Error('Failed to update menu');
-    return res.json();
+    return put(`/menus/${id}`, 'Failed to update menu', updates);
   },
 
   async delete(id: string): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/menus/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete menu');
+    await request(`/menus/${id}`, 'Failed to delete menu', { method: 'DELETE' });
   },
 
   async getActive(): Promise<{
@@ -121,18 +110,11 @@ export const menusApi = {
     selectionStatus: SelectionStatus;
     selectionRevision: number;
   }> {
-    const res = await apiFetch(`${API_BASE}/menus/active`);
-    if (!res.ok) throw new Error('Failed to fetch active menu');
-    return res.json();
+    return get('/menus/active', 'Failed to fetch active menu');
   },
 
   async setActive(menuId: string | null): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/menus/active`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ menuId }),
-    });
-    if (!res.ok) throw new Error('Failed to set active menu');
+    await request('/menus/active', 'Failed to set active menu', jsonBody('PUT', { menuId }));
   },
 
   async addSelection(
@@ -141,35 +123,20 @@ export const menusApi = {
     menuId: string,
     selectionRevision: number
   ): Promise<KidSelection> {
-    const res = await apiFetch(`${API_BASE}/menus/selections`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kidId, selections, menuId, selectionRevision }),
-    });
-    if (!res.ok) throw await getApiError(res, 'Failed to save choices');
-    return res.json();
+    return post('/menus/selections', 'Failed to save choices', { kidId, selections, menuId, selectionRevision });
   },
 
   async setSelectionStatus(status: SelectionStatus): Promise<SelectionStatus> {
-    const res = await apiFetch(`${API_BASE}/menus/selections/status`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    if (!res.ok) throw await getApiError(res, 'Failed to update choice approval');
-    const data = await res.json() as { selectionStatus: SelectionStatus };
+    const data = await put<{ selectionStatus: SelectionStatus }>('/menus/selections/status', 'Failed to update choice approval', { status });
     return data.selectionStatus;
   },
 
   async clearSelections(): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/menus/selections`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to clear selections');
+    await request('/menus/selections', 'Failed to clear selections', { method: 'DELETE' });
   },
 
   async getPresets(): Promise<{ presets: Record<PresetSlot, SavedMenu | null> }> {
-    const res = await apiFetch(`${API_BASE}/menus/presets`);
-    if (!res.ok) throw new Error('Failed to fetch presets');
-    return res.json();
+    return get('/menus/presets', 'Failed to fetch presets');
   },
 
   async updatePreset(
@@ -178,29 +145,18 @@ export const menusApi = {
     groups: MenuGroup[],
     expectedUpdatedAt: number | null
   ): Promise<SavedMenu & { affectsActiveMenu: boolean }> {
-    const res = await apiFetch(`${API_BASE}/menus/presets/${slot}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, groups, expectedUpdatedAt }),
-    });
-    if (!res.ok) throw await getApiError(res, 'Failed to update preset');
-    return res.json();
+    return put(`/menus/presets/${slot}`, 'Failed to update preset', { name, groups, expectedUpdatedAt });
   },
 
   async deletePreset(slot: PresetSlot): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/menus/presets/${slot}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete preset');
+    await request(`/menus/presets/${slot}`, 'Failed to delete preset', { method: 'DELETE' });
   },
 
   async copyPreset(
     fromSlot: PresetSlot,
     toSlot: PresetSlot
   ): Promise<SavedMenu & { affectsActiveMenu: boolean }> {
-    const res = await apiFetch(`${API_BASE}/menus/presets/${fromSlot}/copy/${toSlot}`, {
-      method: 'POST',
-    });
-    if (!res.ok) throw new Error('Failed to copy preset');
-    return res.json();
+    return post(`/menus/presets/${fromSlot}/copy/${toSlot}`, 'Failed to copy preset');
   },
 };
 
@@ -225,231 +181,129 @@ export const uploadsApi = {
     const formData = new FormData();
     formData.append('image', file);
 
-    const res = await apiFetch(`${API_BASE}/uploads`, {
+    // FormData body: the browser sets the multipart Content-Type boundary itself.
+    const res = await request('/uploads', 'Failed to upload image', {
       method: 'POST',
       body: formData,
     });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to upload image');
-    }
     return res.json();
   },
 
   async getStorage(): Promise<StorageStats> {
-    const res = await apiFetch(`${API_BASE}/uploads/storage`);
-    if (!res.ok) throw new Error('Failed to fetch storage stats');
-    return res.json();
+    return get('/uploads/storage', 'Failed to fetch storage stats');
   },
 
   async delete(filename: string): Promise<{ success: boolean; storage: StorageStats }> {
-    const res = await apiFetch(`${API_BASE}/uploads/${filename}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete image');
-    return res.json();
+    return del(`/uploads/${filename}`, 'Failed to delete image');
   },
 };
 
 // Meals API
 export const mealsApi = {
   async getAll(): Promise<{ meals: MealRecord[] }> {
-    const res = await apiFetch(`${API_BASE}/meals`);
-    if (!res.ok) throw new Error('Failed to fetch meals');
-    return res.json();
+    return get('/meals', 'Failed to fetch meals');
   },
 
   async get(id: string): Promise<MealRecord> {
-    const res = await apiFetch(`${API_BASE}/meals/${id}`);
-    if (!res.ok) throw new Error('Failed to fetch meal');
-    return res.json();
+    return get(`/meals/${id}`, 'Failed to fetch meal');
   },
 
   async create(menuId: string, selections: KidSelection[], reviews: KidMealReview[]): Promise<MealRecord> {
-    const res = await apiFetch(`${API_BASE}/meals`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ menuId, selections, reviews }),
-    });
-    if (!res.ok) throw await getApiError(res, 'Failed to create meal');
-    return res.json();
+    return post('/meals', 'Failed to create meal', { menuId, selections, reviews });
   },
 
   async delete(id: string): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/meals/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete meal');
+    await request(`/meals/${id}`, 'Failed to delete meal', { method: 'DELETE' });
   },
 };
 
 // Shared Menus API
 export const sharedMenusApi = {
   async create(title: string, description: string | undefined, groups: SharedMenuGroup[]): Promise<SharedMenu> {
-    const res = await apiFetch(`${API_BASE}/shared-menus`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, description, groups }),
-    });
-    if (!res.ok) throw new Error('Failed to create shared menu');
-    return res.json();
+    return post('/shared-menus', 'Failed to create shared menu', { title, description, groups });
   },
 
   async getAll(): Promise<{ menus: SharedMenu[] }> {
-    const res = await apiFetch(`${API_BASE}/shared-menus`);
-    if (!res.ok) throw new Error('Failed to fetch shared menus');
-    return res.json();
+    return get('/shared-menus', 'Failed to fetch shared menus');
   },
 
   async get(id: string): Promise<{ menu: SharedMenu }> {
-    const res = await apiFetch(`${API_BASE}/shared-menus/${id}`);
-    if (!res.ok) throw new Error('Failed to fetch shared menu');
-    return res.json();
+    return get(`/shared-menus/${id}`, 'Failed to fetch shared menu');
   },
 
   async getByToken(token: string): Promise<{ menu: SharedMenu }> {
-    const res = await apiFetch(`${API_BASE}/shared-menus/view/${token}`);
-    if (!res.ok) throw new Error('Failed to fetch shared menu');
-    return res.json();
+    return get(`/shared-menus/view/${token}`, 'Failed to fetch shared menu');
   },
 
   async submitResponse(token: string, respondentName: string, selections: { [groupId: string]: string[] }): Promise<SharedMenuResponse> {
-    const res = await apiFetch(`${API_BASE}/shared-menus/respond/${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ respondentName, selections }),
-    });
-    if (!res.ok) throw new Error('Failed to submit response');
-    return res.json();
+    return post(`/shared-menus/respond/${token}`, 'Failed to submit response', { respondentName, selections });
   },
 
   async getResponses(menuId: string): Promise<{ responses: SharedMenuResponse[] }> {
-    const res = await apiFetch(`${API_BASE}/shared-menus/${menuId}/responses`);
-    if (!res.ok) throw new Error('Failed to fetch responses');
-    return res.json();
+    return get(`/shared-menus/${menuId}/responses`, 'Failed to fetch responses');
   },
 
   async update(id: string, updates: Partial<SharedMenu>): Promise<SharedMenu> {
-    const res = await apiFetch(`${API_BASE}/shared-menus/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) throw new Error('Failed to update shared menu');
-    return res.json();
+    return put(`/shared-menus/${id}`, 'Failed to update shared menu', updates);
   },
 
   async delete(id: string): Promise<void> {
-    const res = await apiFetch(`${API_BASE}/shared-menus/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete shared menu');
+    await request(`/shared-menus/${id}`, 'Failed to delete shared menu', { method: 'DELETE' });
   },
 };
 
 // Household API
 export const householdApi = {
   async getMembers(): Promise<{ members: HouseholdMember[] }> {
-    const res = await apiFetch(`${API_BASE}/household/members`);
-    if (!res.ok) throw new Error('Failed to fetch members');
-    return res.json();
+    return get('/household/members', 'Failed to fetch members');
   },
 
   async invite(email: string): Promise<{ success: boolean; invitation: HouseholdInvitation }> {
-    const res = await apiFetch(`${API_BASE}/household/invite`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to send invitation');
-    }
-    return res.json();
+    return post('/household/invite', 'Failed to send invitation', { email });
   },
 
   async getInvitations(): Promise<{ invitations: HouseholdInvitation[] }> {
-    const res = await apiFetch(`${API_BASE}/household/invitations`);
-    if (!res.ok) throw new Error('Failed to fetch invitations');
-    return res.json();
+    return get('/household/invitations', 'Failed to fetch invitations');
   },
 
   async revokeInvitation(id: string): Promise<{ success: boolean }> {
-    const res = await apiFetch(`${API_BASE}/household/invitations/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to revoke invitation');
-    return res.json();
+    return del(`/household/invitations/${id}`, 'Failed to revoke invitation');
   },
 
   async removeMember(userId: string): Promise<{ success: boolean }> {
-    const res = await apiFetch(`${API_BASE}/household/members/${userId}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to remove member');
-    }
-    return res.json();
+    return del(`/household/members/${userId}`, 'Failed to remove member');
   },
 
   async leaveHousehold(): Promise<{ success: boolean }> {
-    const res = await apiFetch(`${API_BASE}/household/leave`, { method: 'POST' });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to leave household');
-    }
-    return res.json();
+    return post('/household/leave', 'Failed to leave household');
   },
 
   async getInviteInfo(token: string): Promise<InviteInfo> {
-    const res = await apiFetch(`${API_BASE}/household/invite-info?token=${encodeURIComponent(token)}`);
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to fetch invitation info');
-    }
-    return res.json();
+    return get(`/household/invite-info?token=${encodeURIComponent(token)}`, 'Failed to fetch invitation info');
   },
 };
 
 // Auth API
 export const authApi = {
   async login(email: string): Promise<{ success: boolean }> {
-    const res = await apiFetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Login failed');
-    }
-    return res.json();
+    return post('/auth/login', 'Login failed', { email });
   },
 
   async signup(email: string, householdName?: string): Promise<{ success: boolean }> {
-    const res = await apiFetch(`${API_BASE}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, householdName }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Signup failed');
-    }
-    return res.json();
+    return post('/auth/signup', 'Signup failed', { email, householdName });
   },
 
   async logout(): Promise<void> {
-    await apiFetch(`${API_BASE}/auth/logout`, { method: 'POST' });
+    await apiFetch('/auth/logout', { method: 'POST' });
   },
 
   async me(): Promise<{ user: { id: string; email: string; displayName: string | null; role: string }; household: { id: string; name: string } } | null> {
-    const res = await apiFetch(`${API_BASE}/auth/me`);
+    const res = await apiFetch('/auth/me');
     if (!res.ok) return null;
     return res.json();
   },
 
   async setGrownUpCheck(enabled: boolean): Promise<{ success: boolean; grownUpCheckEnabled: boolean }> {
-    const res = await apiFetch(`${API_BASE}/auth/grownup-check`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || 'Failed to update the grown-up check');
-    }
-    return res.json();
+    return put('/auth/grownup-check', 'Failed to update the grown-up check', { enabled });
   },
 };
