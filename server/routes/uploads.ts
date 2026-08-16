@@ -196,7 +196,7 @@ router.post('/', upload.single('image'), asyncHandler(async (req, res) => {
     filename,
     storage: stats,
   });
-}, 'Failed to process and save image'));
+}, 'Failed to process and save image', (req) => ({ householdId: req.householdId })));
 
 // DELETE /api/uploads/:filename - Delete an uploaded image owned by this household
 router.delete('/:filename', asyncHandler(async (req, res) => {
