@@ -105,21 +105,6 @@ export interface AppState {
   selectedKidId: string | null;
 }
 
-export interface FoodLibraryState {
-  items: FoodItem[];
-}
-
-export interface KidProfilesState {
-  profiles: KidProfile[];
-}
-
-export interface MenuState {
-  currentMenu: Menu | null;
-  selections: KidSelection[];
-  selectionStatus: SelectionStatus;
-  selectionsLocked: boolean;
-}
-
 export type CompletionStatus = 'all' | 'some' | 'tried' | 'none' | null;
 
 export interface KidMealReview {
@@ -138,10 +123,6 @@ export interface MealRecord {
   selections: KidSelection[];
   reviews: KidMealReview[];
   completedAt: number;
-}
-
-export interface MealHistoryState {
-  meals: MealRecord[];
 }
 
 // Shared Menu Domain - separate from kid menu domain

@@ -1,10 +1,5 @@
 export const STORAGE_KEYS = {
   APP_STATE: 'whats-on-menu-app-state',
-  FOOD_LIBRARY: 'whats-on-menu-food-library',
-  KID_PROFILES: 'whats-on-menu-kid-profiles',
-  MENU: 'whats-on-menu-menu',
-  MEAL_HISTORY: 'whats-on-menu-meal-history',
-  IMAGE_GENERATION: 'whats-on-menu-image-generation',
 } as const;
 
 export function getStorageItem<T>(key: string, defaultValue: T): T {
@@ -21,13 +16,5 @@ export function setStorageItem<T>(key: string, value: T): void {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
     console.error('Failed to save to localStorage:', error);
-  }
-}
-
-export function removeStorageItem(key: string): void {
-  try {
-    localStorage.removeItem(key);
-  } catch (error) {
-    console.error('Failed to remove from localStorage:', error);
   }
 }

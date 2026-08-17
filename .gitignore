@@ -35,6 +35,9 @@ dist-ssr
 # Claude Code local (personal) settings — skills under .claude/skills/ are shared
 .claude/settings.local.json
 
+# Transient git worktrees created for background agents
+.claude/worktrees/
+
 # Playwright browser-automation artifacts (snapshots, console logs, screenshots)
 .playwright-mcp/
 .playwright-cli/

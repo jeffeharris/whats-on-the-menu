@@ -6,6 +6,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 import { logger } from '../logger.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
 import {
   getHouseholdUploadBytes,
   recordUpload,
@@ -135,76 +136,70 @@ export async function registerUpload(
 const router = Router();
 
 // GET /api/uploads/storage - Get this household's storage usage stats
-router.get('/storage', async (req, res) => {
+router.get('/storage', asyncHandler(async (req, res) => {
   const stats = await getStorageStats(req.householdId!);
   res.json(stats);
-});
+}));
 
 // POST /api/uploads - Upload and process an image
-router.post('/', upload.single('image'), async (req, res) => {
+router.post('/', upload.single('image'), asyncHandler(async (req, res) => {
   const householdId = req.householdId!;
-  let filename: string | null = null;
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No image file provided' });
-    }
-
-    // Check this household's storage usage before processing
-    const currentSize = await getHouseholdUploadBytes(householdId);
-    if (currentSize >= STORAGE_LIMIT_BYTES) {
-      return res.status(507).json({
-        error: 'Storage limit reached. Please delete some images before uploading new ones.',
-        storage: await getStorageStats(householdId),
-      });
-    }
-
-    // Process the image with sharp
-    const processedImage = await sharp(req.file.buffer)
-      .resize(MAX_DIMENSION, MAX_DIMENSION, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: JPEG_QUALITY })
-      .toBuffer();
-
-    // Check if processed image would exceed this household's storage limit
-    if (currentSize + processedImage.length > STORAGE_LIMIT_BYTES) {
-      return res.status(507).json({
-        error: 'Uploading this image would exceed the storage limit. Please delete some images first.',
-        storage: await getStorageStats(householdId),
-      });
-    }
-
-    // Generate unique filename and save
-    filename = `${randomUUID()}.jpg`;
-    const filepath = join(UPLOADS_DIR, filename);
-
-    // Write the processed buffer directly (avoid double Sharp processing)
-    writeFileSync(filepath, processedImage);
-    try {
-      await registerUpload(householdId, filename, processedImage.length);
-    } catch (err) {
-      // DB record failed — remove the just-written file so it isn't orphaned.
-      deleteUploadedFile(filename);
-      throw err;
-    }
-
-    const imageUrl = `/uploads/${filename}`;
-    const stats = await getStorageStats(householdId);
-
-    res.status(201).json({
-      imageUrl,
-      filename,
-      storage: stats,
-    });
-  } catch (error) {
-    logger.error({ err: error, householdId }, 'Upload failed');
-    res.status(500).json({ error: 'Failed to process and save image' });
+  if (!req.file) {
+    return res.status(400).json({ error: 'No image file provided' });
   }
-});
+
+  // Check this household's storage usage before processing
+  const currentSize = await getHouseholdUploadBytes(householdId);
+  if (currentSize >= STORAGE_LIMIT_BYTES) {
+    return res.status(507).json({
+      error: 'Storage limit reached. Please delete some images before uploading new ones.',
+      storage: await getStorageStats(householdId),
+    });
+  }
+
+  // Process the image with sharp
+  const processedImage = await sharp(req.file.buffer)
+    .resize(MAX_DIMENSION, MAX_DIMENSION, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: JPEG_QUALITY })
+    .toBuffer();
+
+  // Check if processed image would exceed this household's storage limit
+  if (currentSize + processedImage.length > STORAGE_LIMIT_BYTES) {
+    return res.status(507).json({
+      error: 'Uploading this image would exceed the storage limit. Please delete some images first.',
+      storage: await getStorageStats(householdId),
+    });
+  }
+
+  // Generate unique filename and save
+  const filename = `${randomUUID()}.jpg`;
+  const filepath = join(UPLOADS_DIR, filename);
+
+  // Write the processed buffer directly (avoid double Sharp processing)
+  writeFileSync(filepath, processedImage);
+  try {
+    await registerUpload(householdId, filename, processedImage.length);
+  } catch (err) {
+    // DB record failed — remove the just-written file so it isn't orphaned.
+    deleteUploadedFile(filename);
+    throw err;
+  }
+
+  const imageUrl = `/uploads/${filename}`;
+  const stats = await getStorageStats(householdId);
+
+  res.status(201).json({
+    imageUrl,
+    filename,
+    storage: stats,
+  });
+}, 'Failed to process and save image', (req) => ({ householdId: req.householdId })));
 
 // DELETE /api/uploads/:filename - Delete an uploaded image owned by this household
-router.delete('/:filename', async (req, res) => {
+router.delete('/:filename', asyncHandler(async (req, res) => {
   const { filename } = req.params;
 
   // Security: validate filename format and prevent path traversal
@@ -220,6 +215,6 @@ router.delete('/:filename', async (req, res) => {
   } else {
     res.status(404).json({ error: 'File not found' });
   }
-});
+}));
 
 export default router;

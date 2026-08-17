@@ -13,10 +13,12 @@ import {
   getHousehold,
 } from '../db/queries/auth.js';
 import { requireAuth } from '../middleware/auth.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
 import { initializeHouseholdFoods } from '../db/queries/foods.js';
 import { initializeHouseholdPresets } from '../db/queries/menus.js';
 import { signupSchema, loginSchema, grownUpCheckSchema } from '../validation/schemas.js';
 import { resend, APP_URL, EMAIL_FROM, emailTemplate } from '../email.js';
+import { logger } from '../logger.js';
 
 // ============================================================
 // Email sending helper
@@ -43,10 +45,10 @@ async function sendMagicLinkEmail(email: string, token: string): Promise<void> {
       }),
     });
     if (error) {
-      console.error('Resend failed to send magic link email:', error);
+      logger.error({ err: error }, 'Resend failed to send magic link email');
     }
   } else {
-    console.log(`\n  Magic link for ${email}: ${url}\n`);
+    logger.info({ email, url }, 'Magic link (email sending not configured)');
   }
 }
 
@@ -90,63 +92,57 @@ export function setSessionCookie(res: Response, token: string) {
 const router = Router();
 
 // POST /api/auth/signup
-router.post('/signup', async (req: Request, res: Response) => {
-  try {
-    const result = signupSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error.issues[0].message });
-    }
-    const { email, householdName } = result.data;
-
-    const existing = await findUserByEmail(email);
-    if (existing) {
-      return res.status(400).json({ error: 'An account with that email already exists' });
-    }
-
-    // Create household + user
-    const household = await createHousehold(householdName || 'My Household');
-    await createUser(email, household.id, undefined, 'owner');
-    await initializeHouseholdFoods(household.id);
-    try { await initializeHouseholdPresets(household.id); } catch (e) { console.error('Non-fatal: failed to seed presets', e); }
-
-    const token = await createMagicLinkToken(email);
-    await sendMagicLinkEmail(email, token);
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({ error: 'Failed to create account' });
+router.post('/signup', asyncHandler(async (req, res) => {
+  const result = signupSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
   }
-});
+  const { email, householdName } = result.data;
+
+  const existing = await findUserByEmail(email);
+  if (existing) {
+    return res.status(400).json({ error: 'An account with that email already exists' });
+  }
+
+  // Create household + user
+  const household = await createHousehold(householdName || 'My Household');
+  await createUser(email, household.id, undefined, 'owner');
+  await initializeHouseholdFoods(household.id);
+  // Deliberately non-fatal: signup must still succeed if preset seeding fails.
+  try { await initializeHouseholdPresets(household.id); } catch (e) { logger.error({ err: e }, 'Non-fatal: failed to seed presets'); }
+
+  const token = await createMagicLinkToken(email);
+  await sendMagicLinkEmail(email, token);
+
+  res.json({ success: true });
+}, 'Failed to create account'));
 
 // POST /api/auth/login
-router.post('/login', async (req: Request, res: Response) => {
-  try {
-    const result = loginSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error.issues[0].message });
-    }
-    const { email } = result.data;
-
-    const user = await findUserByEmail(email);
-    if (!user) {
-      // Don't reveal whether the email exists — add delay to prevent timing attacks
-      const delay = 100 + Math.floor(Math.random() * 50);
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return res.json({ success: true });
-    }
-
-    const token = await createMagicLinkToken(email);
-    await sendMagicLinkEmail(email, token);
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Failed to send login link' });
+router.post('/login', asyncHandler(async (req, res) => {
+  const result = loginSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
   }
-});
+  const { email } = result.data;
+
+  const user = await findUserByEmail(email);
+  if (!user) {
+    // Don't reveal whether the email exists — add delay to prevent timing attacks
+    const delay = 100 + Math.floor(Math.random() * 50);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    return res.json({ success: true });
+  }
+
+  const token = await createMagicLinkToken(email);
+  await sendMagicLinkEmail(email, token);
+
+  res.json({ success: true });
+}, 'Failed to send login link'));
 
 // GET /api/auth/verify?token=xxx
+//
+// Keeps its local try/catch: this endpoint answers a clicked email link, so
+// failures must redirect the browser, not return JSON via the error middleware.
 router.get('/verify', async (req: Request, res: Response) => {
   try {
     const { token } = req.query;
@@ -170,59 +166,49 @@ router.get('/verify', async (req: Request, res: Response) => {
 
     res.redirect(`${APP_URL}/`);
   } catch (error) {
-    console.error('Verify error:', error);
+    logger.error({ err: error }, 'Verify error');
     res.redirect(`${APP_URL}/login?error=invalid`);
   }
 });
 
 // GET /api/auth/me
-router.get('/me', async (req: Request, res: Response) => {
-  try {
-    const token = req.cookies?.session;
+router.get('/me', asyncHandler(async (req, res) => {
+  const token = req.cookies?.session;
 
-    if (!token) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const session = await getSessionByToken(token);
-    if (!session) {
-      res.clearCookie('session');
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const household = await getHousehold(session.householdId);
-
-    res.json({
-      user: {
-        id: session.userId,
-        email: session.email,
-        displayName: null, // Could be fetched from users table if needed
-        role: session.role,
-      },
-      household: household
-        ? { id: household.id, name: household.name, grownUpCheckEnabled: household.grownup_check_enabled }
-        : null,
-    });
-  } catch (error) {
-    console.error('Auth me error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+  if (!token) {
+    return res.status(401).json({ error: 'Not authenticated' });
   }
-});
+
+  const session = await getSessionByToken(token);
+  if (!session) {
+    res.clearCookie('session');
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const household = await getHousehold(session.householdId);
+
+  res.json({
+    user: {
+      id: session.userId,
+      email: session.email,
+      displayName: null, // Could be fetched from users table if needed
+      role: session.role,
+    },
+    household: household
+      ? { id: household.id, name: household.name, grownUpCheckEnabled: household.grownup_check_enabled }
+      : null,
+  });
+}, 'Internal server error'));
 
 // POST /api/auth/logout (protected)
-router.post('/logout', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const token = req.cookies?.session;
-    if (token) {
-      await deleteSession(token);
-    }
-    res.clearCookie('session');
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({ error: 'Failed to log out' });
+router.post('/logout', requireAuth, asyncHandler(async (req, res) => {
+  const token = req.cookies?.session;
+  if (token) {
+    await deleteSession(token);
   }
-});
+  res.clearCookie('session');
+  res.json({ success: true });
+}, 'Failed to log out'));
 
 // PUT /api/auth/grownup-check (protected) — turn the grown-up check on or off
 //
@@ -230,18 +216,13 @@ router.post('/logout', requireAuth, async (req: Request, res: Response) => {
 // challenge spelled out in words, which an adult reads and a pre-reader
 // cannot, so nothing secret is stored or compared. The caller is already an
 // authenticated member of this household, which is the actual access control.
-router.put('/grownup-check', requireAuth, async (req: Request, res: Response) => {
-  try {
-    const result = grownUpCheckSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({ error: result.error.issues[0].message });
-    }
-    await setGrownUpCheck(req.householdId!, result.data.enabled);
-    res.json({ success: true, grownUpCheckEnabled: result.data.enabled });
-  } catch (error) {
-    console.error('Grown-up check error:', error);
-    res.status(500).json({ error: 'Failed to update the grown-up check' });
+router.put('/grownup-check', requireAuth, asyncHandler(async (req, res) => {
+  const result = grownUpCheckSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
   }
-});
+  await setGrownUpCheck(req.householdId!, result.data.enabled);
+  res.json({ success: true, grownUpCheckEnabled: result.data.enabled });
+}, 'Failed to update the grown-up check'));
 
 export default router;
