@@ -51,6 +51,9 @@ src/
 UI foundations and contribution conventions are documented in
 [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md).
 
+Product personas, user flows, and the first-meal golden path are documented in
+[`docs/USER_PERSONAS_AND_FLOWS.md`](docs/USER_PERSONAS_AND_FLOWS.md).
+
 ## Available Scripts
 
 - `npm run dev` - Start development server
