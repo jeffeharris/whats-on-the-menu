@@ -2,6 +2,7 @@
 
 **Status:** design, not yet implemented
 **Branch:** `claude/parent-edit-menu-post-submit-4na9vq`
+**Tracking:** [#28](https://github.com/jeffeharris/whats-on-the-menu/issues/28)
 
 ## Problem
 
