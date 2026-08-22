@@ -13,7 +13,7 @@ import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useSound } from '../../hooks/useSound';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
 import type { GroupSelections } from '../../types';
-import { SELECTION_PRESET_CONFIG } from '../../types';
+import { SELECTION_PRESET_CONFIG, withoutAddOnsGroup } from '../../types';
 
 const AUTO_ADVANCE_DELAY_MS = 1500;
 const TRANSITION_DURATION = 500;
@@ -54,7 +54,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
       return existingSelection.selections;
     }
     const initial: GroupSelections = {};
-    currentMenu?.groups.forEach((group) => {
+    withoutAddOnsGroup(currentMenu?.groups ?? []).forEach((group) => {
       initial[group.id] = [];
     });
     return initial;
@@ -126,9 +126,18 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
     });
   }, []);
 
-  // Sort groups by order (safe even if currentMenu is null)
+  // Sort groups by order (safe even if currentMenu is null).
+  //
+  // Add-ons are excluded: the group is a grown-up's edit surface, synthesized
+  // onto the active menu. It holds the entire food library and takes any number
+  // of picks, so letting it into the wizard would show a kid a step offering
+  // every food in the house. Anything already in it survives untouched --
+  // `selections` is seeded from the stored plate and only the keys rendered
+  // here are ever written.
   const sortedGroups = useMemo(
-    () => currentMenu ? [...currentMenu.groups].sort((a, b) => a.order - b.order) : [],
+    () => currentMenu
+      ? withoutAddOnsGroup(currentMenu.groups).sort((a, b) => a.order - b.order)
+      : [],
     [currentMenu]
   );
 
@@ -281,7 +290,7 @@ export function MenuSelection({ kidId, onComplete, onBack }: MenuSelectionProps)
 
   // Handle food selection within a group
   const handleFoodSelect = (groupId: string, foodId: string) => {
-    const group = currentMenu.groups.find((g) => g.id === groupId);
+    const group = sortedGroups.find((g) => g.id === groupId);
     if (!group) return;
 
     const groupPreset = SELECTION_PRESET_CONFIG[group.selectionPreset];

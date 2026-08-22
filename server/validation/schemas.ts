@@ -127,6 +127,14 @@ export const addSelectionSchema = z.object({
   selectionRevision: z.number().int().nonnegative(),
 });
 
+// A grown-up editing one plate. kidId travels in the path, and there is no
+// approval gate -- the point of the route is to edit a locked round.
+export const parentSelectionSchema = z.object({
+  selections: groupSelectionsSchema,
+  menuId: z.string().min(1, 'menuId is required'),
+  selectionRevision: z.number().int().nonnegative(),
+});
+
 export const selectionStatusSchema = z.object({
   status: z.enum(['open', 'approved']),
 });

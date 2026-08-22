@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, LockKeyhole, RotateCcw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ClipboardCheck, LockKeyhole, Pencil, RotateCcw } from 'lucide-react';
 import { AppShell } from '../../components/common/AppShell';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { KidAvatar } from '../../components/kid/KidAvatar';
+import { PlateEditor } from '../../components/parent/PlateEditor';
 import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMenu } from '../../contexts/MenuContext';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
+import type { GroupSelections } from '../../types';
 
 interface ChoiceReviewProps {
   onBack: () => void;
@@ -31,11 +33,15 @@ export function ChoiceReview({ onBack, onContinueToMealReview }: ChoiceReviewPro
     activeMenu: currentMenu,
     selections,
     selectionStatus,
+    selectionRevision,
     approveSelections,
     unlockSelections,
+    updateSelectionAsParent,
   } = useMenu();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingKidId, setEditingKidId] = useState<string | null>(null);
+  const [savingPlate, setSavingPlate] = useState(false);
   const reviewDataLoading = foodsLoading || profilesLoading;
   const reviewDataError = foodsError || profilesError;
 
@@ -51,6 +57,25 @@ export function ChoiceReview({ onBack, onContinueToMealReview }: ChoiceReviewPro
       setSaving(false);
     }
   };
+
+  // Editing never reopens the round. A locked plate can still be corrected --
+  // decoupling the two is the whole point of editing here rather than unlocking.
+  const savePlate = async (kidId: string, next: GroupSelections) => {
+    if (!currentMenu) return;
+    setSavingPlate(true);
+    setError(null);
+    try {
+      await updateSelectionAsParent(kidId, next, currentMenu.id, selectionRevision);
+      setEditingKidId(null);
+    } catch (err) {
+      setError((err as Error).message || 'Could not save that plate');
+    } finally {
+      setSavingPlate(false);
+    }
+  };
+
+  const editingSelection = selections.find((s) => s.kidId === editingKidId);
+  const editingKid = editingKidId ? getProfile(editingKidId) : undefined;
 
   return (
     <AppShell mode="parent" className="relative h-full flex flex-col overflow-hidden">
@@ -137,6 +162,13 @@ export function ChoiceReview({ onBack, onContinueToMealReview }: ChoiceReviewPro
                             Updated {new Date(selection.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                           </p>
                         </div>
+                        <button
+                          onClick={() => setEditingKidId(selection.kidId)}
+                          className="ui-icon-button ml-auto flex-shrink-0"
+                          aria-label={`Edit ${kid.name}'s plate`}
+                        >
+                          <Pencil className="w-5 h-5 text-gray-500" />
+                        </button>
                       </div>
 
                       <div className="space-y-4">
@@ -235,6 +267,16 @@ export function ChoiceReview({ onBack, onContinueToMealReview }: ChoiceReviewPro
             {error && <p className="text-sm text-danger text-center mt-3" role="alert">{error}</p>}
           </div>
         </footer>
+      )}
+      {editingKid && editingSelection && currentMenu && (
+        <PlateEditor
+          kid={editingKid}
+          menu={currentMenu}
+          selections={editingSelection.selections}
+          saving={savingPlate}
+          onCancel={() => setEditingKidId(null)}
+          onSave={(next) => void savePlate(editingKid.id, next)}
+        />
       )}
     </AppShell>
   );

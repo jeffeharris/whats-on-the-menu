@@ -1,6 +1,6 @@
 # Parent plate edits after submission
 
-**Status:** design, not yet implemented
+**Status:** implemented (phases 1 and 2); phase 3 outstanding
 **Branch:** `claude/parent-edit-menu-post-submit-4na9vq`
 **Tracking:** [#28](https://github.com/jeffeharris/whats-on-the-menu/issues/28)
 
@@ -85,6 +85,13 @@ Two things follow: a min-0 preset, and a place for the group to live.
 returned `groups` array, and `addSelection` validates against the same appended
 list. Its `foodIds` are materialized from the household's food library at read
 time, so membership checks pass for anything a parent can reach.
+
+As built, `getActiveMenu` appends the group as soon as **any plate has been
+submitted**, not only once the round is approved — a kid often asks for a change
+before anything is locked. Validation appends it unconditionally: with `min 0`
+an absent key costs nothing, and doing it on every path means a stored add-on
+can never turn into a 409 later (on approval, or on a kid's next write after the
+round is reopened). That collapses S10 rather than handling it.
 
 Consequences, all good:
 

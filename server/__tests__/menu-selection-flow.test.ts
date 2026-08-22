@@ -519,3 +519,278 @@ describe('multi-device menu selection flow', () => {
     afterCleanup?.();
   });
 });
+
+describe('grown-up plate edits', () => {
+  async function createFood(cookie: string, name: string): Promise<string> {
+    const food = await request(app)
+      .post('/api/foods')
+      .set('Cookie', cookie)
+      .send({ name, tags: [] })
+      .expect(201);
+    return food.body.id as string;
+  }
+
+  async function activeRound(cookie: string) {
+    const active = await request(app)
+      .get('/api/menus/active')
+      .set('Cookie', cookie)
+      .expect(200);
+    return active.body;
+  }
+
+  it('lets a grown-up change a plate that is already approved, without reopening the round', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    await submitAndApprove(tenant.cookie, kidId);
+    const before = await activeRound(tenant.cookie);
+
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: ['pasta'] },
+        menuId: before.menu.id,
+        selectionRevision: before.selectionRevision,
+      })
+      .expect(200);
+
+    const after = await activeRound(tenant.cookie);
+    expect(after.selections[0].selections.main).toEqual(['pasta']);
+    // Editing is not unlocking, and it must not invalidate anyone's device.
+    expect(after.selectionStatus).toBe('approved');
+    expect(after.selectionRevision).toBe(before.selectionRevision);
+  });
+
+  it('still refuses a kid write once choices are approved', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    await submitAndApprove(tenant.cookie, kidId);
+    const round = await activeRound(tenant.cookie);
+
+    await request(app)
+      .post('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .send({
+        kidId,
+        selections: { main: ['pasta'] },
+        menuId: round.menu.id,
+        selectionRevision: round.selectionRevision,
+      })
+      .expect(409);
+  });
+
+  it('refuses a grown-up edit aimed at a round that has since been reset', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    await submitAndApprove(tenant.cookie, kidId);
+    const stale = await activeRound(tenant.cookie);
+
+    await request(app)
+      .delete('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .expect(204);
+
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: ['pasta'] },
+        menuId: stale.menu.id,
+        selectionRevision: stale.selectionRevision,
+      })
+      .expect(409);
+  });
+
+  it('leaves the other kids alone', async () => {
+    const { tenant, kidId, menuId } = await createActiveRound();
+    const sibling = await request(app)
+      .post('/api/profiles')
+      .set('Cookie', tenant.cookie)
+      .send({ name: 'Robin', avatarColor: 'green' })
+      .expect(201);
+    const siblingId = sibling.body.id as string;
+
+    const open = await activeRound(tenant.cookie);
+    for (const [id, food] of [[kidId, 'pizza'], [siblingId, 'pasta']] as const) {
+      await request(app)
+        .post('/api/menus/selections')
+        .set('Cookie', tenant.cookie)
+        .send({ kidId: id, selections: { main: [food] }, menuId, selectionRevision: open.selectionRevision })
+        .expect(201);
+    }
+    await request(app)
+      .put('/api/menus/selections/status')
+      .set('Cookie', tenant.cookie)
+      .send({ status: 'approved' })
+      .expect(200);
+
+    const round = await activeRound(tenant.cookie);
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({ selections: { main: ['pasta'] }, menuId: round.menu.id, selectionRevision: round.selectionRevision })
+      .expect(200);
+
+    const after = await activeRound(tenant.cookie);
+    const bySibling = after.selections.find((s: { kidId: string }) => s.kidId === siblingId);
+    const byEdited = after.selections.find((s: { kidId: string }) => s.kidId === kidId);
+    // Siblings may share a food -- the one-place rule is per plate, not per
+    // household -- so the only thing under test is that Robin is untouched.
+    expect(byEdited.selections.main).toEqual(['pasta']);
+    expect(bySibling.selections.main).toEqual(['pasta']);
+    expect(after.selections).toHaveLength(2);
+  });
+
+  it('exposes an add-ons group once the round is approved, and accepts an addition', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    const yogurtId = await createFood(tenant.cookie, 'Yogurt');
+    await submitAndApprove(tenant.cookie, kidId);
+
+    const round = await activeRound(tenant.cookie);
+    const addOns = round.menu.groups.find((g: { id: string }) => g.id === 'add-ons');
+    expect(addOns).toBeDefined();
+    expect(addOns.selectionPreset).toBe('any');
+    expect(addOns.foodIds).toContain(yogurtId);
+
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: ['pizza'], 'add-ons': [yogurtId] },
+        menuId: round.menu.id,
+        selectionRevision: round.selectionRevision,
+      })
+      .expect(200);
+
+    const after = await activeRound(tenant.cookie);
+    expect(after.selections[0].selections['add-ons']).toEqual([yogurtId]);
+  });
+
+  it('hides the add-ons group until someone has actually submitted a plate', async () => {
+    const { tenant } = await createActiveRound();
+    await createFood(tenant.cookie, 'Yogurt');
+    const round = await activeRound(tenant.cookie);
+    expect(round.menu.groups.some((g: { id: string }) => g.id === 'add-ons')).toBe(false);
+  });
+
+  it('offers add-ons before approval too, so a change asked for early can be made', async () => {
+    const { tenant, kidId, menuId } = await createActiveRound();
+    const yogurtId = await createFood(tenant.cookie, 'Yogurt');
+    const open = await activeRound(tenant.cookie);
+    await request(app)
+      .post('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .send({ kidId, selections: { main: ['pizza'] }, menuId, selectionRevision: open.selectionRevision })
+      .expect(201);
+
+    const submitted = await activeRound(tenant.cookie);
+    expect(submitted.selectionStatus).toBe('open');
+    expect(submitted.menu.groups.some((g: { id: string }) => g.id === 'add-ons')).toBe(true);
+
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: ['pizza'], 'add-ons': [yogurtId] },
+        menuId: submitted.menu.id,
+        selectionRevision: submitted.selectionRevision,
+      })
+      .expect(200);
+  });
+
+  it('can re-approve a round that already carries an add-on', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    const yogurtId = await createFood(tenant.cookie, 'Yogurt');
+    await submitAndApprove(tenant.cookie, kidId);
+
+    const round = await activeRound(tenant.cookie);
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: ['pizza'], 'add-ons': [yogurtId] },
+        menuId: round.menu.id,
+        selectionRevision: round.selectionRevision,
+      })
+      .expect(200);
+
+    // Unlock, then approve again: the stored add-on must not read as a group
+    // that is missing from the menu.
+    await request(app)
+      .put('/api/menus/selections/status')
+      .set('Cookie', tenant.cookie)
+      .send({ status: 'open' })
+      .expect(200);
+    await request(app)
+      .put('/api/menus/selections/status')
+      .set('Cookie', tenant.cookie)
+      .send({ status: 'approved' })
+      .expect(200);
+  });
+
+  it('accepts a kid re-pick after unlock while an add-on is on the plate', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    const yogurtId = await createFood(tenant.cookie, 'Yogurt');
+    await submitAndApprove(tenant.cookie, kidId);
+
+    const approved = await activeRound(tenant.cookie);
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: ['pizza'], 'add-ons': [yogurtId] },
+        menuId: approved.menu.id,
+        selectionRevision: approved.selectionRevision,
+      })
+      .expect(200);
+
+    await request(app)
+      .put('/api/menus/selections/status')
+      .set('Cookie', tenant.cookie)
+      .send({ status: 'open' })
+      .expect(200);
+
+    const reopened = await activeRound(tenant.cookie);
+    await request(app)
+      .post('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .send({
+        kidId,
+        selections: { main: ['pasta'], 'add-ons': [yogurtId] },
+        menuId: reopened.menu.id,
+        selectionRevision: reopened.selectionRevision,
+      })
+      .expect(201);
+  });
+
+  it('rejects an add-on that is not in the household food library', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    const other = await createTenant('Neighbour');
+    const theirFoodId = await createFood(other.cookie, 'Their Yogurt');
+    await submitAndApprove(tenant.cookie, kidId);
+
+    const round = await activeRound(tenant.cookie);
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: ['pizza'], 'add-ons': [theirFoodId] },
+        menuId: round.menu.id,
+        selectionRevision: round.selectionRevision,
+      })
+      .expect(400);
+  });
+
+  it('still holds a grown-up to the menu\'s own pick-N rules', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    await submitAndApprove(tenant.cookie, kidId);
+    const round = await activeRound(tenant.cookie);
+
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: [] },
+        menuId: round.menu.id,
+        selectionRevision: round.selectionRevision,
+      })
+      .expect(400);
+  });
+});
