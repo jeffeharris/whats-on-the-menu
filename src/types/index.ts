@@ -110,6 +110,8 @@ export interface KidSelection {
   kidId: string;
   selections: GroupSelections;
   timestamp: number;
+  /** A grown-up's edit is the most recent word on this plate. */
+  editedByGrownUp?: boolean;
   // Legacy fields for migration - will be removed after migration
   mainId?: string | null;
   sideIds?: string[];

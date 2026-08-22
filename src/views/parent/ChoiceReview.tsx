@@ -159,7 +159,8 @@ export function ChoiceReview({ onBack, onContinueToMealReview }: ChoiceReviewPro
                             {kid.name}'s plate
                           </h2>
                           <p className="text-xs text-gray-500">
-                            Updated {new Date(selection.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                            {selection.editedByGrownUp ? 'Edited by a grown-up · ' : ''}
+                            {new Date(selection.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                           </p>
                         </div>
                         <button

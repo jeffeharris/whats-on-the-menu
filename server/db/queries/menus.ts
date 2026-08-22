@@ -50,6 +50,8 @@ interface KidSelection {
   kidId: string;
   selections: GroupSelections;
   timestamp: number;
+  /** Set while a grown-up's edit is the most recent word on this plate. */
+  editedByGrownUp?: boolean;
 }
 
 interface MenuRow {
@@ -65,6 +67,7 @@ interface KidSelectionRow {
   kid_id: string;
   selections: GroupSelections;
   updated_at: string;
+  edited_by_grownup_at?: string | null;
 }
 
 interface HouseholdActiveRow {
@@ -201,6 +204,7 @@ function rowToKidSelection(row: KidSelectionRow): KidSelection {
     kidId: row.kid_id,
     selections: row.selections,
     timestamp: new Date(row.updated_at).getTime(),
+    ...(row.edited_by_grownup_at ? { editedByGrownUp: true } : {}),
   };
 }
 
@@ -435,7 +439,7 @@ export async function getActiveMenu(
       [activeMenuId, householdId]
     ),
     pool.query<KidSelectionRow>(
-      `SELECT kid_id, selections, updated_at
+      `SELECT kid_id, selections, updated_at, edited_by_grownup_at
        FROM kid_selections
        WHERE household_id = $1
        ORDER BY updated_at`,
@@ -557,12 +561,21 @@ export async function addSelection(
     }
 
     const { rows } = await client.query<KidSelectionRow>(
-      `INSERT INTO kid_selections (household_id, kid_id, selections)
-       VALUES ($1, $2, $3)
+      `INSERT INTO kid_selections (household_id, kid_id, selections, edited_by_grownup_at)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (household_id, kid_id) DO UPDATE
-       SET selections = EXCLUDED.selections, updated_at = now()
-       RETURNING kid_id, selections, updated_at`,
-      [householdId, kidId, JSON.stringify(selections)]
+       SET selections = EXCLUDED.selections,
+           updated_at = now(),
+           edited_by_grownup_at = EXCLUDED.edited_by_grownup_at
+       RETURNING kid_id, selections, updated_at, edited_by_grownup_at`,
+      [
+        householdId,
+        kidId,
+        JSON.stringify(selections),
+        // A kid's own write clears the marker: once they have had the last
+        // word the plate reads as theirs again.
+        options.asParent ? new Date() : null,
+      ]
     );
     await client.query('COMMIT');
     return rowToKidSelection(rows[0]);

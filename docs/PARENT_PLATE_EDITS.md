@@ -1,6 +1,6 @@
 # Parent plate edits after submission
 
-**Status:** implemented (phases 1 and 2); phase 3 outstanding
+**Status:** implemented
 **Branch:** `claude/parent-edit-menu-post-submit-4na9vq`
 **Tracking:** [#28](https://github.com/jeffeharris/whats-on-the-menu/issues/28)
 
@@ -181,29 +181,40 @@ Renders as nothing. Both plate views iterate menu groups, not selection keys.
 
 ## Data & migrations
 
-**None required.** The add-ons group is synthesized; `kid_selections.selections`
-and `meal_selections.selections` are `JSONB`; `'any'` lives only in TypeScript
-constants. `docs/schema.sql` is unchanged.
+The edit mechanism itself needs **none**: the add-ons group is synthesized,
+`kid_selections.selections` and `meal_selections.selections` are `JSONB`, and
+`'any'` lives only in TypeScript constants.
 
-Provenance is the one thing that might want a column. If parent edits should be
-visibly attributed, add `edited_by_user_id UUID` / `edited_at TIMESTAMPTZ` to
-`kid_selections` — otherwise the only signal is `updated_at`
-(`20260814_1000_add_selection_approval_state.ts`), which kid writes also bump.
+Provenance needed exactly one column, and it is the feature's only schema
+change: `20260822_1200_add_selection_grownup_edit_marker` adds a nullable
+`edited_by_grownup_at` to `kid_selections`. `updated_at` could not stand in —
+a kid's own write bumps it too. A grown-up's write sets it; the kid's next write
+clears it, so once the kid has had the last word the plate reads as theirs
+again. Provenance is deliberately **not** carried into `meal_selections`: the
+add-ons grouping already survives into history, and per-item attribution there
+would need a second column for a weaker signal.
 
 ## Open decisions
 
-1. **Does the kid see that a grown-up changed it?** Recommend yes, gently.
-   Silently rewriting a plate and having the kid open the app to something
-   different undercuts the ownership the app is selling. Costs S23 + provenance.
-2. **Does an add-on count toward the star?** (S29) Recommend yes — the star is
-   about eating, not about who chose.
-3. **Flag or separate route** for parent writes? (S12/S13) Recommend a separate
-   route: it keeps the kid path's constraints unambiguous and makes S14 explicit.
-4. **Add-ons scope** — whole food library, or only items already on the active
-   menu? Recommend whole library; the "kid wants something else entirely" case
-   is a third of the motivation.
-5. **Does editing while approved keep the round approved?** (S22) Recommend yes
-   — decoupling edit from unlock is the point of the feature.
+All five were settled as recommended:
+
+1. **The kid sees it.** "A grown-up made a change to your plate" on their plate
+   view. Silently rewriting a plate undercuts the ownership the app is selling.
+2. **An add-on counts toward the star.** The star is about eating, not about who
+   chose.
+3. **A separate route** (`PUT /selections/:kidId`), which keeps the kid path's
+   constraints unambiguous.
+4. **Add-ons reach the whole food library** — "the kid wants something else
+   entirely" was a third of the motivation.
+5. **Editing keeps the round approved.** Decoupling edit from unlock is the
+   point of the feature.
+
+Still open, and worth a look once it has been used a few times:
+
+- **Removal** stays out of scope (see above). If marking *None* at review turns
+  out not to cover it in practice, the fix is a min-exemption for grown-up
+  writes, not an add-ons-style group.
+- **Quantity** ("more nuggets") remains unrepresentable.
 
 ## Phasing
 

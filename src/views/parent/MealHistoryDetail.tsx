@@ -7,6 +7,7 @@ import { useFoodLibrary } from '../../contexts/FoodLibraryContext';
 import { useKidProfiles } from '../../contexts/KidProfilesContext';
 import { useMealHistory } from '../../contexts/MealHistoryContext';
 import { getPlaceholderImageUrl } from '../../utils/imageUtils';
+import { ADD_ONS_GROUP_ID } from '../../types';
 import type { CompletionStatus } from '../../types';
 
 interface MealHistoryDetailProps {
@@ -113,6 +114,9 @@ export function MealHistoryDetail({ mealId, onBack }: MealHistoryDetailProps) {
               const kid = getProfile(selection.kidId);
               const allFoodIds = getAllFoodIds(selection);
               const foodItems = allFoodIds.map((id) => getItem(id)).filter(Boolean);
+              // meal_selections snapshots the group keys, so an add-on stays
+              // identifiable in history without anything extra being stored.
+              const addOnIds = new Set(selection.selections?.[ADD_ONS_GROUP_ID] ?? []);
               const review = meal.reviews.find((r) => r.kidId === selection.kidId);
 
               if (!kid) return null;
@@ -162,11 +166,15 @@ export function MealHistoryDetail({ mealId, onBack }: MealHistoryDetailProps) {
                             />
                           </div>
                           <div className="flex-1 min-w-0">
-                            {item.tags && item.tags.length > 0 && (
+                            {addOnIds.has(item.id) ? (
+                              <span className="text-[10px] text-parent-primary uppercase tracking-wider font-semibold">
+                                Added by a grown-up
+                              </span>
+                            ) : item.tags && item.tags.length > 0 ? (
                               <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
                                 {item.tags[0]}
                               </span>
-                            )}
+                            ) : null}
                             <p className="font-medium text-gray-800 text-sm">{item.name}</p>
                           </div>
                           <CompletionBadge status={status} />

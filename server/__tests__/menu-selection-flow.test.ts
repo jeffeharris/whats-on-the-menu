@@ -760,6 +760,48 @@ describe('grown-up plate edits', () => {
       .expect(201);
   });
 
+  it('marks a plate a grown-up edited, and lets the kid clear the mark by re-picking', async () => {
+    const { tenant, kidId } = await createActiveRound();
+    await submitAndApprove(tenant.cookie, kidId);
+
+    const approved = await activeRound(tenant.cookie);
+    expect(approved.selections[0].editedByGrownUp).toBeUndefined();
+
+    await request(app)
+      .put(`/api/menus/selections/${kidId}`)
+      .set('Cookie', tenant.cookie)
+      .send({
+        selections: { main: ['pasta'] },
+        menuId: approved.menu.id,
+        selectionRevision: approved.selectionRevision,
+      })
+      .expect(200);
+
+    const edited = await activeRound(tenant.cookie);
+    expect(edited.selections[0].editedByGrownUp).toBe(true);
+
+    // Once the kid has had the last word the plate reads as theirs again.
+    await request(app)
+      .put('/api/menus/selections/status')
+      .set('Cookie', tenant.cookie)
+      .send({ status: 'open' })
+      .expect(200);
+    const reopened = await activeRound(tenant.cookie);
+    await request(app)
+      .post('/api/menus/selections')
+      .set('Cookie', tenant.cookie)
+      .send({
+        kidId,
+        selections: { main: ['pizza'] },
+        menuId: reopened.menu.id,
+        selectionRevision: reopened.selectionRevision,
+      })
+      .expect(201);
+
+    const afterKid = await activeRound(tenant.cookie);
+    expect(afterKid.selections[0].editedByGrownUp).toBeUndefined();
+  });
+
   it('rejects an add-on that is not in the household food library', async () => {
     const { tenant, kidId } = await createActiveRound();
     const other = await createTenant('Neighbour');
