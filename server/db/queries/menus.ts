@@ -1,12 +1,13 @@
 import pool from '../pool.js';
 import { logger } from '../../logger.js';
 import { isDeepStrictEqual } from 'node:util';
+import type { PoolClient } from 'pg';
 
 // ============================================================
 // Types
 // ============================================================
 
-type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3';
+type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3' | 'any';
 type PresetSlot = 'breakfast' | 'snack' | 'dinner' | 'custom';
 export type SelectionStatus = 'open' | 'approved';
 
@@ -49,6 +50,8 @@ interface KidSelection {
   kidId: string;
   selections: GroupSelections;
   timestamp: number;
+  /** Set while a grown-up's edit is the most recent word on this plate. */
+  editedByGrownUp?: boolean;
 }
 
 interface MenuRow {
@@ -64,6 +67,7 @@ interface KidSelectionRow {
   kid_id: string;
   selections: GroupSelections;
   updated_at: string;
+  edited_by_grownup_at?: string | null;
 }
 
 interface HouseholdActiveRow {
@@ -72,12 +76,69 @@ interface HouseholdActiveRow {
   selection_revision: string | number;
 }
 
+export const ADD_ONS_GROUP_ID = 'add-ons';
+const ADD_ONS_GROUP_LABEL = 'Added by a grown-up';
+// Sorts last; every plate view orders groups by `order`.
+const ADD_ONS_GROUP_ORDER = 9999;
+const ADD_ONS_MAX = 12;
+
 const SELECTION_LIMITS: Record<SelectionPreset, { min: number; max: number }> = {
   'pick-1': { min: 1, max: 1 },
   'pick-1-2': { min: 1, max: 2 },
   'pick-2': { min: 2, max: 2 },
   'pick-2-3': { min: 2, max: 3 },
+  // Add-ons only. min 0 is what lets a group be optional at all: every other
+  // preset requires at least one pick, so a plate with no add-ons would fail
+  // validation the moment the group existed.
+  any: { min: 0, max: ADD_ONS_MAX },
 };
+
+// ============================================================
+// Add-ons
+// ============================================================
+//
+// A grown-up can put something on a plate that the kid never picked. That group
+// is NEVER persisted into menus.groups: active_menu_id can point straight at a
+// saved preset row, so writing to it would edit the preset itself and the group
+// would reappear on every future launch. Worse, every write path that changes
+// an active menu's groups deletes all kid_selections -- it would destroy the
+// plates being edited. So the group is synthesized on read, and its membership
+// is the household's whole food library.
+//
+// Mirrored on the client in src/types/index.ts -- keep the id in sync.
+
+type Queryable = Pick<PoolClient, 'query'>;
+
+async function buildAddOnsGroup(
+  client: Queryable,
+  householdId: string
+): Promise<MenuGroup> {
+  const { rows } = await client.query<{ id: string }>(
+    'SELECT id FROM food_items WHERE household_id = $1',
+    [householdId]
+  );
+  return {
+    id: ADD_ONS_GROUP_ID,
+    label: ADD_ONS_GROUP_LABEL,
+    foodIds: rows.map((row) => row.id),
+    selectionPreset: 'any',
+    order: ADD_ONS_GROUP_ORDER,
+  };
+}
+
+/**
+ * Groups to validate a round against. Always includes add-ons: with min 0 an
+ * absent key costs nothing, and including it unconditionally means a stored
+ * add-on never turns into a 409 later -- on approval, or on a kid's next write
+ * after the round is reopened.
+ */
+async function groupsForValidation(
+  client: Queryable,
+  householdId: string,
+  menuGroups: MenuGroup[]
+): Promise<MenuGroup[]> {
+  return [...menuGroups, await buildAddOnsGroup(client, householdId)];
+}
 
 function validateSelections(
   groups: MenuGroup[],
@@ -143,6 +204,7 @@ function rowToKidSelection(row: KidSelectionRow): KidSelection {
     kidId: row.kid_id,
     selections: row.selections,
     timestamp: new Date(row.updated_at).getTime(),
+    ...(row.edited_by_grownup_at ? { editedByGrownUp: true } : {}),
   };
 }
 
@@ -377,7 +439,7 @@ export async function getActiveMenu(
       [activeMenuId, householdId]
     ),
     pool.query<KidSelectionRow>(
-      `SELECT kid_id, selections, updated_at
+      `SELECT kid_id, selections, updated_at, edited_by_grownup_at
        FROM kid_selections
        WHERE household_id = $1
        ORDER BY updated_at`,
@@ -385,9 +447,22 @@ export async function getActiveMenu(
     ),
   ]);
 
+  const menu = menuResult.rows.length > 0 ? rowToSavedMenu(menuResult.rows[0]) : null;
+  const selections = selectionsResult.rows.map(rowToKidSelection);
+
+  // Surface add-ons as soon as there is a plate to edit -- a kid often asks for
+  // a change before the round is ever approved. Skipped only when nobody has
+  // submitted yet, which also saves the lookup on every poll of an empty round.
+  // Keeping it out of the kid picking flow is MenuSelection's job, not this
+  // one's: see withoutAddOnsGroup there.
+  const showAddOns = menu !== null
+    && (selections.length > 0 || selectionStatus === 'approved');
+
   return {
-    menu: menuResult.rows.length > 0 ? rowToSavedMenu(menuResult.rows[0]) : null,
-    selections: selectionsResult.rows.map(rowToKidSelection),
+    menu: menu && showAddOns
+      ? { ...menu, groups: [...menu.groups, await buildAddOnsGroup(pool, householdId)] }
+      : menu,
+    selections,
     selectionStatus,
     selectionRevision: Number(householdRows[0].selection_revision),
   };
@@ -430,7 +505,8 @@ export async function addSelection(
   kidId: string,
   selections: GroupSelections,
   menuId: string,
-  selectionRevision: number
+  selectionRevision: number,
+  options: { asParent?: boolean } = {}
 ): Promise<KidSelection> {
   const client = await pool.connect();
   try {
@@ -455,7 +531,10 @@ export async function addSelection(
     ) {
       throw new MenuOperationError('The menu changed while these choices were being made', 409);
     }
-    if (household.selection_status === 'approved') {
+    // A grown-up edits a plate without reopening the round for everyone else.
+    // The revision check above still applies to them: it rejects a write into a
+    // round that was reset while the editor was open.
+    if (household.selection_status === 'approved' && !options.asParent) {
       throw new MenuOperationError('Choices have already been approved', 409);
     }
 
@@ -468,7 +547,10 @@ export async function addSelection(
     if (menuRows.length === 0) {
       throw new MenuOperationError('The active menu is no longer available', 409);
     }
-    validateSelections(menuRows[0].groups, selections);
+    validateSelections(
+      await groupsForValidation(client, householdId, menuRows[0].groups),
+      selections
+    );
 
     const kid = await client.query(
       'SELECT 1 FROM kid_profiles WHERE id = $1 AND household_id = $2',
@@ -479,12 +561,21 @@ export async function addSelection(
     }
 
     const { rows } = await client.query<KidSelectionRow>(
-      `INSERT INTO kid_selections (household_id, kid_id, selections)
-       VALUES ($1, $2, $3)
+      `INSERT INTO kid_selections (household_id, kid_id, selections, edited_by_grownup_at)
+       VALUES ($1, $2, $3, $4)
        ON CONFLICT (household_id, kid_id) DO UPDATE
-       SET selections = EXCLUDED.selections, updated_at = now()
-       RETURNING kid_id, selections, updated_at`,
-      [householdId, kidId, JSON.stringify(selections)]
+       SET selections = EXCLUDED.selections,
+           updated_at = now(),
+           edited_by_grownup_at = EXCLUDED.edited_by_grownup_at
+       RETURNING kid_id, selections, updated_at, edited_by_grownup_at`,
+      [
+        householdId,
+        kidId,
+        JSON.stringify(selections),
+        // A kid's own write clears the marker: once they have had the last
+        // word the plate reads as theirs again.
+        options.asParent ? new Date() : null,
+      ]
     );
     await client.query('COMMIT');
     return rowToKidSelection(rows[0]);
@@ -559,8 +650,9 @@ export async function setSelectionStatus(
       if (selectionRows.length === 0) {
         throw new MenuOperationError('There are no choices to approve', 409);
       }
+      const groups = await groupsForValidation(client, householdId, menuRows[0].groups);
       for (const selectionRow of selectionRows) {
-        validateSelections(menuRows[0].groups, selectionRow.selections, 409);
+        validateSelections(groups, selectionRow.selections, 409);
       }
     }
 

@@ -1,12 +1,39 @@
 // Selection presets for menu groups
-export type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3';
+export type SelectionPreset = 'pick-1' | 'pick-1-2' | 'pick-2' | 'pick-2-3' | 'any';
 
 export const SELECTION_PRESET_CONFIG: Record<SelectionPreset, { min: number; max: number; label: string }> = {
   'pick-1': { min: 1, max: 1, label: 'Choose 1' },
   'pick-1-2': { min: 1, max: 2, label: 'Choose 1 or 2' },
   'pick-2': { min: 2, max: 2, label: 'Choose 2' },
   'pick-2-3': { min: 2, max: 3, label: 'Choose 2 or 3' },
+  any: { min: 0, max: 12, label: 'Any number' },
 };
+
+/**
+ * Presets a grown-up can pick when building a menu. 'any' is excluded: it
+ * exists for the synthesized add-ons group only, and offering it in a builder
+ * would let a real menu group opt out of the pick-N rules the kid flow is
+ * built around.
+ */
+export const AUTHORABLE_SELECTION_PRESETS: SelectionPreset[] = [
+  'pick-1', 'pick-1-2', 'pick-2', 'pick-2-3',
+];
+
+/**
+ * The group a grown-up's additions land in. The server synthesizes it onto the
+ * active menu rather than storing it -- see server/db/queries/menus.ts. It is
+ * never a real part of a saved menu, so anything that edits or presents a menu
+ * for authoring has to filter it out.
+ */
+export const ADD_ONS_GROUP_ID = 'add-ons';
+
+export function isAddOnsGroup(group: { id: string }): boolean {
+  return group.id === ADD_ONS_GROUP_ID;
+}
+
+export function withoutAddOnsGroup<T extends { id: string }>(groups: T[]): T[] {
+  return groups.filter((group) => !isAddOnsGroup(group));
+}
 
 // Preset slots for quick-access menus
 export type PresetSlot = 'breakfast' | 'snack' | 'dinner' | 'custom';
@@ -83,6 +110,8 @@ export interface KidSelection {
   kidId: string;
   selections: GroupSelections;
   timestamp: number;
+  /** A grown-up's edit is the most recent word on this plate. */
+  editedByGrownUp?: boolean;
   // Legacy fields for migration - will be removed after migration
   mainId?: string | null;
   sideIds?: string[];

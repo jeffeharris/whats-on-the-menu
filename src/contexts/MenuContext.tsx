@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useState, useEffect, useRef } f
 import type { ReactNode } from 'react';
 import { menusApi } from '../api/client';
 import type { Menu, KidSelection, MenuGroup, GroupSelections, PresetSlot, SavedMenu, SelectionStatus } from '../types';
+import { withoutAddOnsGroup } from '../types';
 import { useAuth } from './AuthContext';
 
 type Presets = Record<PresetSlot, SavedMenu | null>;
@@ -53,6 +54,7 @@ interface MenuContextType {
   clearPreset: (slot: PresetSlot) => Promise<void>;
   copyPreset: (fromSlot: PresetSlot, toSlot: PresetSlot) => Promise<void>;
   renamePreset: (slot: PresetSlot, name: string) => Promise<void>;
+  updateSelectionAsParent: (kidId: string, selections: GroupSelections, menuId: string, roundRevision: number) => Promise<void>;
   loadPresetAsActive: (slot: PresetSlot) => Promise<void>;
   setCurrentPresetSlot: (slot: PresetSlot | null) => void;
   startScratchMenu: () => void;
@@ -127,7 +129,14 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     // not replace a preset or scratch draft the parent is working on.
     if (!editorInitializedRef.current) {
       editorInitializedRef.current = true;
-      setCurrentMenu(nextActiveMenu);
+      // The active menu may carry the synthesized add-ons group. The editor
+      // saves whatever it holds straight back to menus.groups, so seeding it
+      // with that group would persist it -- and persisting it is exactly what
+      // the synthesis exists to avoid.
+      setCurrentMenu(nextActiveMenu && {
+        ...nextActiveMenu,
+        groups: withoutAddOnsGroup(nextActiveMenu.groups),
+      });
       setCurrentPresetSlot(activeData.menu?.presetSlot ?? null);
       editorPresetVersionRef.current = activeData.menu?.updatedAt ?? null;
     }
@@ -299,6 +308,18 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     roundRevision: number
   ) => {
     await menusApi.addSelection(kidId, groupSelections, menuId, roundRevision);
+    await refreshActiveMenu();
+  }, [refreshActiveMenu]);
+
+  // A grown-up editing a submitted plate. Separate from addSelection because
+  // it is allowed to write into an approved round -- see PUT /selections/:kidId.
+  const updateSelectionAsParent = useCallback(async (
+    kidId: string,
+    groupSelections: GroupSelections,
+    menuId: string,
+    roundRevision: number
+  ) => {
+    await menusApi.updateSelectionAsParent(kidId, groupSelections, menuId, roundRevision);
     await refreshActiveMenu();
   }, [refreshActiveMenu]);
 
@@ -529,6 +550,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         clearPreset,
         copyPreset,
         renamePreset,
+        updateSelectionAsParent,
         loadPresetAsActive,
         setCurrentPresetSlot,
         startScratchMenu,

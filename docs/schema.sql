@@ -224,6 +224,7 @@ CREATE TABLE kid_selections (
   household_id    UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   kid_id          UUID NOT NULL REFERENCES kid_profiles(id) ON DELETE CASCADE,
   selections      JSONB NOT NULL DEFAULT '{}',   -- { [groupId]: foodId[] }
+  edited_by_grownup_at TIMESTAMPTZ,               -- set when a grown-up edits the plate; cleared by the kid's own next write
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -1,4 +1,4 @@
-import { X, Check } from 'lucide-react';
+import { X, Check, Sparkles } from 'lucide-react';
 import { AppShell } from '../../components/common/AppShell';
 import { Button } from '../../components/common/Button';
 import { FoodCard } from '../../components/kid/FoodCard';
@@ -88,6 +88,19 @@ export function PlateConfirmation({ kidId, onDone, onEdit }: PlateConfirmationPr
           </p>
         </div>
       </header>
+
+      {/* A grown-up changed this plate. Say so plainly rather than letting the
+          kid find a food they never chose sitting in their own picks. */}
+      {selection.editedByGrownUp && (
+        <div className="max-w-2xl mx-auto w-full px-4 md:px-8 pb-2" role="status">
+          <div className="flex items-center gap-2 rounded-2xl bg-kid-secondary/15 px-3 py-2">
+            <Sparkles className="w-5 h-5 text-kid-secondary-deep flex-shrink-0" />
+            <p className="text-sm font-semibold text-gray-700">
+              A grown-up made a change to your plate.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div className="max-w-2xl mx-auto w-full flex-1 flex flex-col overflow-y-auto px-4 md:px-8">

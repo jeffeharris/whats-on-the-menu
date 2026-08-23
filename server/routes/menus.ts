@@ -21,6 +21,7 @@ import {
   updateMenuSchema,
   setActiveMenuSchema,
   addSelectionSchema,
+  parentSelectionSchema,
   selectionStatusSchema,
   updatePresetSchema,
 } from '../validation/schemas.js';
@@ -124,6 +125,26 @@ router.put('/selections/status', asyncHandler(async (req, res) => {
   publishMenuEvent(req.householdId!, { reason: 'selection-status-changed' });
   res.json({ selectionStatus });
 }, 'Failed to change selection status'));
+
+// PUT /api/menus/selections/:kidId - A grown-up edits one kid's plate
+router.put('/selections/:kidId', asyncHandler(async (req, res) => {
+  const result = parentSelectionSchema.safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
+  }
+  const { selections, menuId, selectionRevision } = result.data;
+
+  const selection = await addSelection(
+    req.householdId!,
+    req.params.kidId,
+    selections,
+    menuId,
+    selectionRevision,
+    { asParent: true }
+  ).catch(rethrowMenuError);
+  publishMenuEvent(req.householdId!, { reason: 'selection-updated' });
+  res.json(selection);
+}, 'Failed to update choices'));
 
 // GET /api/menus/presets - Get all 4 presets
 router.get('/presets', asyncHandler(async (req, res) => {

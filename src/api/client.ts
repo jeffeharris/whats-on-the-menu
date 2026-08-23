@@ -126,6 +126,19 @@ export const menusApi = {
     return post('/menus/selections', 'Failed to save choices', { kidId, selections, menuId, selectionRevision });
   },
 
+  async updateSelectionAsParent(
+    kidId: string,
+    selections: GroupSelections,
+    menuId: string,
+    selectionRevision: number
+  ): Promise<KidSelection> {
+    return put(
+      `/menus/selections/${encodeURIComponent(kidId)}`,
+      'Failed to update choices',
+      { selections, menuId, selectionRevision },
+    );
+  },
+
   async setSelectionStatus(status: SelectionStatus): Promise<SelectionStatus> {
     const data = await put<{ selectionStatus: SelectionStatus }>('/menus/selections/status', 'Failed to update choice approval', { status });
     return data.selectionStatus;

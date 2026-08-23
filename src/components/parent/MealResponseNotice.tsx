@@ -1,4 +1,4 @@
-import { ClipboardCheck } from 'lucide-react';
+import { ClipboardCheck, Pencil } from 'lucide-react';
 import { Button } from '../common/Button';
 import { KidAvatar } from '../kid/KidAvatar';
 import type { KidProfile, KidSelection, SelectionStatus } from '../../types';
@@ -30,6 +30,7 @@ export function MealResponseNotice({
   const names = respondingProfiles.map((profile) => profile.name);
   const nameList = names.length > 0 ? formatNames(names) : null;
   const isApproved = selectionStatus === 'approved';
+  const editedCount = selections.filter((selection) => selection.editedByGrownUp).length;
   const actionLabel = isApproved ? 'View choices' : 'Review choices';
   const visibleProfiles = respondingProfiles.slice(0, 3);
   const remainingProfiles = respondingProfiles.length - visibleProfiles.length;
@@ -62,7 +63,14 @@ export function MealResponseNotice({
 
         <div className="min-w-0 flex-1" role="status" aria-live="polite">
           <p className="text-sm font-bold text-brand-ink font-heading">Orders are in!</p>
-          <p className="text-xs text-gray-600 truncate">{nameList ?? 'Choices submitted'}</p>
+          {editedCount > 0 ? (
+            <p className="text-xs text-gray-600 truncate flex items-center gap-1">
+              <Pencil className="w-3 h-3 flex-shrink-0" />
+              {editedCount === 1 ? '1 plate edited' : `${editedCount} plates edited`}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-600 truncate">{nameList ?? 'Choices submitted'}</p>
+          )}
         </div>
 
         <Button

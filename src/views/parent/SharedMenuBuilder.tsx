@@ -4,7 +4,7 @@ import { Button } from '../../components/common/Button';
 import { useSharedMenu } from '../../contexts/SharedMenuContext';
 import { useImageGenerationContext } from '../../contexts/ImageGenerationContext';
 import type { SharedMenuGroup, SharedMenuOption, SelectionPreset } from '../../types';
-import { SELECTION_PRESET_CONFIG } from '../../types';
+import { AUTHORABLE_SELECTION_PRESETS, SELECTION_PRESET_CONFIG } from '../../types';
 
 interface SharedMenuBuilderProps {
   onBack: () => void;
@@ -204,9 +204,9 @@ export function SharedMenuBuilder({ onBack, onSuccess }: SharedMenuBuilderProps)
                     onChange={(e) => updateGroup(group.id, { selectionPreset: e.target.value as SelectionPreset })}
                     className="px-2 py-1 border border-gray-300 rounded text-sm"
                   >
-                    {Object.entries(SELECTION_PRESET_CONFIG).map(([key, config]) => (
+                    {AUTHORABLE_SELECTION_PRESETS.map((key) => (
                       <option key={key} value={key}>
-                        {config.label}
+                        {SELECTION_PRESET_CONFIG[key].label}
                       </option>
                     ))}
                   </select>
