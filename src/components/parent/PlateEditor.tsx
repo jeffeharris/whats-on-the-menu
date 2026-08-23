@@ -118,7 +118,7 @@ export function PlateEditor({
                 </h3>
                 <span className="text-xs text-gray-400">{presetLabel}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {group.foodIds.map((foodId) => {
                   const item = getItem(foodId);
                   if (!item) return null;
@@ -162,7 +162,7 @@ export function PlateEditor({
             </h3>
 
             {chosenAddOns.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                 {chosenAddOns.map((foodId) => {
                   const item = getItem(foodId);
                   return (
@@ -194,7 +194,7 @@ export function PlateEditor({
               placeholder="Add anything from the food library…"
             />
 
-            <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
               {addOnCandidates.map(({ foodId, item }) => (
                 <button
                   key={foodId}
@@ -223,25 +223,28 @@ export function PlateEditor({
           </section>
         )}
 
-        {violations.length > 0 && (
-          <div className="flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-warning" role="alert">
-            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <p className="text-sm font-medium">{violations.join(' · ')}</p>
+        {/* Pinned: the add-ons list runs the length of the food library, so a
+            static action row would sit below a very long scroll. */}
+        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-4 bg-white border-t border-gray-100 space-y-3">
+          {violations.length > 0 && (
+            <div className="flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-warning" role="alert">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <p className="text-sm font-medium">{violations.join(' · ')}</p>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button variant="ghost" fullWidth onClick={onCancel} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              fullWidth
+              disabled={saving || violations.length > 0}
+              onClick={() => onSave(draft)}
+            >
+              {saving ? 'Saving…' : 'Save plate'}
+            </Button>
           </div>
-        )}
-
-        <div className="flex gap-2">
-          <Button variant="ghost" fullWidth onClick={onCancel} disabled={saving}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            fullWidth
-            disabled={saving || violations.length > 0}
-            onClick={() => onSave(draft)}
-          >
-            {saving ? 'Saving…' : 'Save plate'}
-          </Button>
         </div>
       </div>
     </Modal>
