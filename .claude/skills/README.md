@@ -1,51 +1,21 @@
-# Runware Agent Skills (vendored)
+# Skills
 
-Recipes an AI agent follows to get good results out of the Runware API — which
-model to use for a job, how to prompt it, and how to call it correctly.
+This project has no project-specific skills.
 
-Source: https://github.com/Runware/runware-skills @ `595afb9`
-(the repo carries no LICENSE file; copying the folders is the install method its
-own README documents). Re-sync by re-copying the folders from that repo.
+The Runware image and vector skills that used to live here moved to
+**`github.com/jeffeharris/claude-skills`** and are symlinked into
+`~/.claude/skills/`, so they are available here and in every other project
+without being tracked in any of them:
 
-## What's here and why
-
-**Foundation** — every recipe below leans on these:
-
-| Skill | Purpose |
-|---|---|
-| `runware-run` | The execution contract: resolve schema → run → read result. Includes dry-run for cost checks. |
-| `runware-models` | Live model lookup, so model choices don't go stale. |
-| `runware-prompting` | Per-model-family prompt craft. |
-
-**Asset generation** — picked for this app's branding work:
-
-| Skill | Use it for |
-|---|---|
-| `logos-and-vectors` | Favicon, app icon, and the logo mark. Emits **real SVG**, which is what `index.html` already expects (`type="image/svg+xml"`). |
-| `text-in-image` | The social/OG share card and any graphic where the wording must be exactly right. |
-| `game-assets-2d` | Consistent illustration sets with transparent cutouts — home-screen art, food illustrations, kid-mode avatars in one coherent style. |
-| `edit-image` | Recolor, remove a background, or extend a generated asset instead of rerolling it. |
-
-The upstream repo has ~26 more (video, audio, 3D, upscaling, character
-consistency). Copy any of them in the same way if a need comes up.
-
-## Running them in this project
-
-The skills drive the Runware API through the SDK, MCP, or plain REST. Nothing
-extra is installed here, so the simplest surface is REST with the key already in
-`.env`:
-
-```bash
-RUNWARE_API_KEY=$(grep '^RUNWARE_API_KEY=' .env | cut -d= -f2-)
+```sh
+git clone git@github.com:jeffeharris/claude-skills.git ~/projects/claude-skills
+~/projects/claude-skills/install.sh
 ```
 
-Two things worth keeping straight:
+They were tracked here *and* in `feltbound`, byte-identical, kept in step by
+nothing. The vendoring record — upstream `Runware/runware-skills` pinned at
+`595afb9`, and the note that it carries no LICENSE — moved with them and is now
+`RUNWARE_SUITE.md` in that repo.
 
-- **Cost.** These skills spend real money per generation. Vector and text models
-  cost more than the app's runtime model. `runware-run` documents the
-  `X-Runware-Dry-Run: 1` header to price a request before committing.
-- **This is not the app's runtime path.** Images the *app* generates for
-  families go through `server/routes/image-generation.ts`, which pins one model
-  and enforces the per-household and global daily caps. These skills are for
-  authoring static brand assets that get checked into `public/` — they bypass
-  those caps entirely, so don't wire them into request handling.
+**Add a skill here only if it depends on this repo's layout.** Anything reusable
+belongs in the shared repo, or the duplication starts over.
